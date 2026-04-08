@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pricing — Autonomous Web Agency</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#c9a96e;--bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;
+  --text:#e8e8e8;--muted:#888;--border:#222;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif}
+a{color:var(--gold);text-decoration:none}
+nav{display:flex;justify-content:space-between;align-items:center;padding:18px 40px;
+    border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(10,10,10,.92);backdrop-filter:blur(10px);z-index:100}
+.nav-logo{font-size:1.1rem;font-weight:700;color:var(--gold)}
+.nav-links a{margin-left:24px;color:var(--muted);font-size:.88rem}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{background:var(--gold);color:#000;padding:9px 20px;border-radius:8px;font-weight:700;font-size:.85rem;margin-left:20px}
+
+.page{max-width:1100px;margin:0 auto;padding:70px 20px 80px}
+.page-head{text-align:center;margin-bottom:60px}
+.page-label{color:var(--gold);font-size:.78rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.page-head h1{font-size:clamp(1.8rem,4vw,2.8rem);margin-bottom:14px}
+.page-head p{color:var(--muted);max-width:520px;margin:0 auto}
+
+/* TOGGLE */
+.toggle-wrap{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:50px}
+.toggle-lbl{font-size:.9rem;color:var(--muted)}
+.toggle-lbl.active{color:var(--text);font-weight:600}
+
+/* PLANS */
+.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;margin-bottom:60px}
+.plan{background:var(--bg3);border:2px solid var(--border);border-radius:16px;padding:32px 28px;display:flex;flex-direction:column}
+.plan.featured{border-color:var(--gold);position:relative}
+.plan.featured::before{content:'Most Popular';position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+  background:var(--gold);color:#000;padding:4px 16px;border-radius:20px;font-size:.72rem;font-weight:800;white-space:nowrap}
+.plan-name{font-size:.82rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+.plan-price{font-size:2.4rem;font-weight:800;color:var(--gold);margin-bottom:4px}
+.plan-price span{font-size:1rem;color:var(--muted);font-weight:400}
+.plan-sub{color:var(--muted);font-size:.82rem;margin-bottom:20px}
+.plan-desc{color:var(--muted);font-size:.88rem;margin-bottom:24px;line-height:1.6}
+.plan-features{list-style:none;margin-bottom:28px;flex:1}
+.plan-features li{font-size:.88rem;padding:6px 0;border-bottom:1px solid #1e1e1e;display:flex;align-items:flex-start;gap:8px}
+.plan-features li:last-child{border-bottom:none}
+.plan-features .check{color:var(--gold);flex-shrink:0}
+.plan-features .x{color:#555;flex-shrink:0}
+.plan-btn{display:block;text-align:center;padding:13px;border-radius:9px;font-weight:700;font-size:.92rem;margin-top:auto;transition:opacity .2s}
+.plan-btn.gold{background:var(--gold);color:#000}
+.plan-btn.outline{border:1px solid var(--border);color:var(--text)}
+.plan-btn:hover{opacity:.85}
+
+/* CREDIT PACKS */
+.section-h{text-align:center;margin-bottom:40px}
+.section-h h2{font-size:1.8rem;margin-bottom:8px}
+.section-h p{color:var(--muted)}
+.packs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:60px}
+.pack{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:24px 20px;text-align:center}
+.pack-price{font-size:1.8rem;font-weight:800;color:var(--gold);margin-bottom:4px}
+.pack-credits{font-size:1rem;font-weight:700;margin-bottom:4px}
+.pack-rate{color:var(--muted);font-size:.78rem;margin-bottom:16px}
+.pack-btn{display:block;background:var(--gold);color:#000;padding:10px;border-radius:8px;font-weight:700;font-size:.85rem;transition:opacity .2s}
+.pack-btn:hover{opacity:.85}
+
+/* ENDPOINT COSTS */
+.cost-table{background:var(--bg3);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:60px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:14px 20px;font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+td{padding:13px 20px;font-size:.88rem;border-bottom:1px solid #1a1a1a}
+tr:last-child td{border-bottom:none}
+td:last-child{color:var(--gold);font-weight:700;font-family:monospace}
+
+/* COMPARE */
+.compare{overflow-x:auto;margin-bottom:60px}
+.compare table th:first-child,.compare table td:first-child{font-weight:600;min-width:200px}
+.compare table th{background:var(--bg2)}
+.check-cell{color:var(--gold);text-align:center}
+.x-cell{color:#555;text-align:center}
+
+/* FAQ */
+.faq{max-width:700px;margin:0 auto 40px}
+.faq-item{border-bottom:1px solid var(--border);padding:20px 0}
+.faq-q{font-weight:600;margin-bottom:8px}
+.faq-a{color:var(--muted);font-size:.9rem}
+
+/* CTA */
+.cta-box{background:linear-gradient(135deg,#1a1500,#0a0a0a);border:1px solid #2a2000;border-radius:16px;padding:60px 20px;text-align:center}
+.cta-box h2{font-size:clamp(1.4rem,3vw,2rem);margin-bottom:12px}
+.cta-box p{color:var(--muted);margin-bottom:28px}
+.cta-group{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn-primary{background:var(--gold);color:#000;padding:13px 28px;border-radius:10px;font-weight:700}
+.btn-secondary{border:1px solid var(--border);color:var(--text);padding:13px 28px;border-radius:10px}
+
+footer{background:var(--bg2);border-top:1px solid var(--border);padding:32px 40px;text-align:center;color:var(--muted);font-size:.82rem}
+@media(max-width:640px){nav{padding:14px 20px}.page{padding:50px 16px}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">⚡ Autonomous Web Agency</div>
+  <div class="nav-links">
+    <a href="index.html">Home</a>
+    <a href="docs.html">API Docs</a>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="signup.html" class="nav-cta">Get Started →</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-head">
+    <div class="page-label">Pricing</div>
+    <h1>Simple, transparent pricing</h1>
+    <p>Pay only for what you use. No hidden fees. All prices in Indian Rupees (INR).</p>
+  </div>
+
+  <!-- ─── CREDIT PACKS ───── -->
+  <div class="section-h">
+    <h2>Credit Packs — One-time Top Up</h2>
+    <p>Credits never expire. Use them for any API endpoint.</p>
+  </div>
+  <div class="packs">
+    <div class="pack">
+      <div class="pack-price">₹999</div>
+      <div class="pack-credits">500 Credits</div>
+      <div class="pack-rate">₹2.00 / credit</div>
+      <a href="signup.html" class="pack-btn">Buy Starter</a>
+    </div>
+    <div class="pack" style="border-color:var(--gold)">
+      <div class="pack-price">₹2,999</div>
+      <div class="pack-credits">2,000 Credits</div>
+      <div class="pack-rate">₹1.50 / credit · Best value</div>
+      <a href="signup.html" class="pack-btn">Buy Pro</a>
+    </div>
+    <div class="pack">
+      <div class="pack-price">₹9,999</div>
+      <div class="pack-credits">10,000 Credits</div>
+      <div class="pack-rate">₹1.00 / credit</div>
+      <a href="signup.html" class="pack-btn">Buy Agency</a>
+    </div>
+  </div>
+
+  <!-- ─── ENDPOINT COSTS ───── -->
+  <div class="section-h">
+    <h2>Endpoint Credit Costs</h2>
+    <p>Each API endpoint consumes a fixed number of credits per call.</p>
+  </div>
+  <div class="cost-table">
+    <table>
+      <thead>
+        <tr>
+          <th>Endpoint</th>
+          <th>Description</th>
+          <th>Mode</th>
+          <th>Credits / call</th>
+          <th>~INR cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>POST /templates/build</code></td>
+          <td>Full website build → live Vercel URL</td>
+          <td>Any</td>
+          <td>50</td>
+          <td>₹50–₹100</td>
+        </tr>
+        <tr>
+          <td><code>POST /workflows/run</code></td>
+          <td>Run a saved workflow</td>
+          <td>Smart (AI)</td>
+          <td>5</td>
+          <td>₹5–₹10</td>
+        </tr>
+        <tr>
+          <td><code>POST /workflows/run</code></td>
+          <td>Run a saved workflow</td>
+          <td>Fast (V1)</td>
+          <td>2</td>
+          <td>₹2–₹4</td>
+        </tr>
+        <tr>
+          <td><code>POST /workflows/teach</code></td>
+          <td>Teach from screenshots via API</td>
+          <td>Any</td>
+          <td>3</td>
+          <td>₹3–₹6</td>
+        </tr>
+        <tr>
+          <td><code>POST /validate-prompt</code></td>
+          <td>GPT↔Gemini prompt validation</td>
+          <td>Any</td>
+          <td>2</td>
+          <td>₹2–₹4</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── PLAN COMPARISON ───── -->
+  <div class="section-h">
+    <h2>Choose Your Plan</h2>
+    <p>Desktop agent, REST API, or full white-label — pick what fits your workflow.</p>
+  </div>
+  <div class="plans">
+    <div class="plan">
+      <div class="plan-name">Desktop Agent</div>
+      <div class="plan-price">₹999 <span>/ website</span></div>
+      <div class="plan-sub">Pay per delivery</div>
+      <div class="plan-desc">Install on your computer, teach once, deliver websites for every client automatically.</div>
+      <ul class="plan-features">
+        <li><span class="check">✓</span> V1 Fast mode (zero API cost)</li>
+        <li><span class="check">✓</span> V2 Smart mode (Claude Vision)</li>
+        <li><span class="check">✓</span> 4-attempt self-healing</li>
+        <li><span class="check">✓</span> Session recording / proof-of-delivery</li>
+        <li><span class="check">✓</span> WhatsApp + email client notification</li>
+        <li><span class="x">✗</span> REST API access</li>
+        <li><span class="x">✗</span> White-label portal</li>
+      </ul>
+      <a href="signup.html" class="plan-btn outline">Download Agent</a>
+    </div>
+
+    <div class="plan featured">
+      <div class="plan-name">API Key</div>
+      <div class="plan-price">₹999 <span>/ starter pack</span></div>
+      <div class="plan-sub">Credits from ₹1 each</div>
+      <div class="plan-desc">Integrate website-building power into your own software with a clean REST API.</div>
+      <ul class="plan-features">
+        <li><span class="check">✓</span> Full API access (all endpoints)</li>
+        <li><span class="check">✓</span> 60 calls/minute rate limit</li>
+        <li><span class="check">✓</span> 1,000 calls/day</li>
+        <li><span class="check">✓</span> Usage dashboard</li>
+        <li><span class="check">✓</span> Razorpay credit top-up</li>
+        <li><span class="check">✓</span> Webhook support</li>
+        <li><span class="x">✗</span> White-label portal</li>
+      </ul>
+      <a href="signup.html" class="plan-btn gold">Get API Key →</a>
+    </div>
+
+    <div class="plan">
+      <div class="plan-name">White-label Agency</div>
+      <div class="plan-price">₹9,999 <span>/ month</span></div>
+      <div class="plan-sub">10,000 credits included</div>
+      <div class="plan-desc">Your own branded portal on your subdomain — resell to clients under your agency name.</div>
+      <ul class="plan-features">
+        <li><span class="check">✓</span> Custom subdomain</li>
+        <li><span class="check">✓</span> Custom domain (CNAME)</li>
+        <li><span class="check">✓</span> Full branding (logo, colours)</li>
+        <li><span class="check">✓</span> 10,000 credits / month</li>
+        <li><span class="check">✓</span> Admin dashboard</li>
+        <li><span class="check">✓</span> Priority support</li>
+        <li><span class="check">✓</span> Everything in API plan</li>
+      </ul>
+      <a href="signup.html" class="plan-btn outline">Start White-label</a>
+    </div>
+  </div>
+
+  <!-- ─── FEATURE COMPARE TABLE ───── -->
+  <div class="section-h">
+    <h2>Full feature comparison</h2>
+  </div>
+  <div class="compare">
+    <div class="cost-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th style="text-align:center">Desktop Agent</th>
+            <th style="text-align:center">API Key</th>
+            <th style="text-align:center">White-label</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>V1 Fast runner (zero API cost)</td><td class="check-cell">✓</td><td class="check-cell">✓</td><td class="check-cell">✓</td></tr>
+          <tr><td>V2 Smart runner (Claude Vision)</td><td class="check-cell">✓</td><td class="check-cell">✓</td><td class="check-cell">✓</td></tr>
+          <tr><td>REST API access</td><td class="x-cell">—</td><td class="check-cell">✓</td><td class="check-cell">✓</td></tr>
+          <tr><td>GPT↔Gemini prompt validation</td><td class="check-cell">✓</td><td class="check-cell">✓</td><td class="check-cell">✓</td></tr>
+          <tr><td>Usage dashboard</td><td class="x-cell">—</td><td class="check-cell">✓</td><td class="check-cell">✓</td></tr>
+          <tr><td>Razorpay credit top-up</td><td class="x-cell">—</td><td class="check-cell">✓</td><td class="check-cell">✓</td></tr>
+          <tr><td>Session recording</td><td class="check-cell">✓</td><td class="check-cell">✓</td><td class="check-cell">✓</td></tr>
+          <tr><td>WhatsApp + email notification</td><td class="check-cell">✓</td><td class="check-cell">✓</td><td class="check-cell">✓</td></tr>
+          <tr><td>Custom branded subdomain</td><td class="x-cell">—</td><td class="x-cell">—</td><td class="check-cell">✓</td></tr>
+          <tr><td>Custom domain (CNAME)</td><td class="x-cell">—</td><td class="x-cell">—</td><td class="check-cell">✓</td></tr>
+          <tr><td>Admin dashboard (branding)</td><td class="x-cell">—</td><td class="x-cell">—</td><td class="check-cell">✓</td></tr>
+          <tr><td>10,000 credits/month included</td><td class="x-cell">—</td><td class="x-cell">—</td><td class="check-cell">✓</td></tr>
+          <tr><td>Priority support</td><td class="x-cell">—</td><td class="x-cell">—</td><td class="check-cell">✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ─── FAQ ───── -->
+  <div class="section-h">
+    <h2>Pricing FAQ</h2>
+  </div>
+  <div class="faq">
+    <div class="faq-item">
+      <div class="faq-q">Do credits expire?</div>
+      <div class="faq-a">No. Credits you purchase never expire and roll over indefinitely.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">What happens when I run out of credits?</div>
+      <div class="faq-a">API calls return a 402 error. Top up instantly from your dashboard or the billing API — no downtime.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Can I cancel the white-label plan?</div>
+      <div class="faq-a">Yes, cancel anytime. Your portal stays active until the end of the billing month. No lock-in.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Is GST included?</div>
+      <div class="faq-a">All prices shown are exclusive of GST. 18% GST will be added at checkout as required by Indian tax law.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Which payment methods are accepted?</div>
+      <div class="faq-a">UPI, credit/debit cards, net banking, and popular wallets via Razorpay. All transactions in INR.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Can I get a refund?</div>
+      <div class="faq-a">Unused credits can be refunded within 7 days of purchase. Monthly plans are non-refundable after the portal is provisioned. Contact support@yourplatform.com.</div>
+    </div>
+  </div>
+
+  <!-- ─── CTA ───── -->
+  <div class="cta-box">
+    <h2>Ready to start?</h2>
+    <p>Get your API key in 2 minutes. No contract. No lock-in.</p>
+    <div class="cta-group">
+      <a href="signup.html" class="btn-primary">Start Now →</a>
+      <a href="docs.html" class="btn-secondary">Read the Docs</a>
+    </div>
+  </div>
+</div>
+
+<footer>
+  © 2026 Autonomous Web Agency · All prices in INR · Secured by Razorpay
+  · <a href="index.html">Home</a> · <a href="docs.html">Docs</a> · <a href="dashboard.html">Dashboard</a>
+</footer>
+
+</body>
+</html>

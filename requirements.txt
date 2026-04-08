@@ -1,0 +1,31 @@
+# Autonomous Web Agency Agent v1.0
+# Install: pip install -r requirements.txt --break-system-packages
+
+# ── Core GUI automation ───────────────────────────────────────
+pyautogui>=0.9.54
+pyperclip>=1.8.2
+pygetwindow>=0.0.9
+keyboard>=0.13.5
+
+# ── Screenshot capture ────────────────────────────────────────
+mss>=9.0.1
+Pillow>=10.3.0
+
+# ── AI / Vision ───────────────────────────────────────────────
+anthropic>=0.28.0
+openai>=1.35.0
+google-generativeai>=0.7.0
+
+# ── Credential security ───────────────────────────────────────
+keyring>=25.2.0
+cryptography>=42.0.7
+
+# ── HTTP / Firebase ───────────────────────────────────────────
+requests>=2.32.0
+
+# ── Testing ───────────────────────────────────────────────────
+pytest>=8.2.0
+pytest-mock>=3.14.0
+
+# ── Utilities ─────────────────────────────────────────────────
+python-dotenv>=1.0.1

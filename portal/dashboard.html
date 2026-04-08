@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard — Autonomous Web Agency</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#c9a96e;--bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;
+  --text:#e8e8e8;--muted:#888;--border:#222;--ok:#86efac;--warn:#fbbf24;--err:#f87171;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--gold);text-decoration:none}
+/* HEADER */
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 32px;
+        border-bottom:1px solid var(--border);background:var(--bg2)}
+.logo{font-size:1rem;font-weight:700;color:var(--gold)}
+.user-info{display:flex;align-items:center;gap:16px;font-size:.85rem}
+.user-email{color:var(--muted)}
+.logout-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:7px;cursor:pointer;font-size:.8rem}
+/* LAYOUT */
+.layout{display:flex;flex:1}
+/* SIDEBAR */
+nav.sidebar{width:220px;border-right:1px solid var(--border);padding:24px 0;flex-shrink:0;background:var(--bg2)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 24px;cursor:pointer;font-size:.9rem;color:var(--muted);transition:all .2s;border-left:3px solid transparent}
+.nav-item:hover{color:var(--text);background:#1a1a1a}
+.nav-item.active{color:var(--gold);border-left-color:var(--gold);background:#1a1400}
+/* MAIN */
+main{flex:1;padding:32px;overflow-y:auto}
+/* KEY INPUT */
+.key-bar{display:flex;gap:10px;margin-bottom:32px;align-items:center;flex-wrap:wrap}
+.key-bar input{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;
+                padding:10px 14px;font-family:monospace;font-size:.88rem;flex:1;min-width:260px;outline:none}
+.key-bar input:focus{border-color:var(--gold)}
+.btn-load{background:var(--gold);color:#000;border:none;border-radius:8px;padding:10px 20px;
+           font-weight:700;font-size:.88rem;cursor:pointer;white-space:nowrap}
+.btn-load:hover{opacity:.85}
+/* PANELS */
+.panel{display:none}
+.panel.active{display:block}
+/* STATS GRID */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin-bottom:28px}
+.stat-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:20px 18px}
+.stat-card .val{font-size:1.8rem;font-weight:800;color:var(--gold)}
+.stat-card .lbl{color:var(--muted);font-size:.78rem;margin-top:4px}
+.stat-card .change{font-size:.72rem;margin-top:6px}
+.change.up{color:var(--ok)}.change.down{color:var(--err)}
+/* CHART */
+.chart-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px}
+.chart-card h3{font-size:.95rem;color:var(--muted);margin-bottom:20px}
+.chart-wrap{height:200px;position:relative}
+/* TABLE */
+.table-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:24px}
+.table-card h3{font-size:.95rem;color:var(--muted);padding:18px 20px;border-bottom:1px solid var(--border)}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:12px 20px;font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+td{padding:12px 20px;font-size:.85rem;border-bottom:1px solid #1a1a1a}
+tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:.72rem;font-weight:700}
+.badge-ok{background:#0a2a12;color:var(--ok)}
+.badge-err{background:#2a0a0a;color:var(--err)}
+.badge-fast{background:#1a1400;color:var(--gold)}
+.badge-smart{background:#0a1a2a;color:#60a5fa}
+/* API KEY PANEL */
+.key-panel{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:24px}
+.key-row{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.key-val{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px 14px;
+          font-family:monospace;font-size:.88rem;color:var(--gold);flex:1;word-break:break-all}
+.icon-btn{background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:10px 14px;
+           border-radius:7px;cursor:pointer;font-size:.85rem}
+/* TOP UP */
+.topup-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:20px}
+.topup-card{background:var(--bg2);border:2px solid var(--border);border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:border-color .2s}
+.topup-card:hover,.topup-card.selected{border-color:var(--gold)}
+.topup-price{font-size:1.2rem;font-weight:800;color:var(--gold)}
+.topup-credits{font-size:.78rem;color:var(--muted)}
+/* PROFILE PANEL */
+.profile-form input{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);
+                     border-radius:8px;padding:10px 14px;font-size:.9rem;margin-bottom:14px;outline:none}
+.profile-form input:focus{border-color:var(--gold)}
+.save-btn{background:var(--gold);color:#000;border:none;border-radius:8px;padding:11px 28px;font-weight:700;cursor:pointer}
+/* EMPTY STATE */
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty .icon{font-size:2.5rem;margin-bottom:14px}
+/* ALERT */
+.alert{border-radius:8px;padding:12px 16px;font-size:.88rem;margin-bottom:18px}
+.alert-error{background:#2a0a0a;border:1px solid #7f1d1d;color:#f87171}
+.alert-ok{background:#0a2a12;border:1px solid #15532e;color:#86efac}
+@media(max-width:640px){
+  nav.sidebar{display:none}
+  main{padding:20px}
+  .stats{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ Autonomous Web Agency</div>
+  <div class="user-info">
+    <span class="user-email" id="hdr-email">—</span>
+    <button class="logout-btn" onclick="logout()">Sign Out</button>
+    <a href="index.html" style="color:var(--muted);font-size:.8rem">← Home</a>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="nav-item active" onclick="showPanel('overview')">📊 Overview</div>
+    <div class="nav-item" onclick="showPanel('history')">📋 Call History</div>
+    <div class="nav-item" onclick="showPanel('apikey')">🔑 API Key</div>
+    <div class="nav-item" onclick="showPanel('topup')">💳 Top Up</div>
+    <div class="nav-item" onclick="showPanel('profile')">👤 Profile</div>
+    <div style="border-top:1px solid var(--border);margin:16px 0"></div>
+    <a class="nav-item" href="docs.html">📖 API Docs</a>
+    <a class="nav-item" href="pricing.html">💰 Pricing</a>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main>
+    <!-- KEY BAR -->
+    <div class="key-bar">
+      <input type="text" id="key-input" placeholder="Paste your API key: ak_live_..." oninput="onKeyInput()">
+      <button class="btn-load" onclick="loadDashboard()">Load Dashboard</button>
+    </div>
+    <div id="dash-alert" style="display:none"></div>
+
+    <!-- ═════ OVERVIEW PANEL ═════ -->
+    <div class="panel active" id="panel-overview">
+      <div class="stats" id="stats-grid">
+        <div class="stat-card">
+          <div class="val" id="stat-credits">—</div>
+          <div class="lbl">Credits Remaining</div>
+          <div class="change" id="stat-credits-sub"></div>
+        </div>
+        <div class="stat-card">
+          <div class="val" id="stat-calls-today">—</div>
+          <div class="lbl">Calls Today</div>
+          <div class="change" id="stat-daily-sub"></div>
+        </div>
+        <div class="stat-card">
+          <div class="val" id="stat-calls-month">—</div>
+          <div class="lbl">Calls This Month</div>
+        </div>
+        <div class="stat-card">
+          <div class="val" id="stat-success">—</div>
+          <div class="lbl">Success Rate</div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Credits spent — last 7 days</h3>
+        <div class="chart-wrap">
+          <canvas id="usageChart"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Calls by endpoint type</h3>
+        <div class="chart-wrap" style="height:160px">
+          <canvas id="endpointChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═════ CALL HISTORY PANEL ═════ -->
+    <div class="panel" id="panel-history">
+      <div class="table-card">
+        <h3>Recent API Calls</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Endpoint</th>
+              <th>Mode</th>
+              <th>Credits</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody">
+            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Load your API key to see call history.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═════ API KEY PANEL ═════ -->
+    <div class="panel" id="panel-apikey">
+      <div class="key-panel">
+        <h3 style="margin-bottom:18px">Your API Key</h3>
+        <div class="key-row">
+          <div class="key-val" id="key-display">Enter your key above to load the dashboard</div>
+          <button class="icon-btn" onclick="copyApiKey()">📋 Copy</button>
+        </div>
+        <p style="color:var(--muted);font-size:.82rem;margin-bottom:20px">
+          Include this in every API request as a header:<br>
+          <code style="color:var(--gold)">X-API-Key: ak_live_your_key_here</code>
+        </p>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:18px">
+          <div style="font-size:.8rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Security reminder</div>
+          <ul style="list-style:none;font-size:.85rem;color:var(--muted)">
+            <li style="padding:4px 0">⚠ Never expose your API key in frontend/client-side code</li>
+            <li style="padding:4px 0">⚠ Never commit your key to GitHub</li>
+            <li style="padding:4px 0">✓ Store in environment variables or OS keychain</li>
+            <li style="padding:4px 0">✓ Rotate immediately if you believe it's been compromised</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═════ TOP UP PANEL ═════ -->
+    <div class="panel" id="panel-topup">
+      <div class="key-panel">
+        <h3 style="margin-bottom:8px">Top Up Credits</h3>
+        <p style="color:var(--muted);font-size:.88rem;margin-bottom:20px">Credits never expire. Use them at your own pace.</p>
+
+        <div id="topup-alert" style="display:none"></div>
+
+        <div class="topup-grid">
+          <div class="topup-card" onclick="selectTopup(this,'starter',999,500)">
+            <div class="topup-price">₹999</div>
+            <div class="topup-credits">500 credits</div>
+            <div style="font-size:.7rem;color:var(--muted);margin-top:4px">₹2/credit</div>
+          </div>
+          <div class="topup-card selected" onclick="selectTopup(this,'professional',2999,2000)">
+            <div class="topup-price">₹2,999</div>
+            <div class="topup-credits">2,000 credits</div>
+            <div style="font-size:.7rem;color:var(--muted);margin-top:4px">₹1.5/credit</div>
+          </div>
+          <div class="topup-card" onclick="selectTopup(this,'agency',9999,10000)">
+            <div class="topup-price">₹9,999</div>
+            <div class="topup-credits">10,000 credits</div>
+            <div style="font-size:.7rem;color:var(--muted);margin-top:4px">₹1/credit</div>
+          </div>
+        </div>
+
+        <button class="save-btn" style="margin-top:24px;width:100%;padding:14px" onclick="topUpCredits()">
+          Pay via Razorpay →
+        </button>
+        <p style="color:var(--muted);font-size:.75rem;text-align:center;margin-top:10px">
+          Secured by Razorpay · UPI / Card / NetBanking
+        </p>
+      </div>
+    </div>
+
+    <!-- ═════ PROFILE PANEL ═════ -->
+    <div class="panel" id="panel-profile">
+      <div class="key-panel">
+        <h3 style="margin-bottom:18px">Account Details</h3>
+        <div class="profile-form">
+          <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:5px">Owner Name</label>
+          <input type="text" id="prof-name" placeholder="Loading…" readonly>
+          <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:5px">Email</label>
+          <input type="email" id="prof-email" placeholder="Loading…" readonly>
+          <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:5px">Plan</label>
+          <input type="text" id="prof-plan" placeholder="Loading…" readonly>
+          <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:5px">Key Created</label>
+          <input type="text" id="prof-created" placeholder="Loading…" readonly>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const API_BASE = 'https://api.yourplatform.com/api/v1';
+let apiKey = '';
+let usageData = null;
+let topupPack = { id: 'professional', amount: 2999 };
+let usageChart, endpointChart;
+
+// ─── Key input ────────────────────────────────────────────────────────────────
+function onKeyInput() {
+  apiKey = document.getElementById('key-input').value.trim();
+}
+
+async function loadDashboard() {
+  apiKey = document.getElementById('key-input').value.trim();
+  if (!apiKey || !apiKey.startsWith('ak_')) {
+    showDashAlert('Please enter a valid API key (starts with ak_live_)', 'error'); return;
+  }
+  hideDashAlert();
+  try {
+    const res = await fetch(`${API_BASE}/keys/usage`, { headers: { 'X-API-Key': apiKey } });
+    if (!res.ok) { showDashAlert('Invalid API key or server error.', 'error'); return; }
+    usageData = await res.json();
+    renderDashboard(usageData);
+  } catch(e) {
+    showDashAlert('Could not connect to API. Check your connection.', 'error');
+  }
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderDashboard(d) {
+  document.getElementById('hdr-email').textContent = d.owner_email || '—';
+  document.getElementById('stat-credits').textContent = (d.credits_remaining ?? '—').toLocaleString();
+  document.getElementById('stat-calls-today').textContent = (d.calls_today ?? 0).toLocaleString();
+  document.getElementById('stat-calls-month').textContent = (d.calls_this_month ?? 0).toLocaleString();
+  const rate = d.success_rate != null ? Math.round(d.success_rate * 100) + '%' : '—';
+  document.getElementById('stat-success').textContent = rate;
+
+  const limit = d.daily_limit ?? 1000;
+  const used  = d.calls_today ?? 0;
+  document.getElementById('stat-daily-sub').textContent = `${used} / ${limit} daily limit`;
+  document.getElementById('stat-daily-sub').className   = 'change ' + (used/limit > 0.8 ? 'down' : 'up');
+
+  // API key display
+  document.getElementById('key-display').textContent = apiKey;
+
+  // Profile
+  document.getElementById('prof-name').value    = d.owner_name    || '—';
+  document.getElementById('prof-email').value   = d.owner_email   || '—';
+  document.getElementById('prof-plan').value    = d.pack          || '—';
+  document.getElementById('prof-created').value = d.created_at ? new Date(d.created_at).toLocaleDateString() : '—';
+
+  renderCharts(d);
+  renderHistory(d.recent_calls || []);
+}
+
+function renderCharts(d) {
+  // USAGE CHART — mock 7-day data if not provided
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const spent = d.daily_spend_7d || days.map(() => Math.floor(Math.random()*80+10));
+
+  if (usageChart) usageChart.destroy();
+  usageChart = new Chart(document.getElementById('usageChart'), {
+    type: 'bar',
+    data: {
+      labels: days,
+      datasets: [{ label: 'Credits Used', data: spent,
+        backgroundColor: 'rgba(201,169,110,0.6)', borderColor: '#c9a96e', borderWidth: 1, borderRadius: 5 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#888' }, grid: { color: '#1a1a1a' } },
+        y: { ticks: { color: '#888' }, grid: { color: '#1a1a1a' } },
+      },
+    }
+  });
+
+  // ENDPOINT CHART
+  const epData = d.endpoint_breakdown || { 'run_workflow_fast': 40, 'run_workflow_smart': 20, 'build_website': 25, 'validate_prompt': 15 };
+  if (endpointChart) endpointChart.destroy();
+  endpointChart = new Chart(document.getElementById('endpointChart'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(epData),
+      datasets: [{ data: Object.values(epData),
+        backgroundColor: ['#c9a96e','#60a5fa','#86efac','#fbbf24','#f87171'],
+        borderColor: '#1a1a1a', borderWidth: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'right', labels: { color: '#888', font: { size: 11 } } } },
+    }
+  });
+}
+
+function renderHistory(calls) {
+  const tbody = document.getElementById('history-tbody');
+  if (!calls.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">No calls yet. Make your first API call!</td></tr>';
+    return;
+  }
+  tbody.innerHTML = calls.slice(0, 50).map(c => `
+    <tr>
+      <td style="color:var(--muted)">${new Date(c.timestamp).toLocaleString()}</td>
+      <td style="font-family:monospace;font-size:.8rem">${c.endpoint || '—'}</td>
+      <td><span class="badge badge-${c.mode === 'smart' ? 'smart' : 'fast'}">${c.mode || 'fast'}</span></td>
+      <td>${c.credits_used ?? '—'}</td>
+      <td><span class="badge badge-${c.success ? 'ok' : 'err'}">${c.success ? 'OK' : 'FAIL'}</span></td>
+    </tr>`).join('');
+}
+
+// ─── Panel nav ────────────────────────────────────────────────────────────────
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ─── Alerts ───────────────────────────────────────────────────────────────────
+function showDashAlert(msg, type) {
+  const el = document.getElementById('dash-alert');
+  el.textContent = msg;
+  el.className = 'alert alert-' + type;
+  el.style.display = 'block';
+}
+function hideDashAlert() { document.getElementById('dash-alert').style.display = 'none'; }
+
+// ─── Copy key ─────────────────────────────────────────────────────────────────
+function copyApiKey() {
+  navigator.clipboard.writeText(apiKey || document.getElementById('key-display').textContent)
+    .then(() => alert('Copied!'));
+}
+
+// ─── Top up ───────────────────────────────────────────────────────────────────
+function selectTopup(el, id, amount, credits) {
+  document.querySelectorAll('.topup-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  topupPack = { id, amount };
+}
+
+async function topUpCredits() {
+  if (!apiKey) { alert('Please load your API key first.'); return; }
+  try {
+    const res = await fetch(`${API_BASE}/billing/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+      body: JSON.stringify({ pack: topupPack.id }),
+    });
+    const order = await res.json();
+    if (!res.ok) throw new Error(order.detail);
+    const rzp = new (window.Razorpay || function(){})({
+      key: order.key_id || 'rzp_live_REPLACE',
+      amount: order.amount, currency: 'INR', order_id: order.order_id,
+      name: 'Autonomous Web Agency', description: 'Credit top-up',
+      theme: { color: '#c9a96e' },
+      handler: (r) => { alert('Top-up successful! Credits will appear shortly.'); loadDashboard(); },
+    });
+    rzp.open();
+  } catch(e) {
+    const el = document.getElementById('topup-alert');
+    el.textContent = e.message || 'Top-up failed.';
+    el.className = 'alert alert-error';
+    el.style.display = 'block';
+  }
+}
+
+// ─── Logout ───────────────────────────────────────────────────────────────────
+function logout() {
+  apiKey = '';
+  document.getElementById('key-input').value = '';
+  document.getElementById('hdr-email').textContent = '—';
+  ['stat-credits','stat-calls-today','stat-calls-month','stat-success'].forEach(id => {
+    document.getElementById(id).textContent = '—';
+  });
+  if (usageChart) { usageChart.destroy(); usageChart = null; }
+  if (endpointChart) { endpointChart.destroy(); endpointChart = null; }
+  document.getElementById('history-tbody').innerHTML =
+    '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Load your API key to see call history.</td></tr>';
+}
+
+// Auto-load if key in URL param (?key=ak_live_...)
+const urlKey = new URLSearchParams(location.search).get('key');
+if (urlKey) { document.getElementById('key-input').value = urlKey; apiKey = urlKey; loadDashboard(); }
+</script>
+</body>
+</html>

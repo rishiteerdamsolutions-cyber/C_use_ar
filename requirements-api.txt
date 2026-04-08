@@ -1,0 +1,15 @@
+# API server dependencies
+# Install: pip install -r requirements-api.txt --break-system-packages
+
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pydantic[email]>=2.7.0
+pymongo>=4.7.0
+python-multipart>=0.0.9
+razorpay>=1.4.0
+redis>=5.0.4
+anthropic>=0.28.0
+openai>=1.35.0
+google-generativeai>=0.7.0
+requests>=2.32.0
+python-dotenv>=1.0.1

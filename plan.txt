@@ -1,0 +1,227 @@
+═══════════════════════════════════════════════════════════════════════
+  AUTONOMOUS WEB AGENCY PLATFORM — MASTER PLAN
+  Karimnagar, Telangana · Started: April 2026
+═══════════════════════════════════════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MISSION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  User types "build salon website" →
+  Agent delivers live Vercel URL to client automatically.
+
+  Selling to: B2B — Indian freelancers and dev agencies
+  who earn money by building websites for clients.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  THREE PRODUCTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PRODUCT 1 — Desktop Agent               STATUS: ✅ BUILT (Day 1)
+  ─────────────────────────────────────────────────────────────────
+  Freelancers install on their laptop.
+  Teach it workflows via screenshots → it replays forever.
+  Two modes:
+    ⚡ V1 Fast Mode   — Training Only, zero API calls, saved coords
+    🤖 V2 AI Mode     — Claude Vision re-checks every step live
+
+  Files built:
+    main.py
+    config/remote_config.py
+    vision/vision_engine.py
+    execution/executor.py
+    execution/fallback.py
+    analytics/session.py
+    ai/validator.py
+    security/credentials.py
+    updater/auto_update.py
+    teach/screenshot_teacher.py
+    teach/runner_v1.py
+    teach/workflow_runner.py
+    teach/teach_cli.py
+    templates/salon/template.json
+    templates/salon/prompt.txt
+    AGENT_DASHBOARD.html
+    dashboard.py
+    requirements.txt
+    README.md
+    VERSION (1.0.0)
+
+
+  PRODUCT 2 — Public REST API             STATUS: 🔲 Day 2 (TODAY)
+  ─────────────────────────────────────────────────────────────────
+  Anyone can use our agent engine via API key in their own software.
+  FastAPI server. MongoDB for keys + usage. Razorpay wallet top-up.
+
+  Endpoints:
+    POST  /api/v1/run-workflow       run a saved workflow
+    POST  /api/v1/teach              upload screenshots → workflow JSON
+    POST  /api/v1/validate-prompt    GPT↔Gemini loop
+    GET   /api/v1/templates          list website templates
+    POST  /api/v1/build-website      full pipeline → live URL
+    POST  /api/v1/keys/generate      create API key
+    GET   /api/v1/keys/usage         calls used, credits, cost
+
+  Pricing (Pay-per-call):
+    /run-workflow    V2 AI mode   → ₹5 per call
+    /run-workflow    V1 fast mode → ₹2 per call
+    /teach           per screenshot analysed → ₹3
+    /validate-prompt → ₹2 per call
+    /build-website   full delivery → ₹50 per call
+
+  Credit packs (Razorpay):
+    ₹999  = 500 credits
+    ₹2999 = 2000 credits
+    ₹9999 = 10000 credits
+
+  Tech stack:
+    FastAPI + Uvicorn
+    MongoDB Atlas (keys, usage, billing records)
+    Razorpay (wallet top-up + webhook)
+    Redis (rate limiting per key)
+    Docker (deploy on DigitalOcean ₹500/mo VPS)
+
+  Files to build:
+    api/server.py          FastAPI app, CORS, middleware
+    api/keys.py            generate, validate, hash API keys
+    api/usage.py           track calls, deduct credits
+    api/billing.py         Razorpay wallet + webhook handler
+    api/middleware.py      auth, rate limit, request logging
+    api/routes/
+      workflows.py         /run-workflow, /teach
+      templates.py         /templates, /build-website
+      validator.py         /validate-prompt
+      keys.py              /keys/generate, /keys/usage
+    api/models.py          Pydantic request/response models
+    api/database.py        MongoDB connection singleton
+    api/rate_limiter.py    Redis-based rate limiting
+    Dockerfile
+    docker-compose.yml
+
+
+  PRODUCT 3 — Managed White-label SaaS   STATUS: ✅ BUILT (Day 3)
+  ─────────────────────────────────────────────────────────────────
+  Agencies pay ₹9,999/mo → get their own hosted platform.
+  Their logo, their domain, their branding.
+  They resell to clients at any price they want.
+
+  What each agency gets:
+    - Subdomain: agencyname.yourplatform.com
+    - Their logo + colours injected
+    - All templates (salon, restaurant, portfolio, ecommerce...)
+    - Their own API keys to give to clients
+    - Monthly usage report
+    - You push updates to all white-labels from Firebase config
+
+  Files to build:
+    whitelabel/tenant_config.py    per-tenant branding + settings
+    whitelabel/router.py           subdomain → tenant lookup
+    whitelabel/onboarding.py       new agency signup flow
+    whitelabel/admin_panel/        agency admin dashboard
+
+
+  DEVELOPER PORTAL                        STATUS: ✅ BUILT (Day 4)
+  ─────────────────────────────────────────────────────────────────
+  Website where developers sign up, get API keys, see usage.
+
+  Pages:
+    /                  landing page
+    /signup            create account, choose credit pack, Razorpay
+    /dashboard         live usage graphs, API key, docs link
+    /docs              auto-generated FastAPI docs + code examples
+    /pricing           credit packs + white-label plans
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SYSTEM ARCHITECTURE DIAGRAM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  [Developer / Freelancer]
+       │
+       ├── Desktop App (local)   →  runs workflow on their machine
+       │
+       ├── API call (their app)  →  POST /api/v1/run-workflow
+       │                              + X-API-Key: ak_live_xxxxx
+       │                              ↓
+       │                         [FastAPI Server on VPS]
+       │                              ↓
+       │                         [Core Engine] ← same code as desktop
+       │                              ↓
+       │                         [MongoDB] — log usage, deduct credits
+       │                              ↓
+       │                         returns { live_url, session_id }
+       │
+       └── White-label portal    →  agencyname.yourplatform.com
+                                     (same engine, different branding)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  REVENUE MODEL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Stream                          Price         Monthly potential
+  ─────────────────────────────────────────────────────────────────
+  Desktop App V2                  ₹999/website  } depends on volume
+  Desktop App V3                  ₹2,999/mo     }
+  Public API (pay-per-call)       ₹2–50/call    ₹49,950 (50 devs)
+  White-label SaaS                ₹9,999/mo     ₹99,990 (10 agencies)
+  Desktop users                                 ₹2,85,000
+  ─────────────────────────────────────────────────────────────────
+  TOTAL TARGET                                  ≈ ₹4.3L / month
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  BUILD SCHEDULE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Day 1  ✅  Core engine (10 modules), teaching system, dashboard
+  Day 2  ✅  FastAPI server, API keys, Razorpay wallet, Docker
+  Day 3  ✅  White-label SaaS, multi-tenant, branding, subdomains
+  Day 4  ✅  Developer portal, docs, pricing page, onboarding
+  Day 5  🔲  More templates (restaurant, portfolio, ecommerce)
+  Day 6  🔲  Testing, deployment to VPS, go-live checklist
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PRICING TIERS SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  V1  Free (beta)       50 users, collect testimonials + bugs
+  V2  ₹999/website      Pay per delivery, Razorpay
+  V3  ₹2,999/month      Unlimited websites
+  V4  ₹9,999/month      White label for agencies (managed SaaS)
+  API ₹2–50/call        Pay-per-call for developers
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECURITY NOTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - All API keys hashed with SHA-256 before storing in MongoDB
+  - Keys prefixed: ak_live_xxxxx (production), ak_test_xxxxx (sandbox)
+  - Rate limiting: Redis, per key, per minute + per day
+  - Razorpay webhook signature verified before crediting wallet
+  - No credentials ever in logs (CredentialRedactFilter active)
+  - pyautogui FAILSAFE=True always (move mouse top-left to stop)
+  - AES-256 local credential cache
+  - OS keychain for all secrets (never plaintext on disk)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  NOTES / DECISIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - Core engine is the same Python code for desktop + API + white-label
+  - Remote config via Firebase RTDB — update button labels for all
+    users without them reinstalling anything
+  - Templates stored as JSON + prompt.txt — easy to add new categories
+  - Teaching system: V1 (saved coords, fast, free) vs
+                     V2 (Claude Vision live, smart, ~₹4/run)
+  - White-label: one codebase, tenant config injected at runtime
+    from MongoDB. No separate repos per agency.
+  - Developer portal: Built as 4 standalone HTML files (index, signup,
+    dashboard, pricing, docs) — no server required, open by double-click.
+    Files in portal/ directory.
+  - White-label onboarding: 2-step flow — create-order → onboard.
+    Admin panel at /admin/dashboard, protected by X-Admin-Token header.
+  - Days 1–4 COMPLETE. Next: Day 5 (templates) + Day 6 (deployment).
+
+═══════════════════════════════════════════════════════════════════════
+  LAST UPDATED: Day 2 — April 2026
+  NEXT ACTION:  Build api/ folder — FastAPI server + API keys
+═══════════════════════════════════════════════════════════════════════

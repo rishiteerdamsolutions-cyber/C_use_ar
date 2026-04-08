@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Autonomous Web Agency Agent — Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#c9a96e;--gold-dim:#c9a96e22;--bg:#0f0f0f;--card:#1a1a1a;
+  --border:#2a2a2a;--text:#e8e8e8;--muted:#888;--green:#22c55e;
+  --blue:#3b82f6;--red:#ef4444
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── Header ── */
+header{background:#111;border-bottom:1px solid var(--gold-dim);padding:14px 28px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+header h1{font-size:1.15rem;color:var(--gold);font-weight:700;letter-spacing:-.01em}
+header p{font-size:.78rem;color:var(--muted);margin-top:2px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px;box-shadow:0 0 6px var(--green)}
+
+/* ── Tabs ── */
+.tabs{display:flex;gap:0;background:#111;border-bottom:1px solid var(--border);padding:0 28px}
+.tab{padding:12px 22px;cursor:pointer;font-size:.85rem;color:var(--muted);border-bottom:2px solid transparent;transition:.15s;font-weight:500}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.tab:hover:not(.active){color:var(--text)}
+.tab-pane{display:none;padding:28px;max-width:1080px;margin:0 auto}
+.tab-pane.active{display:block}
+
+/* ── Cards ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:18px}
+.card-title{font-size:.95rem;font-weight:600;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:680px){.grid2{grid-template-columns:1fr}}
+
+/* ── Form elements ── */
+label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+input[type=text],input[type=number],textarea,select{
+  width:100%;background:#111;border:1px solid #333;color:var(--text);
+  border-radius:7px;padding:9px 12px;font-size:.88rem;margin-bottom:12px;transition:.15s;font-family:inherit}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--gold);background:#161616}
+textarea{resize:vertical;min-height:70px}
+
+/* ── Buttons ── */
+.btn{border:none;border-radius:7px;padding:9px 18px;cursor:pointer;font-size:.83rem;
+  font-weight:600;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-gold{background:var(--gold);color:#000}.btn-gold:hover{background:#e0c080}
+.btn-ai{background:#1e3a6e;color:#93c5fd;border:1px solid #2d4f8e}.btn-ai:hover{background:#253f7a}
+.btn-fast{background:#14532d;color:#86efac;border:1px solid #166534}.btn-fast:hover{background:#166534}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}.btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+.btn-red{background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d}.btn-red:hover{background:#7f1d1d}
+.btn-sm{padding:5px 12px;font-size:.75rem}
+.btn-full{width:100%;justify-content:center}
+
+/* ── Drop zone ── */
+.drop-zone{border:2px dashed #333;border-radius:10px;padding:36px;text-align:center;
+  color:var(--muted);cursor:pointer;transition:.2s;margin-bottom:14px;background:#111}
+.drop-zone:hover,.drop-zone.over{border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
+.drop-zone .icon{font-size:2rem;display:block;margin-bottom:8px}
+
+/* ── Screenshot grid ── */
+.ss-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin:12px 0}
+.ss-item{background:#111;border:1px solid var(--border);border-radius:8px;overflow:hidden;position:relative;cursor:pointer;transition:.15s}
+.ss-item:hover{border-color:var(--gold)}
+.ss-item img{width:100%;height:80px;object-fit:cover;display:block}
+.ss-item .ss-name{font-size:.7rem;color:var(--muted);padding:5px 7px;text-align:center;border-top:1px solid var(--border)}
+.ss-item .del-btn{position:absolute;top:3px;right:3px;background:#000a;border:none;color:#faa;
+  border-radius:4px;padding:2px 5px;cursor:pointer;font-size:.7rem;display:none}
+.ss-item:hover .del-btn{display:block}
+
+/* ── Step builder ── */
+.step-row{display:flex;gap:8px;align-items:flex-start;padding:10px;background:#111;
+  border:1px solid var(--border);border-radius:8px;margin-bottom:8px}
+.step-num{min-width:28px;height:28px;background:var(--gold-dim);border:1px solid var(--gold);
+  border-radius:6px;display:flex;align-items:center;justify-content:center;
+  color:var(--gold);font-size:.75rem;font-weight:700;margin-top:2px;flex-shrink:0}
+.step-row input{flex:1;margin:0}
+
+/* ── Workflow cards ── */
+.wf-card{background:#111;border:1px solid var(--border);border-radius:10px;
+  padding:16px;display:flex;flex-direction:column;gap:10px}
+.wf-title{font-weight:600;color:var(--text);font-size:.92rem}
+.wf-meta{color:var(--muted);font-size:.75rem;display:flex;gap:12px;flex-wrap:wrap}
+.badge{display:inline-block;border-radius:20px;padding:2px 9px;font-size:.7rem;font-weight:700}
+.badge-ai{background:#1e3a6e;color:#93c5fd}
+.badge-fast{background:#14532d;color:#86efac}
+.badge-steps{background:#1e1e2e;color:#a5b4fc}
+
+/* ── Log box ── */
+.log-box{background:#0a0a0a;border:1px solid var(--border);border-radius:8px;
+  padding:14px;font-family:'Cascadia Code','Consolas',monospace;font-size:.78rem;
+  color:#86efac;min-height:60px;max-height:260px;overflow-y:auto;white-space:pre-wrap;margin-top:10px}
+.log-box .err{color:#fca5a5}
+.log-box .info{color:#93c5fd}
+.log-box .gold{color:var(--gold)}
+
+/* ── Mode explainer ── */
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px}
+.mode-card{border-radius:10px;padding:16px}
+.mode-card.fast{background:#0a1f12;border:1px solid #166534}
+.mode-card.ai{background:#0c1929;border:1px solid #1d4ed8}
+.mode-card h3{font-size:.85rem;font-weight:700;margin-bottom:6px}
+.mode-card h3.fast{color:#86efac}
+.mode-card h3.ai{color:#93c5fd}
+.mode-card ul{padding-left:16px;color:var(--muted);font-size:.78rem;line-height:1.7}
+
+/* ── Progress bar ── */
+.progress{height:4px;background:#222;border-radius:2px;overflow:hidden;margin-bottom:8px}
+.progress-bar{height:100%;background:var(--gold);border-radius:2px;transition:width .3s}
+
+/* ── Modal ── */
+#modal{display:none;position:fixed;inset:0;background:#000c;z-index:100;
+  align-items:center;justify-content:center;padding:16px}
+#modal.show{display:flex}
+.modal-box{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:24px;width:100%;max-width:560px;max-height:85vh;overflow-y:auto}
+.modal-box h3{color:var(--gold);margin-bottom:14px;font-size:1rem}
+.modal-close{float:right;background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;padding:0}
+.modal-close:hover{color:var(--text)}
+.step-preview{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.step-preview:last-child{border:none}
+.sp-num{color:var(--gold);font-weight:700;min-width:22px}
+.sp-type{background:#222;color:var(--muted);border-radius:4px;padding:1px 7px;font-size:.72rem;align-self:flex-start;margin-top:2px;flex-shrink:0}
+.sp-coord{color:#555;font-size:.7rem}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;right:24px;background:#1a1a1a;border:1px solid var(--gold);
+  border-radius:10px;padding:12px 18px;font-size:.83rem;color:var(--text);z-index:200;
+  transform:translateY(80px);opacity:0;transition:.3s;max-width:340px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+
+hr{border:none;border-top:1px solid var(--border);margin:18px 0}
+.small{font-size:.78rem;color:var(--muted)}
+.cmd{background:#111;border:1px solid #333;border-radius:5px;padding:2px 8px;font-family:monospace;font-size:.82rem;color:var(--gold)}
+</style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
+<header>
+  <div>
+    <h1>⚡ Autonomous Web Agency Agent <span style="color:#555;font-weight:400;font-size:.8rem">v1.0</span></h1>
+    <p><span class="status-dot"></span>Dashboard · Karimnagar, Telangana</p>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span class="badge badge-fast">⚡ V1 Fast Mode</span>
+    <span class="badge badge-ai">🤖 V2 AI Mode</span>
+  </div>
+</header>
+
+<!-- ── Tabs ───────────────────────────────────────────────────────────────── -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('teach')">🎓 Teach Workflow</div>
+  <div class="tab" onclick="switchTab('run')">▶ Run Workflow</div>
+  <div class="tab" onclick="switchTab('library')">📚 Workflow Library</div>
+  <div class="tab" onclick="switchTab('guide')">📖 How to Use</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 1: TEACH                                                            -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-pane active" id="pane-teach">
+
+  <div class="card">
+    <div class="card-title">🎓 Teach the Agent a New Workflow</div>
+    <p class="small" style="margin-bottom:16px">
+      Take screenshots of each step → upload them here → describe what to do in each one →
+      the agent learns it and can replay it automatically forever.
+    </p>
+
+    <div class="grid2">
+      <!-- Left: upload -->
+      <div>
+        <label>Step 1 — Upload Screenshots (name: 1.png, 2.png, 3.png…)</label>
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <span class="icon">📂</span>
+          Drop screenshots here or click to browse<br>
+          <span style="font-size:.75rem;color:#555">Name them 1.png, 2.png, 3.png in sequence order</span>
+        </div>
+        <input type="file" id="fileInput" multiple accept="image/*" style="display:none" onchange="handleFiles(this.files)">
+        <div class="ss-grid" id="ssGrid"></div>
+      </div>
+
+      <!-- Right: describe -->
+      <div>
+        <label>Step 2 — Workflow Name</label>
+        <input type="text" id="wfName" placeholder="e.g. deploy_to_vercel, push_github, create_website">
+
+        <label>Step 3 — Describe Each Step</label>
+        <div id="stepRows">
+          <p class="small" style="color:#444;padding:10px 0">Upload screenshots first → fields will appear here</p>
+        </div>
+
+        <div id="teachActions" style="display:none;margin-top:8px">
+          <button class="btn btn-gold btn-full" onclick="exportWorkflow()">
+            🚀 Generate Workflow JSON
+          </button>
+          <p class="small" style="margin-top:8px;text-align:center">
+            Then run: <span class="cmd">python main.py --teach</span> to train with Claude Vision
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div id="teachLog" class="log-box" style="display:none"></div>
+  </div>
+
+  <!-- Generated JSON preview -->
+  <div class="card" id="jsonCard" style="display:none">
+    <div class="card-title">📄 Generated Workflow JSON</div>
+    <p class="small" style="margin-bottom:10px">
+      Save this as <span class="cmd">workflows/YOUR_NAME.json</span>
+      in your agent folder, then use it to run.
+    </p>
+    <textarea id="jsonOut" style="font-family:monospace;font-size:.75rem;min-height:200px;color:#86efac;background:#0a0a0a"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-ghost" onclick="copyJSON()">📋 Copy JSON</button>
+      <button class="btn btn-ghost" onclick="downloadJSON()">⬇ Download JSON</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 2: RUN                                                              -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-pane" id="pane-run">
+
+  <div class="mode-grid">
+    <div class="mode-card fast">
+      <h3 class="fast">⚡ V1 — Fast Mode (Training Only)</h3>
+      <ul>
+        <li>Zero AI API calls at runtime</li>
+        <li>Uses saved pixel coordinates from training</li>
+        <li>Works completely offline</li>
+        <li>Best: same UI every run, high volume</li>
+        <li>Cost: ₹0 per run</li>
+      </ul>
+    </div>
+    <div class="mode-card ai">
+      <h3 class="ai">🤖 V2 — AI Mode (Training + Claude)</h3>
+      <ul>
+        <li>Claude Vision re-checks every step live</li>
+        <li>Adapts if UI changes between runs</li>
+        <li>Never clicks wrong place after UI update</li>
+        <li>Best: new deploys, changing platforms</li>
+        <li>Cost: ~₹4 per run (Claude API)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">▶ Run a Workflow</div>
+
+    <div class="grid2">
+      <div>
+        <label>Workflow JSON File</label>
+        <div class="drop-zone" onclick="document.getElementById('wfFileInput').click()" style="padding:20px">
+          <span style="font-size:1.5rem">📂</span><br>
+          Drop workflow JSON here or click to load<br>
+          <span style="font-size:.72rem;color:#555">Load workflows/*.json</span>
+        </div>
+        <input type="file" id="wfFileInput" accept=".json" style="display:none" onchange="loadWorkflowFile(this)">
+
+        <div id="loadedWF" style="display:none">
+          <div style="background:#111;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+            <div id="wfLoadedName" style="font-weight:600;color:var(--gold);font-size:.9rem"></div>
+            <div id="wfLoadedMeta" style="color:var(--muted);font-size:.75rem;margin-top:4px"></div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="previewLoadedWF()">👁 Preview Steps</button>
+        </div>
+      </div>
+
+      <div>
+        <label>Run Mode</label>
+        <select id="runMode">
+          <option value="fast">⚡ Fast Mode — Training Only (no API, instant)</option>
+          <option value="smart" selected>🤖 AI Mode — Claude Vision (smart, adaptive)</option>
+        </select>
+
+        <label>Variable Substitutions (optional)</label>
+        <textarea id="runVars" placeholder="CLIENT_NAME=Priya Salon&#10;SITE_URL=priya-beauty&#10;(one per line, KEY=VALUE)"></textarea>
+
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-fast" style="flex:1" onclick="runWorkflow('fast')">⚡ Run Fast</button>
+          <button class="btn btn-ai" style="flex:1" onclick="runWorkflow('smart')">🤖 Run AI</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="runLog" class="log-box" style="display:none"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🖥 Terminal Commands</div>
+    <p class="small" style="margin-bottom:12px">Open your terminal in the agent folder and run:</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="background:#0a0a0a;border:1px solid #222;border-radius:7px;padding:12px;font-family:monospace;font-size:.8rem">
+        <span style="color:#555"># Run in AI mode (smart)</span><br>
+        <span style="color:var(--gold)">python main.py --run-workflow deploy_vercel --mode smart</span>
+      </div>
+      <div style="background:#0a0a0a;border:1px solid #222;border-radius:7px;padding:12px;font-family:monospace;font-size:.8rem">
+        <span style="color:#555"># Run in Fast mode (no API)</span><br>
+        <span style="color:#86efac">python main.py --run-workflow deploy_vercel --mode fast</span>
+      </div>
+      <div style="background:#0a0a0a;border:1px solid #222;border-radius:7px;padding:12px;font-family:monospace;font-size:.8rem">
+        <span style="color:#555"># Run with variable substitution</span><br>
+        <span style="color:#93c5fd">python main.py --run-workflow deploy_vercel --mode smart --var CLIENT_NAME=PriyaSalon</span>
+      </div>
+      <div style="background:#0a0a0a;border:1px solid #222;border-radius:7px;padding:12px;font-family:monospace;font-size:.8rem">
+        <span style="color:#555"># Teach mode (interactive CLI)</span><br>
+        <span style="color:var(--gold)">python main.py --teach</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 3: LIBRARY                                                          -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-pane" id="pane-library">
+  <div class="card">
+    <div class="card-title">📚 Workflow Library</div>
+    <p class="small" style="margin-bottom:16px">
+      Drop any saved <span class="cmd">*.json</span> workflow files below to preview them.
+    </p>
+    <div class="drop-zone" onclick="document.getElementById('libInput').click()" style="padding:20px">
+      <span style="font-size:1.4rem">📂</span><br>
+      Drop workflow JSON files here to preview<br>
+      <span style="font-size:.72rem;color:#555">Load from your workflows/ folder</span>
+    </div>
+    <input type="file" id="libInput" accept=".json" multiple style="display:none" onchange="loadLibraryFiles(this)">
+    <div id="wfLibrary" style="margin-top:16px"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- TAB 4: GUIDE                                                            -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-pane" id="pane-guide">
+  <div class="card">
+    <div class="card-title">📖 Quick Start Guide</div>
+    <div style="display:flex;flex-direction:column;gap:20px;font-size:.87rem;line-height:1.7">
+
+      <div>
+        <p style="color:var(--gold);font-weight:600;margin-bottom:6px">Step 1 — First-time setup</p>
+        <div style="background:#0a0a0a;border-radius:7px;padding:12px;font-family:monospace;font-size:.79rem;color:#86efac">
+pip install -r requirements.txt<br>
+python main.py --setup &nbsp;&nbsp;&nbsp;<span style="color:#555"># enter API keys into keychain</span><br>
+python main.py --check &nbsp;&nbsp;&nbsp;<span style="color:#555"># verify everything is ready</span>
+        </div>
+      </div>
+
+      <div>
+        <p style="color:var(--gold);font-weight:600;margin-bottom:6px">Step 2 — Teach the agent a workflow</p>
+        <p style="color:var(--muted)">Take screenshots of every step you want the agent to learn. Name them 1.png, 2.png, 3.png... Then:</p>
+        <div style="background:#0a0a0a;border-radius:7px;padding:12px;font-family:monospace;font-size:.79rem;color:#93c5fd;margin-top:8px">
+<span style="color:#555"># Option A: Use this dashboard — Teach tab above</span><br><br>
+<span style="color:#555"># Option B: Copy screenshots to the input folder</span><br>
+cp *.png autonomous-web-agency/teach/screenshots_input/<br>
+python main.py --teach
+        </div>
+      </div>
+
+      <div>
+        <p style="color:var(--gold);font-weight:600;margin-bottom:6px">Step 3 — Run the workflow</p>
+        <div style="background:#0a0a0a;border-radius:7px;padding:12px;font-family:monospace;font-size:.79rem">
+<span style="color:#86efac">python main.py --run-workflow deploy_vercel --mode fast</span><br>
+<span style="color:#93c5fd">python main.py --run-workflow deploy_vercel --mode smart</span>
+        </div>
+      </div>
+
+      <hr>
+
+      <div>
+        <p style="color:var(--gold);font-weight:600;margin-bottom:10px">🎯 Use Cases for Two Modes</p>
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+          <tr style="border-bottom:1px solid var(--border);color:var(--muted)">
+            <th style="text-align:left;padding:8px 0">Task</th>
+            <th style="text-align:center;padding:8px">Fast V1</th>
+            <th style="text-align:center;padding:8px">AI V2</th>
+          </tr>
+          <tr style="border-bottom:1px solid #1a1a1a"><td style="padding:8px 0">Deploy same template daily</td><td style="text-align:center">✅ Best</td><td style="text-align:center">✅</td></tr>
+          <tr style="border-bottom:1px solid #1a1a1a"><td style="padding:8px 0">New client, different options</td><td style="text-align:center">⚠️ Risky</td><td style="text-align:center">✅ Best</td></tr>
+          <tr style="border-bottom:1px solid #1a1a1a"><td style="padding:8px 0">Platform UI changed</td><td style="text-align:center">❌ Will fail</td><td style="text-align:center">✅ Adapts</td></tr>
+          <tr style="border-bottom:1px solid #1a1a1a"><td style="padding:8px 0">Offline / no internet</td><td style="text-align:center">✅ Works</td><td style="text-align:center">❌ Needs API</td></tr>
+          <tr><td style="padding:8px 0">100 sites/day bulk deploy</td><td style="text-align:center">✅ ₹0</td><td style="text-align:center">💰 ~₹400</td></tr>
+        </table>
+      </div>
+
+      <div>
+        <p style="color:var(--gold);font-weight:600;margin-bottom:6px">💡 Pro Tip — Variables</p>
+        <p style="color:var(--muted)">When teaching, use <span class="cmd">{{CLIENT_NAME}}</span> or <span class="cmd">{{SITE_URL}}</span> as placeholders in your step instructions. At runtime, pass real values:</p>
+        <div style="background:#0a0a0a;border-radius:7px;padding:12px;font-family:monospace;font-size:.79rem;color:var(--gold);margin-top:8px">
+python main.py --run-workflow deploy_vercel --var CLIENT_NAME=PriyaSalon --var SITE_URL=priya-beauty
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal ──────────────────────────────────────────────────────────────── -->
+<div id="modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h3 id="modalTitle"></h3>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<!-- ── Toast ──────────────────────────────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  State
+// ══════════════════════════════════════════════════════
+let uploadedFiles = [];   // {name, dataUrl, file}
+let loadedWorkflow = null;
+
+// ══════════════════════════════════════════════════════
+//  Tabs
+// ══════════════════════════════════════════════════════
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  const tabs = ['teach','run','library','guide'];
+  document.querySelectorAll('.tab')[tabs.indexOf(id)].classList.add('active');
+  document.getElementById('pane-' + id).classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════
+//  Toast
+// ══════════════════════════════════════════════════════
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+// ══════════════════════════════════════════════════════
+//  Drag & drop
+// ══════════════════════════════════════════════════════
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); handleFiles(e.dataTransfer.files); });
+
+function handleFiles(fileList) {
+  const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+  let loaded = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      // Keep sorted by numeric filename
+      uploadedFiles.push({ name: file.name, dataUrl: e.target.result, file });
+      uploadedFiles.sort((a, b) => {
+        const na = parseInt(a.name) || 999, nb = parseInt(b.name) || 999;
+        return na - nb;
+      });
+      loaded++;
+      if (loaded === files.length) { renderScreenshots(); buildStepRows(); }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderScreenshots() {
+  const grid = document.getElementById('ssGrid');
+  grid.innerHTML = uploadedFiles.map((f, i) => `
+    <div class="ss-item" onclick="previewImg(${i})">
+      <img src="${f.dataUrl}" alt="${f.name}">
+      <button class="del-btn" onclick="event.stopPropagation();deleteShot(${i})">✕</button>
+      <div class="ss-name">${f.name}</div>
+    </div>`).join('');
+}
+
+function deleteShot(i) {
+  uploadedFiles.splice(i, 1);
+  renderScreenshots();
+  buildStepRows();
+}
+
+// ══════════════════════════════════════════════════════
+//  Step rows
+// ══════════════════════════════════════════════════════
+function buildStepRows() {
+  const container = document.getElementById('stepRows');
+  const actions = document.getElementById('teachActions');
+  if (!uploadedFiles.length) {
+    container.innerHTML = '<p class="small" style="color:#444;padding:10px 0">Upload screenshots first</p>';
+    actions.style.display = 'none';
+    return;
+  }
+  container.innerHTML = uploadedFiles.map((f, i) => `
+    <div class="step-row">
+      <div class="step-num">${i+1}</div>
+      <input type="text" id="step_instr_${i}" placeholder="What should the agent do here? e.g. Click the Deploy button" style="margin:0">
+    </div>`).join('');
+  actions.style.display = 'block';
+}
+
+// ══════════════════════════════════════════════════════
+//  Generate workflow JSON
+// ══════════════════════════════════════════════════════
+function exportWorkflow() {
+  const name = document.getElementById('wfName').value.trim().replace(/\s+/g,'_');
+  if (!name) { toast('Enter a workflow name first', 'error'); return; }
+  if (!uploadedFiles.length) { toast('Upload screenshots first', 'error'); return; }
+
+  const steps = uploadedFiles.map((f, i) => {
+    const instr = (document.getElementById('step_instr_' + i)?.value || '').trim()
+                  || `Perform step ${i+1}`;
+    return {
+      step: i + 1,
+      screenshot: f.name,
+      instruction: instr,
+      action: {
+        action_type: "click",
+        intent: instr,
+        labels: [instr.replace(/click\s+/i,'').replace(/type\s+/i,'').trim()],
+        position_hint: "anywhere",
+        trained_x: 0,
+        trained_y: 0,
+        confidence: 0.0,
+        reasoning: "Coordinates not yet trained — run python main.py --teach to analyse screenshots"
+      }
+    };
+  });
+
+  const workflow = {
+    workflow_name: name,
+    version: "1.0",
+    total_steps: steps.length,
+    taught_at: new Date().toISOString(),
+    note: "Run 'python main.py --teach' to have Claude Vision analyse screenshots and fill in real coordinates",
+    steps
+  };
+
+  const json = JSON.stringify(workflow, null, 2);
+  document.getElementById('jsonOut').value = json;
+  document.getElementById('jsonCard').style.display = 'block';
+
+  const log = document.getElementById('teachLog');
+  log.style.display = 'block';
+  log.innerHTML = `<span class="gold">✓ Workflow JSON generated for '${name}' (${steps.length} steps)</span>\n\nNext steps:\n1. Save the JSON below as: workflows/${name}.json\n2. Put your screenshots in: teach/screenshots_input/\n3. Run: python main.py --teach\n   → Claude Vision will analyse each screenshot and fill in real coordinates\n\nOr skip training and run in AI mode (Claude finds elements live):\n   python main.py --run-workflow ${name} --mode smart`;
+
+  toast('✓ Workflow JSON ready — save it to workflows/' + name + '.json', 'success');
+  document.getElementById('jsonCard').scrollIntoView({behavior:'smooth'});
+}
+
+function copyJSON() {
+  navigator.clipboard.writeText(document.getElementById('jsonOut').value);
+  toast('Copied to clipboard!', 'success');
+}
+
+function downloadJSON() {
+  const name = document.getElementById('wfName').value.trim().replace(/\s+/g,'_') || 'workflow';
+  const blob = new Blob([document.getElementById('jsonOut').value], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name + '.json';
+  a.click();
+  toast('Downloaded ' + name + '.json', 'success');
+}
+
+// ══════════════════════════════════════════════════════
+//  Run tab
+// ══════════════════════════════════════════════════════
+function loadWorkflowFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      loadedWorkflow = JSON.parse(e.target.result);
+      document.getElementById('wfLoadedName').textContent = '📋 ' + loadedWorkflow.workflow_name;
+      document.getElementById('wfLoadedMeta').textContent =
+        `${loadedWorkflow.total_steps} steps · taught ${(loadedWorkflow.taught_at||'').slice(0,10)}`;
+      document.getElementById('loadedWF').style.display = 'block';
+      toast('Loaded: ' + loadedWorkflow.workflow_name, 'success');
+    } catch(err) { toast('Invalid JSON file', 'error'); }
+  };
+  reader.readAsText(file);
+}
+
+function previewLoadedWF() {
+  if (!loadedWorkflow) return;
+  showModal(loadedWorkflow.workflow_name, loadedWorkflow.steps);
+}
+
+function runWorkflow(mode) {
+  if (!loadedWorkflow) { toast('Load a workflow JSON file first', 'error'); return; }
+  const varText = document.getElementById('runVars').value.trim();
+  const vars = {};
+  varText.split('\n').forEach(line => {
+    const [k,...rest] = line.split('=');
+    if (k && rest.length) vars['{{' + k.trim() + '}}'] = rest.join('=').trim();
+  });
+  const selectedMode = document.getElementById('runMode').value;
+  const finalMode = mode || selectedMode;
+
+  const log = document.getElementById('runLog');
+  log.style.display = 'block';
+
+  const modeLabel = finalMode === 'fast'
+    ? '⚡ Fast Mode — Training Only (zero API calls)'
+    : '🤖 AI Mode — Claude Vision active';
+
+  log.innerHTML = `<span class="gold">▶ Workflow: ${loadedWorkflow.workflow_name}</span>
+<span class="info">Mode: ${modeLabel}</span>
+<span class="info">Steps: ${loadedWorkflow.total_steps}</span>
+
+<span style="color:#555">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+⚠ This dashboard previews the workflow.
+  To actually RUN it on your desktop, open a terminal and type:
+
+<span class="gold">  python main.py --run-workflow ${loadedWorkflow.workflow_name} --mode ${finalMode}</span>
+${Object.keys(vars).length ? '  ' + Object.entries(vars).map(([k,v])=>`--var ${k.slice(2,-2)}=${v}`).join(' ') : ''}
+<span style="color:#555">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+
+Steps that will execute:
+${loadedWorkflow.steps.map(s=>`  ${s.step}. [${(s.action||{}).action_type||'?'}]  ${s.instruction}`).join('\n')}`;
+}
+
+// ══════════════════════════════════════════════════════
+//  Library tab
+// ══════════════════════════════════════════════════════
+function loadLibraryFiles(input) {
+  const files = Array.from(input.files);
+  const container = document.getElementById('wfLibrary');
+  container.innerHTML = '';
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wf = JSON.parse(e.target.result);
+        container.innerHTML += `
+          <div class="wf-card" style="margin-bottom:12px">
+            <div class="wf-title">📋 ${wf.workflow_name}</div>
+            <div class="wf-meta">
+              <span class="badge badge-steps">${wf.total_steps} steps</span>
+              <span>Taught: ${(wf.taught_at||'').slice(0,10)||'unknown'}</span>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-fast btn-sm" onclick="logRunCmd('${wf.workflow_name}','fast')">⚡ Fast cmd</button>
+              <button class="btn btn-ai btn-sm" onclick="logRunCmd('${wf.workflow_name}','smart')">🤖 AI cmd</button>
+              <button class="btn btn-ghost btn-sm" onclick='previewSteps(${JSON.stringify(wf.steps).replace(/'/g,"\\'")},"${wf.workflow_name}")'>👁 Preview</button>
+            </div>
+          </div>`;
+      } catch(err) { toast('Invalid JSON: ' + file.name, 'error'); }
+    };
+    reader.readAsText(file);
+  });
+}
+
+function logRunCmd(name, mode) {
+  toast(`python main.py --run-workflow ${name} --mode ${mode}`, 'success');
+}
+
+// ══════════════════════════════════════════════════════
+//  Modal
+// ══════════════════════════════════════════════════════
+function showModal(title, steps) {
+  document.getElementById('modalTitle').textContent = title + ' — ' + steps.length + ' steps';
+  document.getElementById('modalBody').innerHTML = steps.map(s => {
+    const act = s.action || {};
+    const coord = act.trained_x ? `<span class="sp-coord"> (${act.trained_x}, ${act.trained_y})</span>` : '';
+    return `<div class="step-preview">
+      <span class="sp-num">${s.step}</span>
+      <div>
+        <div>${s.instruction}</div>
+        <div style="margin-top:3px">
+          <span class="sp-type">${act.action_type||'?'}</span>${coord}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('modal').classList.add('show');
+}
+
+function previewSteps(steps, title) { showModal(title, steps); }
+
+function previewImg(i) {
+  const f = uploadedFiles[i];
+  document.getElementById('modalTitle').textContent = f.name;
+  document.getElementById('modalBody').innerHTML = `<img src="${f.dataUrl}" style="width:100%;border-radius:8px">`;
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+</script>
+</body>
+</html>
