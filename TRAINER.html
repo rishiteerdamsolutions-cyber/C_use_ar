@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Web Agency Trainer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#c9a96e;--bg:#0d0d0d;--bg2:#141414;--bg3:#1c1c1c;
+  --text:#e8e8e8;--muted:#777;--border:#252525;--ok:#86efac;--err:#f87171;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;
+     min-height:100vh;display:flex;flex-direction:column}
+
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 28px;border-bottom:1px solid var(--border);
+  background:var(--bg2)
+}
+.logo{font-size:1rem;font-weight:700;color:var(--gold);display:flex;align-items:center;gap:8px}
+.logo span{font-size:.75rem;background:#1a1400;border:1px solid #3a2a00;
+           color:var(--gold);padding:3px 10px;border-radius:12px;font-weight:400}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#3a3a3a;transition:background .3s}
+.status-dot.ok{background:#86efac}
+.status-dot.err{background:#f87171}
+#server-status{font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:7px}
+
+/* ── TABS ── */
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg2);padding:0 28px}
+.tab{padding:14px 22px;cursor:pointer;font-size:.88rem;color:var(--muted);
+     border-bottom:2px solid transparent;transition:all .2s;font-weight:500}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* ── MAIN ── */
+main{flex:1;padding:32px 28px;max-width:900px;width:100%}
+
+/* ── PANELS ── */
+.panel{display:none}.panel.active{display:block}
+
+/* ── TEACH PANEL ── */
+.section-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;
+               color:var(--muted);margin-bottom:14px}
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
+.card h3{font-size:.95rem;margin-bottom:6px}
+.card p{font-size:.84rem;color:var(--muted);margin-bottom:16px;line-height:1.6}
+
+/* DROPZONE */
+.dropzone{
+  border:2px dashed var(--border);border-radius:10px;padding:40px 20px;
+  text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:14px
+}
+.dropzone:hover,.dropzone.drag{border-color:var(--gold)}
+.dropzone .icon{font-size:2rem;margin-bottom:10px}
+.dropzone p{color:var(--muted);font-size:.85rem}
+.dropzone strong{color:var(--text)}
+#file-list{margin-bottom:14px}
+.file-item{display:flex;align-items:center;gap:10px;padding:8px 12px;
+           background:var(--bg2);border-radius:7px;margin-bottom:6px;font-size:.84rem}
+.file-thumb{width:40px;height:30px;object-fit:cover;border-radius:4px;background:#222}
+.file-name{flex:1;color:var(--muted)}
+.file-desc{flex:2}
+.file-desc input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);
+                 color:var(--text);padding:4px 0;font-size:.84rem;outline:none}
+.file-desc input:focus{border-bottom-color:var(--gold)}
+.file-rm{cursor:pointer;color:var(--muted);padding:4px 8px;border-radius:4px}
+.file-rm:hover{color:var(--err)}
+
+label.field-label{display:block;font-size:.75rem;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+input.field,select.field{
+  width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);
+  border-radius:8px;padding:10px 14px;font-size:.9rem;outline:none;margin-bottom:14px;transition:border-color .2s
+}
+input.field:focus,select.field:focus{border-color:var(--gold)}
+
+/* BUTTONS */
+.btn{padding:11px 24px;border-radius:8px;font-weight:700;font-size:.88rem;cursor:pointer;
+     border:none;transition:opacity .2s;display:inline-flex;align-items:center;gap:7px}
+.btn:hover:not(:disabled){opacity:.85}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-gold{background:var(--gold);color:#000}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-sm{padding:7px 14px;font-size:.8rem}
+
+/* RUN PANEL */
+.template-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.template-card{background:var(--bg3);border:2px solid var(--border);border-radius:10px;
+               padding:18px 14px;text-align:center;cursor:pointer;transition:border-color .2s}
+.template-card:hover,.template-card.selected{border-color:var(--gold)}
+.template-card .t-icon{font-size:1.8rem;margin-bottom:8px}
+.template-card .t-name{font-size:.88rem;font-weight:600}
+.template-card .t-sub{font-size:.72rem;color:var(--muted);margin-top:3px}
+
+.var-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* MODE TOGGLE */
+.mode-toggle{display:flex;gap:0;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px}
+.mode-btn{flex:1;padding:10px;text-align:center;cursor:pointer;font-size:.84rem;color:var(--muted);transition:all .2s}
+.mode-btn.active{background:var(--gold);color:#000;font-weight:700}
+
+/* LOG */
+.log-box{background:#0a0a0a;border:1px solid var(--border);border-radius:8px;
+         padding:16px;font-family:'Courier New',monospace;font-size:.78rem;
+         height:220px;overflow-y:auto;line-height:1.7}
+.log-line{padding:1px 0}
+.log-ok{color:var(--ok)}.log-err{color:var(--err)}.log-info{color:var(--muted)}.log-step{color:var(--gold)}
+
+/* WORKFLOW LIST */
+.wf-item{display:flex;align-items:center;justify-content:space-between;
+         padding:12px 16px;background:var(--bg3);border-radius:8px;margin-bottom:8px}
+.wf-name{font-weight:600;font-size:.9rem}
+.wf-meta{font-size:.75rem;color:var(--muted)}
+.wf-actions{display:flex;gap:8px}
+
+/* ALERT */
+.alert{border-radius:8px;padding:12px 16px;font-size:.85rem;margin-bottom:16px;display:none}
+.alert-ok{background:#0a2a12;border:1px solid #15532e;color:var(--ok)}
+.alert-err{background:#2a0a0a;border:1px solid #7f1d1d;color:var(--err)}
+
+/* PROGRESS BAR */
+.progress-wrap{background:var(--border);border-radius:4px;height:4px;margin:10px 0;display:none}
+.progress-bar{height:100%;background:var(--gold);border-radius:4px;transition:width .4s;width:0%}
+
+/* STEP INDICATOR */
+.steps-row{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.step-chip{padding:4px 10px;border-radius:12px;font-size:.72rem;background:var(--bg2);
+           border:1px solid var(--border);color:var(--muted)}
+.step-chip.done{background:#0a2a12;border-color:#15532e;color:var(--ok)}
+.step-chip.active{background:#1a1400;border-color:var(--gold);color:var(--gold)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ Web Agency Trainer <span>Training Engine</span></div>
+  <div id="server-status">
+    <div class="status-dot" id="dot"></div>
+    <span id="status-text">Connecting…</span>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('teach',this)">🎓 Teach</div>
+  <div class="tab" onclick="switchTab('run',this)">▶ Run</div>
+  <div class="tab" onclick="switchTab('workflows',this)">📋 Saved Workflows</div>
+</div>
+
+<main>
+
+<!-- ══════════════ TEACH PANEL ══════════════ -->
+<div class="panel active" id="panel-teach">
+
+  <div class="card">
+    <h3>Step 1 — Name your workflow</h3>
+    <p>Give this workflow a short name (e.g. <code>salon_build</code>, <code>deploy_vercel</code>).</p>
+    <label class="field-label">Workflow Name</label>
+    <input class="field" type="text" id="wf-name" placeholder="e.g. salon_build">
+  </div>
+
+  <div class="card">
+    <h3>Step 2 — Upload numbered screenshots</h3>
+    <p>Take screenshots of each step of your workflow. Name them <strong>1.png, 2.png, 3.png…</strong> or just upload in order — the agent numbers them automatically.</p>
+
+    <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()"
+         ondragover="event.preventDefault();this.classList.add('drag')"
+         ondragleave="this.classList.remove('drag')"
+         ondrop="handleDrop(event)">
+      <div class="icon">📸</div>
+      <p><strong>Click to upload</strong> or drag & drop screenshots here</p>
+      <p style="margin-top:6px;font-size:.75rem">PNG, JPG · Upload in order</p>
+    </div>
+    <input type="file" id="file-input" accept="image/*" multiple style="display:none" onchange="handleFiles(this.files)">
+
+    <div id="file-list"></div>
+  </div>
+
+  <div class="card">
+    <h3>Step 3 — Describe each step</h3>
+    <p>Write a short description of what each screenshot shows. Claude Vision uses this to understand the action.</p>
+    <div id="step-descriptions">
+      <p style="color:var(--muted);font-size:.84rem">Upload screenshots above to see the description fields.</p>
+    </div>
+  </div>
+
+  <div id="teach-alert" class="alert"></div>
+
+  <div class="progress-wrap" id="teach-progress-wrap">
+    <div class="progress-bar" id="teach-progress-bar"></div>
+  </div>
+
+  <div style="display:flex;gap:12px;align-items:center">
+    <button class="btn btn-gold" id="teach-btn" onclick="startTeach()" disabled>
+      🧠 Analyse & Save Workflow
+    </button>
+    <button class="btn btn-outline" onclick="clearTeach()">Clear</button>
+    <span id="teach-result" style="font-size:.82rem;color:var(--ok)"></span>
+  </div>
+
+  <div class="log-box" id="teach-log" style="margin-top:16px;display:none"></div>
+</div>
+
+
+<!-- ══════════════ RUN PANEL ══════════════ -->
+<div class="panel" id="panel-run">
+
+  <div class="card">
+    <h3>Select a template</h3>
+    <p>Choose what type of website to build for your client.</p>
+    <div class="template-grid" id="template-grid">
+      <div class="template-card selected" onclick="selectTemplate(this,'salon_build')">
+        <div class="t-icon">💇</div>
+        <div class="t-name">Salon</div>
+        <div class="t-sub">Beauty & Spa</div>
+      </div>
+      <div class="template-card" onclick="selectTemplate(this,'restaurant_build')">
+        <div class="t-icon">🍽️</div>
+        <div class="t-name">Restaurant</div>
+        <div class="t-sub">Café & Dining</div>
+      </div>
+      <div class="template-card" onclick="selectTemplate(this,'portfolio_build')">
+        <div class="t-icon">💼</div>
+        <div class="t-name">Portfolio</div>
+        <div class="t-sub">Freelancer</div>
+      </div>
+      <div class="template-card" onclick="selectTemplate(this,'ecommerce_build')">
+        <div class="t-icon">🛒</div>
+        <div class="t-name">eCommerce</div>
+        <div class="t-sub">Online Store</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Client details</h3>
+    <p>These replace the <code>{{PLACEHOLDERS}}</code> in the workflow.</p>
+    <div class="var-row">
+      <div>
+        <label class="field-label">Client Business Name</label>
+        <input class="field" type="text" id="v-name" placeholder="Priya Beauty Studio">
+      </div>
+      <div>
+        <label class="field-label">City</label>
+        <input class="field" type="text" id="v-city" placeholder="Bangalore">
+      </div>
+      <div>
+        <label class="field-label">Phone Number</label>
+        <input class="field" type="text" id="v-phone" placeholder="9876543210">
+      </div>
+      <div>
+        <label class="field-label">Client Email</label>
+        <input class="field" type="text" id="v-email" placeholder="priya@salon.com">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Mode</h3>
+    <div class="mode-toggle">
+      <div class="mode-btn active" onclick="selectMode(this,'fast')">
+        ⚡ Fast (V1) — saved coordinates, zero API cost
+      </div>
+      <div class="mode-btn" onclick="selectMode(this,'smart')">
+        🤖 Smart (V2) — Claude Vision, AI-assisted
+      </div>
+    </div>
+  </div>
+
+  <div id="run-alert" class="alert"></div>
+
+  <div class="steps-row" id="run-steps"></div>
+
+  <div class="progress-wrap" id="run-progress-wrap">
+    <div class="progress-bar" id="run-progress-bar"></div>
+  </div>
+
+  <div style="display:flex;gap:12px;align-items:center">
+    <button class="btn btn-gold" id="run-btn" onclick="startRun()">
+      ▶ Run Workflow
+    </button>
+    <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--muted);cursor:pointer">
+      <input type="checkbox" id="dry-run" style="accent-color:var(--gold)"> Dry run (preview only)
+    </label>
+    <span id="live-url" style="font-size:.82rem"></span>
+  </div>
+
+  <div class="log-box" id="run-log" style="margin-top:16px"></div>
+</div>
+
+
+<!-- ══════════════ WORKFLOWS PANEL ══════════════ -->
+<div class="panel" id="panel-workflows">
+  <div class="card">
+    <h3>Saved Workflows</h3>
+    <p>All workflows you have taught the agent. Click Run to replay one.</p>
+    <div id="wf-list">
+      <p style="color:var(--muted);font-size:.84rem">Loading…</p>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+const API = 'http://localhost:7788';
+let selectedWorkflow = 'salon_build';
+let selectedMode = 'fast';
+let uploadedFiles = [];
+
+// ── Server health check ───────────────────────────────────────────────────────
+async function checkServer() {
+  try {
+    const r = await fetch(`${API}/health`, {signal: AbortSignal.timeout(2000)});
+    if (r.ok) {
+      document.getElementById('dot').className = 'status-dot ok';
+      document.getElementById('status-text').textContent = 'Server running';
+      return true;
+    }
+  } catch {}
+  document.getElementById('dot').className = 'status-dot err';
+  document.getElementById('status-text').textContent = 'Server offline — run: python dashboard.py';
+  return false;
+}
+checkServer();
+setInterval(checkServer, 8000);
+
+// ── Tab switch ────────────────────────────────────────────────────────────────
+function switchTab(name, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  el.classList.add('active');
+  if (name === 'workflows') loadWorkflows();
+}
+
+// ── File upload ───────────────────────────────────────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+}
+
+function handleFiles(files) {
+  const arr = Array.from(files).sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true}));
+  uploadedFiles = [...uploadedFiles, ...arr];
+  renderFileList();
+  document.getElementById('teach-btn').disabled = uploadedFiles.length === 0 || !document.getElementById('wf-name').value.trim();
+}
+
+function renderFileList() {
+  const list = document.getElementById('file-list');
+  const desc = document.getElementById('step-descriptions');
+  list.innerHTML = '';
+  desc.innerHTML = uploadedFiles.length ? '' : '<p style="color:var(--muted);font-size:.84rem">Upload screenshots above to see the description fields.</p>';
+
+  uploadedFiles.forEach((f, i) => {
+    const url = URL.createObjectURL(f);
+
+    // File list row
+    const row = document.createElement('div');
+    row.className = 'file-item';
+    row.innerHTML = `
+      <img class="file-thumb" src="${url}">
+      <span class="file-name">${i+1}. ${f.name}</span>
+      <span class="file-rm" onclick="removeFile(${i})">✕</span>`;
+    list.appendChild(row);
+
+    // Description field
+    const dRow = document.createElement('div');
+    dRow.style.cssText = 'margin-bottom:12px';
+    dRow.innerHTML = `
+      <label class="field-label">Step ${i+1} — ${f.name}</label>
+      <input class="field" type="text" id="desc-${i}"
+             placeholder="e.g. Click the New Project button in Cursor AI"
+             style="margin-bottom:0">`;
+    desc.appendChild(dRow);
+  });
+
+  document.getElementById('teach-btn').disabled =
+    uploadedFiles.length === 0 || !document.getElementById('wf-name').value.trim();
+}
+
+function removeFile(i) {
+  uploadedFiles.splice(i, 1);
+  renderFileList();
+}
+
+document.getElementById('wf-name').addEventListener('input', () => {
+  document.getElementById('teach-btn').disabled =
+    uploadedFiles.length === 0 || !document.getElementById('wf-name').value.trim();
+});
+
+// ── Teach ─────────────────────────────────────────────────────────────────────
+async function startTeach() {
+  const name = document.getElementById('wf-name').value.trim();
+  if (!name || uploadedFiles.length === 0) return;
+
+  const instructions = uploadedFiles.map((_, i) => ({
+    step: i + 1,
+    description: document.getElementById(`desc-${i}`)?.value || `Step ${i+1}`,
+  }));
+
+  const form = new FormData();
+  form.append('workflow_name', name);
+  form.append('instructions', JSON.stringify(instructions));
+  uploadedFiles.forEach(f => form.append('screenshots', f));
+
+  const btn = document.getElementById('teach-btn');
+  btn.disabled = true; btn.textContent = '🧠 Analysing…';
+
+  const logBox = document.getElementById('teach-log');
+  const pw = document.getElementById('teach-progress-wrap');
+  const pb = document.getElementById('teach-progress-bar');
+  logBox.style.display = 'block';
+  pw.style.display = 'block';
+  logBox.innerHTML = '';
+  pb.style.width = '0%';
+
+  addLog('teach-log', 'info', `Starting teach session: "${name}" · ${uploadedFiles.length} steps`);
+
+  try {
+    if (!await checkServer()) throw new Error('Server offline');
+
+    pb.style.width = '20%';
+    addLog('teach-log', 'info', 'Sending screenshots to Claude Vision…');
+    pb.style.width = '50%';
+
+    const res = await fetch(`${API}/teach`, { method:'POST', body: form });
+    pb.style.width = '80%';
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Teach failed');
+    }
+
+    const data = await res.json();
+    pb.style.width = '100%';
+
+    addLog('teach-log', 'ok', `✓ Workflow "${name}" saved successfully`);
+    addLog('teach-log', 'ok', `  Steps analysed: ${data.total_steps || uploadedFiles.length}`);
+    addLog('teach-log', 'info', `  File: workflows/${name}.json`);
+
+    showAlert('teach-alert', `✓ Workflow "${name}" saved! Switch to Run tab to test it.`, 'ok');
+    document.getElementById('teach-result').textContent = '✓ Saved';
+    loadWorkflows();
+
+  } catch(e) {
+    addLog('teach-log', 'err', `✗ Error: ${e.message}`);
+    showAlert('teach-alert', e.message, 'err');
+    pb.style.background = 'var(--err)';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🧠 Analyse & Save Workflow';
+}
+
+function clearTeach() {
+  uploadedFiles = [];
+  document.getElementById('file-list').innerHTML = '';
+  document.getElementById('step-descriptions').innerHTML =
+    '<p style="color:var(--muted);font-size:.84rem">Upload screenshots above to see the description fields.</p>';
+  document.getElementById('wf-name').value = '';
+  document.getElementById('teach-log').innerHTML = '';
+  document.getElementById('teach-log').style.display = 'none';
+  document.getElementById('teach-progress-wrap').style.display = 'none';
+  document.getElementById('teach-btn').disabled = true;
+  document.getElementById('teach-result').textContent = '';
+  hideAlert('teach-alert');
+}
+
+// ── Run ───────────────────────────────────────────────────────────────────────
+function selectTemplate(el, name) {
+  document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedWorkflow = name;
+}
+
+function selectMode(el, mode) {
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  selectedMode = mode;
+}
+
+async function startRun() {
+  const variables = {
+    '{{CLIENT_NAME}}': document.getElementById('v-name').value || 'My Client',
+    '{{CITY}}':        document.getElementById('v-city').value || 'India',
+    '{{PHONE}}':       document.getElementById('v-phone').value || '',
+    '{{EMAIL}}':       document.getElementById('v-email').value || '',
+  };
+  const dryRun = document.getElementById('dry-run').checked;
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.textContent = dryRun ? '🔍 Previewing…' : '▶ Running…';
+
+  const logBox = document.getElementById('run-log');
+  const pw = document.getElementById('run-progress-wrap');
+  const pb = document.getElementById('run-progress-bar');
+  pw.style.display = 'block';
+  pb.style.width = '0%'; pb.style.background = 'var(--gold)';
+  logBox.innerHTML = '';
+  document.getElementById('live-url').textContent = '';
+  document.getElementById('run-steps').innerHTML = '';
+  hideAlert('run-alert');
+
+  addLog('run-log', 'info', `Workflow: ${selectedWorkflow} · Mode: ${selectedMode}${dryRun?' · DRY RUN':''}`);
+  addLog('run-log', 'info', `Client: ${variables['{{CLIENT_NAME}}']}, ${variables['{{CITY}}']}`);
+
+  try {
+    if (!await checkServer()) throw new Error('Server offline — run: python dashboard.py');
+
+    pb.style.width = '10%';
+    addLog('run-log', 'step', '→ Loading workflow…');
+
+    const res = await fetch(`${API}/run`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        workflow_name: selectedWorkflow,
+        mode: selectedMode,
+        variables,
+        dry_run: dryRun,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.detail || 'Run failed');
+
+    pb.style.width = '100%';
+
+    // Render steps
+    if (data.steps) {
+      const stepsRow = document.getElementById('run-steps');
+      data.steps.forEach((s, i) => {
+        const chip = document.createElement('div');
+        chip.className = 'step-chip done';
+        chip.textContent = `✓ ${s.name || 'Step '+(i+1)}`;
+        stepsRow.appendChild(chip);
+      });
+    }
+
+    addLog('run-log', 'ok', `✓ Workflow completed`);
+    if (data.live_url) {
+      addLog('run-log', 'ok', `  🌐 Live URL: ${data.live_url}`);
+      document.getElementById('live-url').innerHTML =
+        `<a href="${data.live_url}" target="_blank" style="color:var(--gold)">🌐 ${data.live_url}</a>`;
+    }
+    if (data.duration_seconds) {
+      addLog('run-log', 'info', `  ⏱ Duration: ${data.duration_seconds}s`);
+    }
+
+    showAlert('run-alert', dryRun ? '✓ Dry run complete — no actions executed' : '✓ Workflow completed successfully!', 'ok');
+
+  } catch(e) {
+    addLog('run-log', 'err', `✗ ${e.message}`);
+    showAlert('run-alert', e.message, 'err');
+    pb.style.background = 'var(--err)';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '▶ Run Workflow';
+}
+
+// ── Workflows list ────────────────────────────────────────────────────────────
+async function loadWorkflows() {
+  const el = document.getElementById('wf-list');
+  el.innerHTML = '<p style="color:var(--muted);font-size:.84rem">Loading…</p>';
+  try {
+    const r = await fetch(`${API}/workflows`);
+    const data = await r.json();
+    const wfs = data.workflows || [];
+    if (!wfs.length) {
+      el.innerHTML = '<p style="color:var(--muted);font-size:.84rem">No workflows yet. Go to the Teach tab to create one.</p>';
+      return;
+    }
+    el.innerHTML = '';
+    wfs.forEach(w => {
+      const d = document.createElement('div');
+      d.className = 'wf-item';
+      d.innerHTML = `
+        <div>
+          <div class="wf-name">${w.name}</div>
+          <div class="wf-meta">${w.total_steps || '?'} steps · ${w.mode || 'any'} mode</div>
+        </div>
+        <div class="wf-actions">
+          <button class="btn btn-gold btn-sm" onclick="quickRun('${w.name}')">▶ Run</button>
+          <button class="btn btn-outline btn-sm" onclick="deleteWf('${w.name}')">Delete</button>
+        </div>`;
+      el.appendChild(d);
+    });
+  } catch {
+    el.innerHTML = '<p style="color:var(--muted);font-size:.84rem">Could not load workflows — is the server running?</p>';
+  }
+}
+
+function quickRun(name) {
+  selectedWorkflow = name;
+  switchTab('run', document.querySelectorAll('.tab')[1]);
+  document.querySelectorAll('.template-card').forEach(c => {
+    if (c.onclick?.toString().includes(name)) c.classList.add('selected');
+    else c.classList.remove('selected');
+  });
+}
+
+async function deleteWf(name) {
+  if (!confirm(`Delete workflow "${name}"?`)) return;
+  try {
+    await fetch(`${API}/workflow/${name}`, {method:'DELETE'});
+    loadWorkflows();
+  } catch(e) { alert('Delete failed: ' + e.message); }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function addLog(boxId, type, text) {
+  const box = document.getElementById(boxId);
+  const line = document.createElement('div');
+  line.className = `log-line log-${type}`;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = `alert alert-${type}`;
+  el.style.display = 'block';
+}
+function hideAlert(id) { document.getElementById(id).style.display = 'none'; }
+</script>
+</body>
+</html>
