@@ -18,6 +18,8 @@ env/
 
 # Secrets — NEVER commit these
 .env
+.env.local
+.env.*.local
 *.env
 config/config_cache.json
 license.key
@@ -29,6 +31,10 @@ dist/
 # Logs and sessions
 logs/
 sessions/*.json
+
+# Local trainer captures / saved workflows (keep out of git by default)
+screenshots/
+workflows/
 
 # OS
 .DS_Store

@@ -1,0 +1,3 @@
+# Vercel serverless: API only (no pyautogui / desktop stack)
+-r requirements-api.txt
+mangum>=0.17.0

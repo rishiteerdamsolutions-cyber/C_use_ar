@@ -9,6 +9,15 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import unquote
 
+try:
+    from dotenv import load_dotenv  # type: ignore
+
+    _env_root = Path(__file__).resolve().parent
+    load_dotenv(_env_root / ".env.local")
+    load_dotenv(_env_root / ".env")
+except Exception:
+    pass
+
 BASE_DIR        = Path(__file__).parent
 WORKFLOWS_DIR   = BASE_DIR / "workflows"
 SCREENSHOTS_DIR = BASE_DIR / "screenshots"
