@@ -58,6 +58,13 @@ class ExecutionEngine:
                 "pyautogui not installed — run: pip install pyautogui"
             ) from exc
 
+    @staticmethod
+    def _primary_mod() -> str:
+        """command on macOS, ctrl on Windows/Linux."""
+        import platform
+
+        return "command" if platform.system() == "Darwin" else "ctrl"
+
     # ── Click ──────────────────────────────────────────────────────────────────
     def click(self, x: int, y: int, confidence: float) -> None:
         """
@@ -104,7 +111,7 @@ class ExecutionEngine:
             clear_first: Select-all + delete before typing (default True).
         """
         if clear_first:
-            self._pg.hotkey("ctrl", "a")
+            self._pg.hotkey(self._primary_mod(), "a")
             time.sleep(0.1)
             self._pg.press("delete")
             time.sleep(0.1)
@@ -129,20 +136,29 @@ class ExecutionEngine:
         """
         import pyperclip                        # type: ignore
 
-        self._pg.hotkey("ctrl", "a")
+        mod = self._primary_mod()
+        self._pg.hotkey(mod, "a")
         time.sleep(0.2)
-        self._pg.hotkey("ctrl", "c")
+        self._pg.hotkey(mod, "c")
         time.sleep(0.3)
 
         text: str = pyperclip.paste()
         logger.info("Copied %d characters from clipboard", len(text))
         return text
 
-    def paste(self) -> None:
-        """Paste clipboard content into the current focus."""
-        self._pg.hotkey("ctrl", "v")
+    def copy_selection(self) -> None:
+        """Copy the current selection to the clipboard (⌘C / Ctrl+C). Selection must already be active."""
+        mod = self._primary_mod()
+        logger.info("Copy selection (%s+C)", mod)
+        self._pg.hotkey(mod, "c")
         time.sleep(ACTION_PAUSE)
-        logger.debug("Paste executed")
+
+    def paste(self) -> None:
+        """Paste clipboard content into the current focus (⌘V / Ctrl+V)."""
+        mod = self._primary_mod()
+        logger.info("Paste (%s+V)", mod)
+        self._pg.hotkey(mod, "v")
+        time.sleep(ACTION_PAUSE)
 
     def set_clipboard(self, text: str) -> None:
         """Write text to clipboard without typing it."""

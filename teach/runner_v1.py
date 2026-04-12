@@ -224,6 +224,14 @@ class RunnerV1:
                 self._executor.shortcut(*hotkey_keys)
                 return True, "hotkey", ""
 
+            elif act_type == "copy":
+                self._executor.copy_selection()
+                return True, "copy", ""
+
+            elif act_type == "paste":
+                self._executor.paste()
+                return True, "paste", ""
+
             elif act_type == "scroll":
                 hint = action.get("position_hint", "down").lower()
                 if "up" in hint:
@@ -272,5 +280,7 @@ class RunnerV1:
             "open_url": f"→ {action.get('url','')}",
             "scroll":   f"→ {action.get('position_hint','down')}",
             "wait":     f"→ {action.get('wait_seconds',1)}s",
+            "copy":     "→ ⌘C / Ctrl+C",
+            "paste":    "→ ⌘V / Ctrl+V",
         }.get(act_type, "→ ?")
         print(f"    [DRY RUN]  {act_type}  {details}\n")

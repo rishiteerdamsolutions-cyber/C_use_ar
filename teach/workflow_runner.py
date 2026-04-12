@@ -186,6 +186,15 @@ class WorkflowRunner:
                 self._executor.shortcut(*hotkey_keys)
                 return True, "hotkey"
 
+            # ── copy / paste (selection / clipboard) ────────────────────────────
+            elif act_type == "copy":
+                self._executor.copy_selection()
+                return True, "copy"
+
+            elif act_type == "paste":
+                self._executor.paste()
+                return True, "paste"
+
             # ── scroll ────────────────────────────────────────────────────────
             elif act_type == "scroll":
                 if "up" in pos_hint.lower():

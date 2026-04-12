@@ -1,362 +1,880 @@
 """
-Training Engine Server — Autonomous Web Agency
-Serves the TRAINER.html dashboard and handles teach/run API calls.
-
-Run:
-    python dashboard.py
-    → open http://localhost:7788 in your browser
+Training Engine Server — Web Agency Trainer
+Run: python3 dashboard.py
+Open: http://localhost:7788
 """
-
-from __future__ import annotations
-
-import json
-import os
-import shutil
-import tempfile
-import threading
-import webbrowser
+import json, os, re, shutil, tempfile, threading, webbrowser, datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Optional
+from urllib.parse import unquote
 
-BASE_DIR      = Path(__file__).parent
-WORKFLOWS_DIR = BASE_DIR / "workflows"
-PORT          = 7788
-
+BASE_DIR        = Path(__file__).parent
+WORKFLOWS_DIR   = BASE_DIR / "workflows"
+SCREENSHOTS_DIR = BASE_DIR / "screenshots"
 WORKFLOWS_DIR.mkdir(exist_ok=True)
+SCREENSHOTS_DIR.mkdir(exist_ok=True)
+PORT = 7788
+
+# Click-step vision: OpenAI and/or Anthropic (see analyse_screenshot_for_click).
+def _vision_keys_available() -> bool:
+    return bool(
+        (os.environ.get("OPENAI_API_KEY") or "").strip()
+        or (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+    )
 
 
-# ─── Multipart parser ─────────────────────────────────────────────────────────
+def _trainer_vision_provider() -> str:
+    v = (os.environ.get("TRAINER_VISION_PROVIDER") or "auto").strip().lower()
+    return v if v in ("openai", "anthropic", "auto") else "auto"
 
-def _parse_multipart(body: bytes, boundary: str) -> dict:
-    """Simple multipart/form-data parser — returns {field: value or [bytes]}."""
-    result: dict[str, Any] = {}
+
+def _capture_screen_png(path: Path) -> None:
+    """Save a full-screen PNG for runtime vision (same monitors as mss/PIL in vision_engine)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        import mss  # type: ignore
+        import mss.tools  # type: ignore
+
+        with mss.mss() as sct:
+            mon = sct.monitors[0]
+            raw = sct.grab(mon)
+            mss.tools.to_png(raw.rgb, raw.size, output=str(path))
+    except ImportError:
+        from PIL import ImageGrab  # type: ignore
+
+        ImageGrab.grab().save(str(path))
+
+
+def _trainer_use_live_vision_click(step: dict, x: int, y: int) -> bool:
+    """
+    Use OpenAI/Anthropic on a fresh full-screen capture at run time instead of saved x,y.
+
+    True when:
+      - TRAINER_LIVE_VISION_CLICKS=1 — every click step uses live vision
+      - step['live_vision'] is true — per-step checkbox in the trainer
+      - saved coordinates are (0,0) and a vision API key is set — automatic fallback
+    """
+    if (os.environ.get("TRAINER_LIVE_VISION_CLICKS") or "").strip().lower() in ("1", "true", "yes"):
+        return True
+    if step.get("live_vision") or step.get("use_live_vision"):
+        return True
+    if (x or 0) == 0 and (y or 0) == 0 and _vision_keys_available():
+        return True
+    return False
+
+# Serialize all workflow JSON read-modify-write (concurrent Add Step clicks used to drop steps).
+_WORKFLOW_IO_LOCK = threading.Lock()
+
+
+def _mac_automation_hint() -> str:
+    """What to tell users when clicks/typing do nothing on macOS."""
+    return (
+        "macOS is probably blocking automation. Open System Settings → Privacy & Security → "
+        "Accessibility, and enable the app that actually runs the server — usually Cursor.app "
+        "(if you started python3 from Cursor's terminal) or Terminal.app. Also enable Python "
+        "if it appears separately in the list. If keys/paste still fail, add the same app under "
+        "Input Monitoring. Restart the trainer after toggling. Run: python3 dashboard.py "
+        "(avoid double-clicking .py files; that bounces Python in the Dock)."
+    )
+
+
+def _mac_shell_context_hint() -> Optional[str]:
+    """Detect editor-integrated terminal — users often enable the wrong .app for Accessibility."""
+    term = (os.environ.get("TERM_PROGRAM") or "").strip().lower()
+    in_cursor = bool(os.environ.get("CURSOR_TRACE_ID") or os.environ.get("CURSOR_AGENT"))
+    if in_cursor or term in ("vscode", "cursor"):
+        return (
+            "This shell is inside Cursor or VS Code (integrated terminal). "
+            "Enable Accessibility (and Input Monitoring) for Cursor.app or Visual Studio Code.app — "
+            "enabling Terminal.app alone will NOT fix automation started from here."
+        )
+    return None
+
+
+def _mac_typing_troubleshooting() -> str:
+    return (
+        "Typing still blocked on Mac? Check: (1) Accessibility + Input Monitoring for the app that "
+        "started python3 (Cursor if you use its terminal). (2) Secure Input: close ANY password field "
+        "or Keychain prompt in any app — it blocks synthetic keys everywhere until dismissed. "
+        "(3) Click the target field in a dry run first; the Type step sends Cmd+A then Cmd+V. "
+        "(4) Chrome: ensure the address bar or field is focused before Type runs."
+    )
+
+
+def _darwin_pbcopy(text: str) -> None:
+    """Put UTF-8 text on the macOS pasteboard (more reliable than pyperclip for paste)."""
+    import subprocess
+
+    proc = subprocess.run(
+        ["pbcopy"],
+        input=text.encode("utf-8"),
+        capture_output=True,
+    )
+    if proc.returncode != 0:
+        err = proc.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"pbcopy failed ({proc.returncode}): {err or 'no stderr'}")
+
+
+def _darwin_select_all_paste_system_events() -> None:
+    """Cmd+A then Cmd+V via System Events — works when PyAutoGUI key events are blocked."""
+    import subprocess
+    import time
+
+    script = (
+        'tell application "System Events"\n'
+        '  keystroke "a" using command down\n'
+        "  delay 0.22\n"
+        '  keystroke "v" using command down\n'
+        "end tell\n"
+    )
+    proc = subprocess.run(
+        ["osascript", "-e", script],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if proc.returncode != 0:
+        err = (proc.stderr or proc.stdout or "").strip()
+        raise RuntimeError(err or "osascript System Events keystroke failed")
+    time.sleep(0.35)
+
+
+def _type_via_clipboard_pyautogui(pyautogui_mod, text: str, darwin: bool) -> None:
+    """Select-all then paste from clipboard (Cmd/Ctrl+A, Cmd/Ctrl+V)."""
+    import time
+
+    if darwin:
+        _darwin_pbcopy(text)
+    else:
+        import pyperclip  # type: ignore
+
+        pyperclip.copy(text)
+    time.sleep(0.28)
+    if darwin:
+        pyautogui_mod.hotkey("command", "a")
+    else:
+        pyautogui_mod.hotkey("ctrl", "a")
+    time.sleep(0.22)
+    if darwin:
+        pyautogui_mod.hotkey("command", "v")
+    else:
+        pyautogui_mod.hotkey("ctrl", "v")
+    time.sleep(0.4)
+
+
+def _type_via_write_ascii(pyautogui_mod, text: str, darwin: bool) -> None:
+    """Fallback: type printable ASCII with pyautogui (no clipboard). Newlines as Enter."""
+    import time
+
+    interval = 0.02
+    if darwin:
+        pyautogui_mod.hotkey("command", "a")
+    else:
+        pyautogui_mod.hotkey("ctrl", "a")
+    time.sleep(0.15)
+    pyautogui_mod.press("backspace")
+    time.sleep(0.1)
+    for ch in text:
+        if ch == "\n":
+            pyautogui_mod.press("enter")
+            time.sleep(0.05)
+        elif ch == "\r":
+            continue
+        elif ch == "\t":
+            pyautogui_mod.press("tab")
+            time.sleep(0.03)
+        elif 32 <= ord(ch) <= 126:
+            pyautogui_mod.write(ch, interval=interval)
+        else:
+            raise ValueError(f"non-ASCII character in fallback typing: {ch!r}")
+    time.sleep(0.2)
+
+
+def parse_multipart(body: bytes, boundary: str) -> dict:
+    result = {}
     sep = ("--" + boundary).encode()
-    parts = body.split(sep)
-    for part in parts[1:]:
-        if part.strip() in (b"", b"--", b"--\r\n"):
+    for part in body.split(sep)[1:]:
+        if not part.strip() or part.strip() == b"--":
             continue
         if b"\r\n\r\n" not in part:
             continue
-        header_raw, _, data = part.partition(b"\r\n\r\n")
-        data = data.rstrip(b"\r\n--")
-        headers = header_raw.decode(errors="ignore")
-        # Extract field name
-        name = ""
-        filename = ""
-        for tok in headers.split(";"):
-            tok = tok.strip()
-            if tok.startswith("name="):
-                name = tok[5:].strip('"')
-            elif tok.startswith("filename="):
-                filename = tok[9:].strip('"')
-        if not name:
+        header_bytes, _, data = part.partition(b"\r\n\r\n")
+        # Strip only trailing CRLF from the part (never strip "-" — can corrupt binary uploads).
+        while data.endswith(b"\r\n"):
+            data = data[:-2]
+        headers = header_bytes.decode(errors="ignore")
+        cd = next((l for l in headers.splitlines() if "Content-Disposition" in l), "")
+        nm = re.search(r'name="([^"]+)"', cd)
+        fn = re.search(r'filename="([^"]+)"', cd)
+        if not nm:
             continue
-        if filename:
+        name = nm.group(1)
+        if fn:
+            filename = fn.group(1).strip()
             result.setdefault(name, []).append({"filename": filename, "data": data})
         else:
             result[name] = data.decode(errors="utf-8")
     return result
 
 
-# ─── Request handler ──────────────────────────────────────────────────────────
+def save_workflow(name, steps):
+    """Save workflow JSON from trained steps."""
+    import datetime
+    wf = {
+        "workflow_name": name,
+        "total_steps": len(steps),
+        "taught_at": datetime.datetime.utcnow().isoformat(),
+        "steps": steps,
+    }
+    path = WORKFLOWS_DIR / f"{name}.json"
+    path.write_text(json.dumps(wf, indent=2))
+    return path
+
+
+def run_workflow(name, dry_run=False):
+    """Load workflow and replay each step using pyautogui."""
+    import time, subprocess
+    path = WORKFLOWS_DIR / f"{name}.json"
+    if not path.exists():
+        raise FileNotFoundError(f"Workflow '{name}' not found")
+    wf = json.loads(path.read_text())
+    steps = wf.get("steps", [])
+    results = []
+    for step in steps:
+        action = step.get("action_type") or step.get("action", "click")
+        x      = step.get("x") or step.get("trained_x", 0)
+        y      = step.get("y") or step.get("trained_y", 0)
+        desc   = step.get("description", f"Step {step.get('step','')}")
+        if dry_run:
+            if action == "click" and _trainer_use_live_vision_click(step, int(x or 0), int(y or 0)):
+                print(f"  [DRY RUN] Step {step.get('step')}: click — LIVE VISION (fresh screen + API) — {desc}")
+            else:
+                print(f"  [DRY RUN] Step {step.get('step')}: {action} — {desc}")
+            results.append({"step": step.get("step"), "action": action, "status": "dry_run"})
+            time.sleep(0.1)
+            continue
+        try:
+            import pyautogui
+            pyautogui.FAILSAFE = True
+            time.sleep(0.6)
+            if action == "minimize":
+                import platform
+                if platform.system() == "Darwin":
+                    pyautogui.hotkey("command", "m")
+                else:
+                    pyautogui.hotkey("win", "down")
+                print(f"  ✓ Step {step.get('step')}: Minimized window")
+            elif action == "maximize":
+                import platform
+                if platform.system() == "Darwin":
+                    pyautogui.hotkey("ctrl", "command", "f")   # fullscreen on Mac
+                else:
+                    pyautogui.hotkey("win", "up")              # maximize on Windows
+                print(f"  ✓ Step {step.get('step')}: Maximized window")
+            elif action == "open_chrome":
+                import platform
+                sys_name = platform.system()
+                if sys_name == "Darwin":
+                    subprocess.Popen(["open", "-a", "Google Chrome"])
+                elif sys_name == "Windows":
+                    subprocess.Popen(["start", "chrome"], shell=True)
+                else:  # Linux
+                    subprocess.Popen(["google-chrome"])
+                time.sleep(1.5)
+                print(f"  ✓ Step {step.get('step')}: Opened Chrome")
+            elif action == "press_enter":
+                pyautogui.press("enter")
+                print(f"  ✓ Step {step.get('step')}: Pressed Enter — {desc}")
+            elif action == "copy":
+                import platform as _plat
+
+                if _plat.system() == "Darwin":
+                    pyautogui.hotkey("command", "c")
+                else:
+                    pyautogui.hotkey("ctrl", "c")
+                time.sleep(0.28)
+                print(f"  ✓ Step {step.get('step')}: Copy (selection → clipboard) — {desc}")
+            elif action == "paste":
+                import platform as _plat
+
+                if _plat.system() == "Darwin":
+                    pyautogui.hotkey("command", "v")
+                else:
+                    pyautogui.hotkey("ctrl", "v")
+                time.sleep(0.35)
+                print(f"  ✓ Step {step.get('step')}: Paste (clipboard → focus) — {desc}")
+            elif action == "open_url":
+                import webbrowser
+
+                raw = (step.get("url") or "").strip()
+                if not raw:
+                    raise ValueError("open_url step missing url")
+                url = raw
+                if not re.match(r"^[a-zA-Z][-a-zA-Z0-9+.]*:", url):
+                    url = "https://" + url.lstrip("/")
+                webbrowser.open(url)
+                time.sleep(1.0)
+                print(f"  ✓ Step {step.get('step')}: Open URL — {url}")
+            elif action == "type":
+                import platform as _plat
+
+                text = step.get("type_text")
+                if text is None:
+                    text = step.get("description") or ""
+                if not text:
+                    raise ValueError("type step has empty type_text")
+                sysn = _plat.system()
+                darwin = sysn == "Darwin"
+
+                activate = (os.environ.get("TRAINER_ACTIVATE_APP") or "").strip()
+                if darwin and activate:
+                    subprocess.run(
+                        ["osascript", "-e", f'tell application "{activate}" to activate'],
+                        check=False,
+                        capture_output=True,
+                    )
+                    time.sleep(float(os.environ.get("TRAINER_ACTIVATE_DELAY", "0.5")))
+
+                if darwin:
+                    time.sleep(0.45)
+
+                old_pause = getattr(pyautogui, "PAUSE", 0.1)
+                try:
+                    pyautogui.PAUSE = 0.05
+                    try:
+                        _type_via_clipboard_pyautogui(pyautogui, text, darwin)
+                    except Exception as paste_err:
+                        if darwin and os.environ.get(
+                            "TRAINER_NO_OSASCRIPT_TYPE", ""
+                        ).strip().lower() not in ("1", "true", "yes"):
+                            try:
+                                _darwin_pbcopy(text)
+                                _darwin_select_all_paste_system_events()
+                                print("      (used System Events for Cmd+A / Cmd+V after PyAutoGUI failed)")
+                            except Exception as ose:
+                                paste_err = ose
+                            else:
+                                paste_err = None
+                        if paste_err is not None:
+                            try:
+                                text.encode("ascii")
+                            except UnicodeEncodeError:
+                                raise RuntimeError(
+                                    f"Paste typing failed ({paste_err!r}). Text is not ASCII-only, "
+                                    "so key-by-key fallback cannot run. Fix macOS Accessibility / paste."
+                                ) from paste_err
+                            print(f"      (paste failed {paste_err!r}; retrying ASCII keystrokes)")
+                            _type_via_write_ascii(pyautogui, text, darwin)
+                finally:
+                    pyautogui.PAUSE = old_pause
+
+                print(f"  ✓ Step {step.get('step')}: Typed {len(text)} character(s)")
+            elif action == "hotkey":
+                keys = desc.replace("+", " ").split()
+                pyautogui.hotkey(*keys)
+                print(f"  ✓ Step {step.get('step')}: Hotkey {desc}")
+            else:  # click
+                ix, iy = int(x or 0), int(y or 0)
+                use_live = _trainer_use_live_vision_click(step, ix, iy)
+                if use_live:
+                    if not _vision_keys_available():
+                        raise ValueError(
+                            "Live vision click needs OPENAI_API_KEY or ANTHROPIC_API_KEY in the environment"
+                        )
+                    if not (desc or "").strip():
+                        raise ValueError("Click step needs a description so vision knows what to find")
+                    cap_path = SCREENSHOTS_DIR / "_runtime_vision_last.png"
+                    time.sleep(float(os.environ.get("TRAINER_LIVE_VISION_DELAY", "0.35") or "0.35"))
+                    _capture_screen_png(cap_path)
+                    coords = analyse_screenshot_for_click(cap_path, desc)
+                    ix = int(coords.get("x") or 0)
+                    iy = int(coords.get("y") or 0)
+                    if ix == 0 and iy == 0:
+                        raise ValueError(
+                            "Live vision returned (0,0) — improve the step description or check the screen"
+                        )
+                    print(
+                        f"  ◆ Step {step.get('step')}: Live vision → ({ix},{iy}) "
+                        f"conf={coords.get('confidence', '?')} — {desc}"
+                    )
+                elif ix == 0 and iy == 0:
+                    raise ValueError(
+                        "Click has no saved coordinates — enable “Live screen at run” for this step, "
+                        "set TRAINER_LIVE_VISION_CLICKS=1, or re-save the step with a vision API key"
+                    )
+                pyautogui.click(ix, iy)
+                if not use_live:
+                    print(f"  ✓ Step {step.get('step')}: Clicked ({ix},{iy}) — {desc}")
+            results.append({"step": step.get("step"), "action": action, "status": "ok"})
+        except Exception as e:
+            print(f"  ✗ Step {step.get('step')}: {e}")
+            import platform as _pf
+
+            if _pf.system() == "Darwin":
+                print(f"      ℹ {_mac_automation_hint()}")
+                if action == "type":
+                    print(f"      ℹ {_mac_typing_troubleshooting()}")
+                    sh = _mac_shell_context_hint()
+                    if sh:
+                        print(f"      ℹ {sh}")
+            results.append({"step": step.get("step"), "action": action, "status": "error", "error": str(e)})
+    return results
+
+
+_CLICK_VISION_PROMPT = (
+    "Return JSON only: {\"x\": <pixel_x>, \"y\": <pixel_y>, \"action\": \"click\", \"confidence\": <0-1>}\n"
+    "x,y = center of the element to click. No markdown, no extra text."
+)
+
+
+def _parse_click_json(raw: str) -> dict:
+    m = re.search(r"\{.*\}", raw, re.DOTALL)
+    return json.loads(m.group()) if m else {"x": 0, "y": 0, "action": "click", "confidence": 0}
+
+
+def _analyse_click_openai(image_path: Path, description: str) -> dict:
+    """GPT-4o (or TRAINER_OPENAI_VISION_MODEL) → click center from screenshot."""
+    import base64
+
+    from openai import OpenAI
+
+    key = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    if not key:
+        raise ValueError("OPENAI_API_KEY not set")
+
+    img_b64 = base64.standard_b64encode(image_path.read_bytes()).decode()
+    ext = image_path.suffix.lstrip(".").lower()
+    mime = "image/jpeg" if ext in ("jpg", "jpeg") else "image/png"
+    model = (os.environ.get("TRAINER_OPENAI_VISION_MODEL") or "gpt-4o").strip()
+    client = OpenAI(api_key=key)
+    user_text = f"This screenshot shows: {description}\n\n{_CLICK_VISION_PROMPT}"
+    r = client.chat.completions.create(
+        model=model,
+        max_tokens=256,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_b64}"}},
+                    {"type": "text", "text": user_text},
+                ],
+            }
+        ],
+    )
+    raw = (r.choices[0].message.content or "").strip()
+    return _parse_click_json(raw)
+
+
+def _analyse_click_anthropic(image_path: Path, description: str) -> dict:
+    """Claude Vision → click center from screenshot."""
+    import anthropic
+    import base64
+
+    key = (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+    if not key:
+        raise ValueError("ANTHROPIC_API_KEY not set")
+
+    client = anthropic.Anthropic(api_key=key)
+    img_b64 = base64.standard_b64encode(image_path.read_bytes()).decode()
+    ext = image_path.suffix.lstrip(".")
+    media = f"image/{'jpeg' if ext in ('jpg', 'jpeg') else 'png'}"
+    model = (os.environ.get("TRAINER_ANTHROPIC_VISION_MODEL") or "claude-3-5-sonnet-20241022").strip()
+    msg = client.messages.create(
+        model=model,
+        max_tokens=256,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {"type": "base64", "media_type": media, "data": img_b64}},
+                    {
+                        "type": "text",
+                        "text": f"This screenshot shows: {description}\n\n{_CLICK_VISION_PROMPT}",
+                    },
+                ],
+            }
+        ],
+    )
+    raw = msg.content[0].text.strip()
+    return _parse_click_json(raw)
+
+
+def analyse_screenshot_for_click(image_path: Path, description: str) -> dict:
+    """
+    Find click coordinates from a step screenshot using OpenAI and/or Anthropic.
+
+    TRAINER_VISION_PROVIDER:
+      - auto (default): OpenAI if OPENAI_API_KEY is set, else Anthropic; on OpenAI failure, Anthropic if set.
+      - openai: require OPENAI_API_KEY
+      - anthropic: require ANTHROPIC_API_KEY
+    """
+    prov = _trainer_vision_provider()
+    has_oai = bool((os.environ.get("OPENAI_API_KEY") or "").strip())
+    has_ant = bool((os.environ.get("ANTHROPIC_API_KEY") or "").strip())
+
+    if prov == "openai":
+        if not has_oai:
+            raise ValueError("TRAINER_VISION_PROVIDER=openai but OPENAI_API_KEY is not set")
+        return _analyse_click_openai(image_path, description)
+
+    if prov == "anthropic":
+        if not has_ant:
+            raise ValueError("TRAINER_VISION_PROVIDER=anthropic but ANTHROPIC_API_KEY is not set")
+        return _analyse_click_anthropic(image_path, description)
+
+    # auto
+    if has_oai:
+        try:
+            return _analyse_click_openai(image_path, description)
+        except Exception as e:
+            if has_ant:
+                print(f"  ⚠ OpenAI vision failed ({e}); trying Anthropic…")
+                return _analyse_click_anthropic(image_path, description)
+            raise
+    if has_ant:
+        return _analyse_click_anthropic(image_path, description)
+    raise ValueError("Set OPENAI_API_KEY and/or ANTHROPIC_API_KEY for click training")
+
 
 class Handler(BaseHTTPRequestHandler):
-
     def log_message(self, fmt, *args):
-        print(f"  [{self.client_address[0]}] {fmt % args}")
+        print(f"  {fmt % args}")
 
-    # ── CORS + JSON helpers ───────────────────────────────────────────────────
-
-    def _send_json(self, data: dict, status: int = 200):
+    def _json(self, data, status=200, no_cache: bool = False):
         body = json.dumps(data).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _send_html(self, path: Path):
-        body = path.read_bytes()
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
+        if no_cache:
+            self.send_header("Cache-Control", "no-store, must-revalidate")
         self.end_headers()
         self.wfile.write(body)
 
     def do_OPTIONS(self):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
-    # ── GET ───────────────────────────────────────────────────────────────────
-
     def do_GET(self):
-        path = self.path.split("?")[0]
-
-        # Serve TRAINER.html as root
-        if path in ("/", "/index.html"):
-            html_file = BASE_DIR / "TRAINER.html"
-            if html_file.exists():
-                self._send_html(html_file)
-            else:
-                self._send_json({"error": "TRAINER.html not found"}, 404)
-            return
-
-        # Health check
-        if path == "/health":
-            self._send_json({"status": "ok", "version": "1.0"})
-            return
-
-        # List workflows
-        if path == "/workflows":
+        p = self.path.split("?")[0]
+        if p in ("/", "/index.html"):
+            html = BASE_DIR / "TRAINER.html"
+            body = html.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(body)
+        elif p == "/health":
+            self._json({"status": "ok"})
+        elif p == "/workflows":
             wfs = []
-            for p in sorted(WORKFLOWS_DIR.glob("*.json")):
+            for f in sorted(WORKFLOWS_DIR.glob("*.json")):
                 try:
-                    data = json.loads(p.read_text())
-                    wfs.append({
-                        "name":        p.stem,
-                        "total_steps": data.get("total_steps", 0),
-                        "taught_at":   data.get("taught_at", ""),
-                        "mode":        data.get("mode", "any"),
-                    })
+                    d = json.loads(f.read_text())
+                    wfs.append({"name": f.stem, "total_steps": d.get("total_steps", 0)})
                 except Exception:
                     pass
-            # Also list encrypted workflows
-            for p in sorted(WORKFLOWS_DIR.glob("*.enc")):
-                wfs.append({"name": p.stem, "total_steps": "?", "mode": "encrypted"})
-            self._send_json({"workflows": wfs})
-            return
-
-        # Get single workflow
-        if path.startswith("/workflow/"):
-            name = path[len("/workflow/"):]
-            wf_path = WORKFLOWS_DIR / f"{name}.json"
-            if wf_path.exists():
-                self._send_json(json.loads(wf_path.read_text()))
-            else:
-                self._send_json({"error": "not found"}, 404)
-            return
-
-        self._send_json({"error": "not found"}, 404)
-
-    # ── DELETE ────────────────────────────────────────────────────────────────
+            self._json({"workflows": wfs}, no_cache=True)
+        elif p.startswith("/workflow/"):
+            name = unquote(p[len("/workflow/"):])
+            fp = WORKFLOWS_DIR / f"{name}.json"
+            self._json(
+                json.loads(fp.read_text()) if fp.exists() else {"error": "not found"},
+                200 if fp.exists() else 404,
+                no_cache=True,
+            )
+        else:
+            self._json({"error": "not found"}, 404)
 
     def do_DELETE(self):
-        path = self.path.split("?")[0]
-        if path.startswith("/workflow/"):
-            name = path[len("/workflow/"):]
-            deleted = False
-            for ext in (".json", ".enc"):
-                p = WORKFLOWS_DIR / (name + ext)
-                if p.exists():
-                    p.unlink()
-                    deleted = True
-            self._send_json({"deleted": deleted})
-            return
-        self._send_json({"error": "not found"}, 404)
-
-    # ── POST ──────────────────────────────────────────────────────────────────
+        p = self.path.split("?")[0]
+        if "/step/" in p and p.startswith("/workflow/"):
+            # DELETE /workflow/<name>/step/<num>
+            parts = p.split("/step/")
+            wf_name = unquote(parts[0][len("/workflow/"):])
+            try:
+                step_num = int(parts[1])
+            except (ValueError, IndexError):
+                self._json({"error": "invalid step"}, 400); return
+            fp = WORKFLOWS_DIR / f"{wf_name}.json"
+            if not fp.exists():
+                self._json({"error": "not found"}, 404); return
+            with _WORKFLOW_IO_LOCK:
+                wf = json.loads(fp.read_text())
+                wf["steps"] = [s for s in wf["steps"] if s.get("step") != step_num]
+                for i, s in enumerate(wf["steps"], 1):
+                    s["step"] = i
+                wf["total_steps"] = len(wf["steps"])
+                fp.write_text(json.dumps(wf, indent=2))
+                n = len(wf["steps"])
+            self._json({"deleted": True, "total_steps": n})
+        elif p.startswith("/workflow/"):
+            name = unquote(p[len("/workflow/"):])
+            fp = WORKFLOWS_DIR / f"{name}.json"
+            if fp.exists():
+                fp.unlink()
+                self._json({"deleted": True})
+            else:
+                self._json({"error": "not found"}, 404)
+        else:
+            self._json({"error": "not found"}, 404)
 
     def do_POST(self):
-        path = self.path.split("?")[0]
-        length = int(self.headers.get("Content-Length", 0))
-        body   = self.rfile.read(length) if length else b""
-        ct     = self.headers.get("Content-Type", "")
+        import traceback
+        p       = self.path.split("?")[0]
+        length  = int(self.headers.get("Content-Length", 0))
+        body    = self.rfile.read(length)
+        ct      = self.headers.get("Content-Type", "")
 
-        # ── POST /teach ───────────────────────────────────────────────────────
-        if path == "/teach":
+        # ── TEACH ────────────────────────────────────────────────────────────
+        if p == "/teach":
             try:
-                boundary = ""
-                for part in ct.split(";"):
-                    part = part.strip()
-                    if part.startswith("boundary="):
-                        boundary = part[9:].strip('"')
-                if not boundary:
-                    self._send_json({"error": "No boundary in multipart"}, 400)
-                    return
-
-                fields = _parse_multipart(body, boundary)
+                bnd = re.search(r'boundary=([^\s;]+)', ct)
+                if not bnd:
+                    self._json({"error": "no boundary"}, 400); return
+                fields       = parse_multipart(body, bnd.group(1))
                 wf_name      = fields.get("workflow_name", "untitled").strip()
                 instructions = json.loads(fields.get("instructions", "[]"))
                 screenshots  = fields.get("screenshots", [])
-
-                if not wf_name:
-                    self._send_json({"error": "workflow_name required"}, 400)
-                    return
                 if not screenshots:
-                    self._send_json({"error": "No screenshots uploaded"}, 400)
-                    return
+                    self._json({"error": "no screenshots"}, 400); return
 
-                # Save screenshots to temp dir
-                tmp_dir = Path(tempfile.mkdtemp())
-                saved_paths = []
-                for i, sc in enumerate(screenshots):
-                    fname = sc.get("filename", f"{i+1}.png")
-                    fpath = tmp_dir / fname
-                    fpath.write_bytes(sc["data"])
-                    saved_paths.append(fpath)
-
-                # Map instructions
                 inst_map = {item["step"]: item["description"] for item in instructions}
+                tmp = Path(tempfile.mkdtemp())
+                saved = []
+                for i, sc in enumerate(screenshots):
+                    fname = re.sub(r'[^\w\-_. ]', '_', sc["filename"]) or f"{i+1}.png"
+                    fp = tmp / fname
+                    fp.write_bytes(sc["data"])
+                    saved.append((i + 1, fp, inst_map.get(i + 1, f"Step {i+1}")))
 
-                # Run teach in background thread (returns immediately with job ID)
-                def _do_teach():
-                    try:
-                        from teach.screenshot_teacher import teach_from_folder
-                        result = teach_from_folder(
-                            workflow_name=wf_name,
-                            screenshot_folder=tmp_dir,
-                            instructions=[inst_map.get(i+1, f"Step {i+1}") for i in range(len(saved_paths))],
-                        )
-                        print(f"  ✓ Taught workflow: {wf_name} ({result.get('total_steps', 0)} steps)")
-                    except Exception as e:
-                        print(f"  ✗ Teach error: {e}")
-                        # Fallback: save a basic workflow JSON without Vision analysis
-                        _save_basic_workflow(wf_name, saved_paths, inst_map, tmp_dir)
-                    finally:
-                        shutil.rmtree(tmp_dir, ignore_errors=True)
+                def _teach():
+                    steps = []
+                    for step_num, img_path, desc in saved:
+                        try:
+                            result = analyse_screenshot_for_click(img_path, desc)
+                            steps.append({
+                                "step":        step_num,
+                                "description": desc,
+                                "x":           result.get("x", 0),
+                                "y":           result.get("y", 0),
+                                "action":      result.get("action", "click"),
+                                "confidence":  result.get("confidence", 0),
+                            })
+                            print(f"  ✓ Step {step_num} analysed: ({result.get('x')},{result.get('y')})")
+                        except Exception as e:
+                            print(f"  ✗ Step {step_num} error: {e}")
+                            steps.append({"step": step_num, "description": desc,
+                                          "x": 0, "y": 0, "action": "click", "confidence": 0})
+                    with _WORKFLOW_IO_LOCK:
+                        save_workflow(wf_name, steps)
+                    shutil.rmtree(tmp, ignore_errors=True)
+                    print(f"  ✓ Workflow '{wf_name}' saved ({len(steps)} steps)")
 
-                threading.Thread(target=_do_teach, daemon=True).start()
-
-                self._send_json({
-                    "status":      "teaching",
-                    "workflow_name": wf_name,
-                    "total_steps": len(saved_paths),
-                    "message":     f"Teaching '{wf_name}' from {len(saved_paths)} screenshots…",
-                })
-
+                threading.Thread(target=_teach, daemon=True).start()
+                self._json({"status": "teaching", "workflow_name": wf_name,
+                            "total_steps": len(saved)})
             except Exception as e:
-                self._send_json({"error": str(e)}, 500)
-            return
+                traceback.print_exc()
+                self._json({"error": str(e)}, 500)
 
-        # ── POST /run ─────────────────────────────────────────────────────────
-        if path == "/run":
+        # ── TEACH ONE STEP ───────────────────────────────────────────────────
+        elif p == "/teach/step":
             try:
-                data         = json.loads(body)
-                wf_name      = data.get("workflow_name", "")
-                mode         = data.get("mode", "fast")
-                variables    = data.get("variables", {})
-                dry_run      = data.get("dry_run", False)
-
-                if not wf_name:
-                    self._send_json({"error": "workflow_name required"}, 400)
-                    return
-
-                # Check workflow exists
-                json_path = WORKFLOWS_DIR / f"{wf_name}.json"
-                enc_path  = WORKFLOWS_DIR / f"{wf_name}.enc"
-                if not json_path.exists() and not enc_path.exists():
-                    available = [p.stem for p in WORKFLOWS_DIR.glob("*.json")]
-                    available += [p.stem for p in WORKFLOWS_DIR.glob("*.enc")]
-                    self._send_json({
-                        "error": f"Workflow '{wf_name}' not found. Available: {available}"
-                    }, 404)
-                    return
-
-                # Run in thread, wait for result
-                result_holder: dict = {}
-                done_event = threading.Event()
-
-                def _do_run():
-                    try:
-                        os.environ.setdefault("APP_MODE", "development")
-                        if mode == "fast":
-                            from teach.runner_v1 import RunnerV1
-                            runner = RunnerV1(wf_name, dry_run=dry_run)
-                        else:
-                            from teach.workflow_runner import WorkflowRunner
-                            runner = WorkflowRunner(wf_name, dry_run=dry_run)
-
-                        success = runner.run(variables=variables)
-                        result_holder["success"] = success
-                        result_holder["steps"] = []  # TODO: collect step results
-
-                    except Exception as e:
-                        result_holder["error"] = str(e)
-                    finally:
-                        done_event.set()
-
-                t = threading.Thread(target=_do_run, daemon=True)
-                t.start()
-
-                # Wait up to 5 min
-                done_event.wait(timeout=300)
-
-                if "error" in result_holder:
-                    self._send_json({"error": result_holder["error"]}, 500)
+                bnd = re.search(r'boundary=([^\s;]+)', ct)
+                if not bnd:
+                    self._json({"error": "no boundary"}, 400); return
+                fields      = parse_multipart(body, bnd.group(1))
+                wf_name     = fields.get("workflow_name", "").strip()
+                description = fields.get("description", "").strip()
+                action_type = fields.get("action_type", "click").strip()
+                type_text   = fields.get("type_text", "")
+                url_field   = fields.get("url", "")
+                if isinstance(type_text, str):
+                    type_text = type_text.replace("\r\n", "\n")
                 else:
-                    self._send_json({
-                        "success":     result_holder.get("success", False),
-                        "workflow":    wf_name,
-                        "mode":        mode,
-                        "dry_run":     dry_run,
-                        "steps":       result_holder.get("steps", []),
-                        "live_url":    result_holder.get("live_url", ""),
-                        "duration_seconds": result_holder.get("duration", 0),
-                    })
+                    type_text = ""
+                if isinstance(url_field, str):
+                    open_url = url_field.strip()
+                else:
+                    open_url = ""
+                if not wf_name:
+                    self._json({"error": "workflow_name required"}, 400); return
+                if action_type == "type" and not type_text:
+                    self._json({"error": "type_text required for type action"}, 400); return
+                if action_type == "open_url" and not open_url:
+                    self._json({"error": "url required for open_url action"}, 400); return
 
+                live_vis = str(fields.get("live_vision", "")).strip().lower() in ("1", "true", "yes")
+                screenshots_early = fields.get("screenshot", [])
+                if action_type == "click" and not screenshots_early and live_vis and not description:
+                    self._json(
+                        {"error": "Describe what to click — live vision uses this text at run time"},
+                        400,
+                    )
+                    return
+                if action_type == "click" and not screenshots_early and not live_vis:
+                    self._json(
+                        {
+                            "error": "Click step: upload a training screenshot, or enable "
+                            "“Live screen at run” to find the target on the real screen when you Run."
+                        },
+                        400,
+                    )
+                    return
+
+                with _WORKFLOW_IO_LOCK:
+                    # Load or create workflow
+                    wf_path = WORKFLOWS_DIR / f"{wf_name}.json"
+                    if wf_path.exists():
+                        wf = json.loads(wf_path.read_text())
+                    else:
+                        wf = {"workflow_name": wf_name, "steps": [],
+                              "taught_at": datetime.datetime.utcnow().isoformat()}
+                    if not isinstance(wf.get("steps"), list):
+                        wf["steps"] = []
+                    step_num = len(wf["steps"]) + 1
+
+                    step = {
+                        "step": step_num,
+                        "action_type": action_type,
+                        "description": description,
+                        "x": 0, "y": 0,
+                        "status": "saved"
+                    }
+                    if action_type == "type":
+                        step["type_text"] = type_text
+                        preview = type_text.replace("\n", " ").strip()
+                        if len(preview) > 100:
+                            preview = preview[:97] + "..."
+                        step["description"] = preview or "Type text"
+                    elif action_type == "open_url":
+                        step["url"] = open_url
+                        step["description"] = open_url if len(open_url) <= 120 else open_url[:117] + "..."
+
+                    if action_type == "click":
+                        step["live_vision"] = live_vis
+                        screenshots = fields.get("screenshot", [])
+                        if screenshots:
+                            img_data = screenshots[0]["data"]
+                            img_path = SCREENSHOTS_DIR / f"{wf_name}_step{step_num}.png"
+                            img_path.write_bytes(img_data)
+                            step["screenshot"] = img_path.name
+                            if _vision_keys_available():
+                                try:
+                                    coords = analyse_screenshot_for_click(img_path, description)
+                                    step["x"] = coords.get("x", 0)
+                                    step["y"] = coords.get("y", 0)
+                                    step["status"] = "analysed"
+                                    print(
+                                        f"  ✓ Step {step_num} analysed: ({step['x']},{step['y']}) — {description}"
+                                    )
+                                except Exception as ve:
+                                    print(f"  ⚠ Vision failed step {step_num}: {ve}")
+                                    step["status"] = "saved_no_vision"
+                            else:
+                                step["status"] = "saved_no_api_key"
+                                print(
+                                    f"  ⚠ No OPENAI_API_KEY / ANTHROPIC_API_KEY — step {step_num} "
+                                    "saved without coordinates"
+                                )
+                        else:
+                            # live_vis only: no training image — OpenAI finds target on live screen at run
+                            step["x"] = 0
+                            step["y"] = 0
+                            step["status"] = "live_vision_run"
+                            print(f"  ✓ Step {step_num} saved: click (live vision at run) — {description}")
+                    elif action_type != "click":
+                        # Non-click actions don't need coordinates
+                        step["status"] = "saved"
+                        if action_type == "open_url":
+                            print(f"  ✓ Step {step_num} saved: open_url — {open_url}")
+                        else:
+                            print(f"  ✓ Step {step_num} saved: {action_type} — {description}")
+
+                    wf["steps"].append(step)
+                    wf["total_steps"] = len(wf["steps"])
+                    wf_path.write_text(json.dumps(wf, indent=2))
+                    out = {
+                        "success": True, "step": step_num,
+                        "total_steps": len(wf["steps"]),
+                        "x": step["x"], "y": step["y"],
+                        "status": step["status"],
+                    }
+                self._json(out)
             except Exception as e:
-                self._send_json({"error": str(e)}, 500)
-            return
+                traceback.print_exc()
+                self._json({"error": str(e)}, 500)
 
-        self._send_json({"error": "unknown endpoint"}, 404)
+        # ── DELETE ONE STEP ───────────────────────────────────────────────────
+        elif p.startswith("/workflow/") and "/step/" in p:
+            # handled in do_DELETE
+            self._json({"error": "use DELETE method"}, 405)
 
+        # ── RUN ──────────────────────────────────────────────────────────────
+        elif p == "/run":
+            try:
+                data    = json.loads(body)
+                name    = data.get("workflow_name", "")
+                dry_run = data.get("dry_run", False)
+                if not name:
+                    self._json({"error": "workflow_name required"}, 400); return
+                results = run_workflow(name, dry_run=dry_run)
+                self._json({"success": True, "steps": results})
+            except FileNotFoundError as e:
+                self._json({"error": str(e)}, 404)
+            except Exception as e:
+                traceback.print_exc()
+                self._json({"error": str(e)}, 500)
 
-# ─── Basic workflow fallback (no Claude Vision) ───────────────────────────────
-
-def _save_basic_workflow(name: str, screenshots: list, inst_map: dict, tmp_dir: Path):
-    """Save a basic workflow JSON when Claude Vision is unavailable (dev/offline)."""
-    import datetime
-    steps = []
-    for i, sc in enumerate(screenshots):
-        steps.append({
-            "step":        i + 1,
-            "action_type": "click",
-            "intent":      inst_map.get(i + 1, f"Step {i+1}"),
-            "trained_x":   960,
-            "trained_y":   540,
-            "confidence":  0.0,
-            "screenshot":  sc.name,
-            "status":      "needs_vision_analysis",
-        })
-
-    wf = {
-        "workflow_name": name,
-        "total_steps":   len(steps),
-        "taught_at":     datetime.datetime.utcnow().isoformat(),
-        "mode":          "training_only",
-        "steps":         steps,
-        "note":          "Basic save — re-teach with ANTHROPIC_API_KEY set for full Vision analysis",
-    }
-    out = Path(__file__).parent / "workflows" / f"{name}.json"
-    out.parent.mkdir(exist_ok=True)
-    out.write_text(json.dumps(wf, indent=2))
-    print(f"  ⚠ Saved basic workflow (no Vision): {out}")
-
-
-# ─── Run ──────────────────────────────────────────────────────────────────────
-
-def run():
-    server = HTTPServer(("localhost", PORT), Handler)
-    print(f"\n{'━'*50}")
-    print(f"  ⚡ Web Agency Trainer — running on port {PORT}")
-    print(f"  Open:  http://localhost:{PORT}")
-    print(f"  Stop:  Ctrl+C")
-    print(f"{'━'*50}\n")
-    try:
-        webbrowser.open(f"http://localhost:{PORT}")
-    except Exception:
-        pass
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\n  Server stopped.")
+        else:
+            self._json({"error": "not found"}, 404)
 
 
 if __name__ == "__main__":
-    run()
+    import platform as _platform
+    import sys as _sys
+
+    server = HTTPServer(("localhost", PORT), Handler)
+    print(f"\n{'━'*50}")
+    print(f"  ⚡ Web Agency Trainer  →  http://localhost:{PORT}")
+    print(f"  Stop: Ctrl+C")
+    _o = bool((os.environ.get("OPENAI_API_KEY") or "").strip())
+    _a = bool((os.environ.get("ANTHROPIC_API_KEY") or "").strip())
+    print(
+        f"  Click training vision: TRAINER_VISION_PROVIDER={_trainer_vision_provider()} "
+        f"· OPENAI_API_KEY={'yes' if _o else 'no'} · ANTHROPIC_API_KEY={'yes' if _a else 'no'}"
+    )
+    if not _o and not _a:
+        print("  ⚠ Set OPENAI_API_KEY and/or ANTHROPIC_API_KEY for vision (training + live-screen clicks).")
+    print(
+        "  Live vision at run: TRAINER_LIVE_VISION_CLICKS=1 (all clicks) · "
+        "TRAINER_LIVE_VISION_DELAY=0.35 (seconds before capture)"
+    )
+    if _platform.system() == "Darwin":
+        print(f"  Python executable: {_sys.executable}")
+        print(f"  macOS: {_mac_automation_hint()}")
+        ctx = _mac_shell_context_hint()
+        if ctx:
+            print(f"  {ctx}")
+        print(f"  Tip: TRAINER_NO_OPEN_BROWSER=1  → do not auto-open a browser tab on start")
+        print(
+            "  Tip: TRAINER_ACTIVATE_APP='Google Chrome'  → activate that app before each Type step "
+            "(helps focus)"
+        )
+    print(f"{'━'*50}\n")
+    if os.environ.get("TRAINER_NO_OPEN_BROWSER", "").strip().lower() not in ("1", "true", "yes"):
+        try:
+            webbrowser.open(f"http://localhost:{PORT}")
+        except Exception:
+            pass
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\n  Stopped.")
