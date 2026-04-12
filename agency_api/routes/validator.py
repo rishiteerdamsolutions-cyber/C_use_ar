@@ -11,8 +11,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from api.middleware import assert_credits, require_api_key
-from api.models import ENDPOINT_COSTS, ValidatePromptRequest, ValidatePromptResponse
+from agency_api.middleware import assert_credits, require_api_key
+from agency_api.models import ENDPOINT_COSTS, ValidatePromptRequest, ValidatePromptResponse
 
 router = APIRouter(prefix="/validate-prompt", tags=["Prompt Validator"])
 logger = logging.getLogger(__name__)
@@ -54,8 +54,8 @@ async def validate_prompt(
 
     duration = time.time() - t0
 
-    from api.keys import deduct_credits
-    from api.usage import log_call
+    from agency_api.keys import deduct_credits
+    from agency_api.usage import log_call
     _, remaining = deduct_credits(key_id, cost)
     log_call(
         key_id=key_id,

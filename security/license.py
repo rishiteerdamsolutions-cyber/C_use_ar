@@ -338,7 +338,7 @@ def create_license_server_handler():
         machine_id = body.get("machine_id", "")
 
         # Look up in MongoDB
-        from api.database import get_collection, Collections
+        from agency_api.database import get_collection, Collections
         col = get_collection(Collections.API_KEYS)
         record = col.find_one({"owner_email": email, "active": True})
 

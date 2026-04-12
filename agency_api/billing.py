@@ -123,8 +123,8 @@ def handle_webhook(raw_body: bytes, signature: str) -> dict[str, Any]:
 
 def _on_payment_captured(event: dict[str, Any]) -> dict[str, Any]:
     """Credit the API key wallet after confirmed payment."""
-    from api.models import CREDIT_PACKS
-    from api.keys import top_up_credits, get_key_by_id
+    from agency_api.models import CREDIT_PACKS
+    from agency_api.keys import top_up_credits, get_key_by_id
 
     try:
         payment = event["payload"]["payment"]["entity"]
@@ -195,7 +195,7 @@ def _save_billing_event(
     payment_id: Optional[str] = None,
 ) -> None:
     try:
-        from api.database import get_collection, Collections
+        from agency_api.database import get_collection, Collections
         col = get_collection(Collections.BILLING)
         col.insert_one({
             "event_type":  event_type,

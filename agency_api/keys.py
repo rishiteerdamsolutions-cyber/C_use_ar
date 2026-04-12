@@ -68,7 +68,7 @@ def create_key(
         raw_key — full key string to show the user (ONCE only)
         key_id  — MongoDB _id as string
     """
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
 
     raw_key, hashed = generate_api_key()
 
@@ -110,7 +110,7 @@ def validate_key(raw_key: str) -> Optional[dict[str, Any]]:
     Returns:
         Key document dict if valid and active, None otherwise.
     """
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
 
     if not raw_key or not raw_key.startswith("ak_"):
         return None
@@ -129,7 +129,7 @@ def validate_key(raw_key: str) -> Optional[dict[str, Any]]:
 
 def get_key_by_id(key_id: str) -> Optional[dict[str, Any]]:
     """Fetch a key document by its MongoDB _id string."""
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
     from bson import ObjectId  # type: ignore
 
     col = get_collection(Collections.API_KEYS)
@@ -138,7 +138,7 @@ def get_key_by_id(key_id: str) -> Optional[dict[str, Any]]:
 
 def suspend_key(key_id: str) -> bool:
     """Suspend an API key (blocks all future requests)."""
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
     from bson import ObjectId  # type: ignore
 
     col    = get_collection(Collections.API_KEYS)
@@ -157,7 +157,7 @@ def top_up_credits(key_id: str, credits: int, razorpay_payment_id: str) -> int:
     Returns:
         New total credits balance.
     """
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
     from bson import ObjectId  # type: ignore
 
     col = get_collection(Collections.API_KEYS)
@@ -190,7 +190,7 @@ def deduct_credits(key_id: str, amount: int) -> tuple[bool, int]:
         (success, remaining_credits)
         success=False if balance would go negative.
     """
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
     from bson import ObjectId  # type: ignore
 
     col = get_collection(Collections.API_KEYS)
@@ -233,7 +233,7 @@ def deduct_credits(key_id: str, amount: int) -> tuple[bool, int]:
 
 def get_usage_summary(key_id: str) -> dict[str, Any]:
     """Return usage stats for a given key_id."""
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
     from bson import ObjectId  # type: ignore
 
     col = get_collection(Collections.API_KEYS)

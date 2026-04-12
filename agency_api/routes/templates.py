@@ -13,8 +13,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.middleware import assert_credits, require_api_key
-from api.models import (
+from agency_api.middleware import assert_credits, require_api_key
+from agency_api.models import (
     ENDPOINT_COSTS,
     BuildWebsiteRequest,
     BuildWebsiteResponse,
@@ -127,8 +127,8 @@ async def build_website(
 
     duration = time.time() - t0
 
-    from api.keys import deduct_credits
-    from api.usage import log_call
+    from agency_api.keys import deduct_credits
+    from agency_api.usage import log_call
     _, remaining = deduct_credits(key_id, cost)
     log_call(
         key_id=key_id,

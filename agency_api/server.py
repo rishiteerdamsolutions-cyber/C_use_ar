@@ -3,7 +3,7 @@ FastAPI Server — Autonomous Web Agency Platform v1.0
 Entry point for the public REST API.
 
 Run locally:
-    uvicorn api.server:app --reload --port 8000
+    uvicorn agency_api.server:app --reload --port 8000
 
 Run via Docker:
     docker-compose up
@@ -21,8 +21,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api.middleware import global_exception_handler, logging_middleware
-from api.routes import billing, keys, templates, validator, workflows
+from agency_api.middleware import global_exception_handler, logging_middleware
+from agency_api.routes import billing, keys, templates, validator, workflows
 from whitelabel.api_routes import router as whitelabel_router
 from whitelabel.admin_panel.routes import router as admin_router
 from whitelabel.router import TenantMiddleware
@@ -32,7 +32,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(name)-30s  %(message)s",
 )
-logger = logging.getLogger("api.server")
+logger = logging.getLogger("agency_api.server")
 
 _START_TIME = time.time()
 VERSION     = (Path(__file__).parent.parent / "VERSION").read_text().strip()
@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
 
     # Verify MongoDB
     try:
-        from api.database import get_db
+        from agency_api.database import get_db
         get_db()
         logger.info("  ✓ MongoDB connected")
     except Exception as exc:
@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
 
     # Warm Redis
     try:
-        from api.rate_limiter import _get_redis
+        from agency_api.rate_limiter import _get_redis
         r = _get_redis()
         if r:
             logger.info("  ✓ Redis connected")
@@ -154,7 +154,7 @@ async def health():
 if __name__ == "__main__":
     import uvicorn  # type: ignore
     uvicorn.run(
-        "api.server:app",
+        "agency_api.server:app",
         host    = "0.0.0.0",
         port    = int(os.environ.get("PORT", "8000")),
         reload  = os.environ.get("ENV", "production") == "development",

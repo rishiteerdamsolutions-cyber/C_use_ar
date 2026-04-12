@@ -55,7 +55,7 @@ def create_tenant(
     Returns:
         tenant_id (MongoDB _id string)
     """
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
 
     col = get_collection(Collections.TENANTS)
 
@@ -95,7 +95,7 @@ def create_tenant(
 
 def get_tenant_by_subdomain(subdomain: str) -> Optional[dict[str, Any]]:
     """Look up a tenant by their subdomain."""
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
     col = get_collection(Collections.TENANTS)
     doc = col.find_one({"subdomain": subdomain.lower(), "status": "active"})
     if doc:
@@ -105,7 +105,7 @@ def get_tenant_by_subdomain(subdomain: str) -> Optional[dict[str, Any]]:
 
 def get_tenant_by_domain(custom_domain: str) -> Optional[dict[str, Any]]:
     """Look up a tenant by their custom domain (e.g. app.digitaledge.in)."""
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
     col = get_collection(Collections.TENANTS)
     doc = col.find_one({"custom_domain": custom_domain.lower(), "status": "active"})
     if doc:
@@ -114,7 +114,7 @@ def get_tenant_by_domain(custom_domain: str) -> Optional[dict[str, Any]]:
 
 
 def get_tenant_by_id(tenant_id: str) -> Optional[dict[str, Any]]:
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
     from bson import ObjectId  # type: ignore
     col = get_collection(Collections.TENANTS)
     doc = col.find_one({"_id": ObjectId(tenant_id)})
@@ -125,7 +125,7 @@ def get_tenant_by_id(tenant_id: str) -> Optional[dict[str, Any]]:
 
 def update_branding(tenant_id: str, branding_patch: dict[str, Any]) -> bool:
     """Patch branding fields for a tenant (logo, colours, etc.)."""
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
     from bson import ObjectId  # type: ignore
     col = get_collection(Collections.TENANTS)
     patch = {f"branding.{k}": v for k, v in branding_patch.items()}
@@ -136,7 +136,7 @@ def update_branding(tenant_id: str, branding_patch: dict[str, Any]) -> bool:
 
 def set_custom_domain(tenant_id: str, domain: str) -> bool:
     """Set a custom domain for a tenant (e.g. app.digitaledge.in)."""
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
     from bson import ObjectId  # type: ignore
     col    = get_collection(Collections.TENANTS)
     result = col.update_one(
@@ -149,7 +149,7 @@ def set_custom_domain(tenant_id: str, domain: str) -> bool:
 
 def suspend_tenant(tenant_id: str) -> bool:
     """Suspend a tenant (non-payment or policy violation)."""
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
     from bson import ObjectId  # type: ignore
     col    = get_collection(Collections.TENANTS)
     result = col.update_one(
@@ -162,7 +162,7 @@ def suspend_tenant(tenant_id: str) -> bool:
 
 def list_tenants(status: str = "active") -> list[dict[str, Any]]:
     """List all tenants (admin use)."""
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
     col  = get_collection(Collections.TENANTS)
     docs = list(col.find({"status": status}, sort=[("created_at", -1)]))
     for d in docs:

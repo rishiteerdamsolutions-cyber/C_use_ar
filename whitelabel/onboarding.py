@@ -44,8 +44,8 @@ def onboard_agency(
         {tenant_id, subdomain, portal_url, admin_api_key, message}
     """
     from whitelabel.tenant_config import create_tenant
-    from api.keys import create_key
-    from api.models import CREDIT_PACKS
+    from agency_api.keys import create_key
+    from agency_api.models import CREDIT_PACKS
 
     # ── 1. Create tenant ────────────────────────────────────────────────────
     tenant_id = create_tenant(
@@ -98,7 +98,7 @@ def create_whitelabel_order(agency_name: str, subdomain: str, owner_email: str) 
     Create a Razorpay order for the ₹9,999/mo white-label plan.
     Call this BEFORE onboard_agency — payment must succeed first.
     """
-    from api.billing import create_order
+    from agency_api.billing import create_order
 
     # Temporarily create a placeholder key_id for the order notes
     placeholder_id = f"wl_{subdomain}"

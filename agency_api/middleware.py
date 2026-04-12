@@ -31,8 +31,8 @@ async def require_api_key(
         async def run_wf(req: ..., key_doc=Depends(require_api_key)):
             credits_remaining = key_doc["credits_total"] - key_doc["credits_used"]
     """
-    from api.keys import validate_key
-    from api.rate_limiter import check_rate_limit
+    from agency_api.keys import validate_key
+    from agency_api.rate_limiter import check_rate_limit
 
     # 1. Validate key
     key_doc = validate_key(x_api_key)

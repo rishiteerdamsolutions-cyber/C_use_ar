@@ -10,8 +10,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.middleware import require_api_key
-from api.models import (
+from agency_api.middleware import require_api_key
+from agency_api.models import (
     CREDIT_PACKS,
     GenerateKeyRequest,
     GenerateKeyResponse,
@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
     ),
 )
 async def generate_key(req: GenerateKeyRequest) -> dict[str, Any]:
-    from api.keys import create_key
-    from api.models import CREDIT_PACKS
+    from agency_api.keys import create_key
+    from agency_api.models import CREDIT_PACKS
 
     pack_info = CREDIT_PACKS.get(req.pack)
     if not pack_info:
@@ -70,7 +70,7 @@ async def generate_key(req: GenerateKeyRequest) -> dict[str, Any]:
     summary="Get usage stats for your API key",
 )
 async def get_usage(key_doc: dict = Depends(require_api_key)) -> dict[str, Any]:
-    from api.keys import get_usage_summary
+    from agency_api.keys import get_usage_summary
     return get_usage_summary(str(key_doc["_id"]))
 
 

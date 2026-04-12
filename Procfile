@@ -1,1 +1,1 @@
-web: uvicorn api.server:app --host 0.0.0.0 --port $PORT --workers 2
+web: uvicorn agency_api.server:app --host 0.0.0.0 --port $PORT --workers 2

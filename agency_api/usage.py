@@ -39,7 +39,7 @@ def log_call(
     Returns:
         log_id (MongoDB inserted _id as string)
     """
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
 
     doc = {
         "key_id":             key_id,
@@ -75,7 +75,7 @@ def get_call_history(key_id: str, limit: int = 50) -> list[dict[str, Any]]:
     Returns:
         List of call log dicts, newest first.
     """
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
 
     col  = get_collection(Collections.USAGE)
     docs = col.find(
@@ -96,7 +96,7 @@ def get_platform_stats() -> dict[str, Any]:
     Returns:
         Dict with total_calls, total_credits_used, active_keys, etc.
     """
-    from api.database import get_collection, Collections
+    from agency_api.database import get_collection, Collections
 
     usage_col = get_collection(Collections.USAGE)
     keys_col  = get_collection(Collections.API_KEYS)

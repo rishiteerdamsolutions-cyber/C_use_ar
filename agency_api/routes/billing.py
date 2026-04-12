@@ -10,8 +10,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from api.middleware import require_api_key
-from api.models import CREDIT_PACKS, CreateOrderRequest, CreateOrderResponse
+from agency_api.middleware import require_api_key
+from agency_api.models import CREDIT_PACKS, CreateOrderRequest, CreateOrderResponse
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ async def create_order(
     req:     CreateOrderRequest,
     key_doc: dict = Depends(require_api_key),
 ) -> dict[str, Any]:
-    from api.billing import create_order as _create
+    from agency_api.billing import create_order as _create
 
     pack_info = CREDIT_PACKS.get(req.pack)
     if not pack_info:
@@ -70,7 +70,7 @@ async def create_order(
     include_in_schema=False,   # hide from public docs
 )
 async def razorpay_webhook(request: Request) -> dict[str, Any]:
-    from api.billing import handle_webhook
+    from agency_api.billing import handle_webhook
 
     raw_body  = await request.body()
     signature = request.headers.get("X-Razorpay-Signature", "")

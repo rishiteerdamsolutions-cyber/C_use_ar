@@ -63,7 +63,7 @@ async def admin_dashboard(request: Request, admin=Depends(require_admin)):
     credits_msg = ""
 
     if tenant:
-        from api.keys import get_usage_summary
+        from agency_api.keys import get_usage_summary
         # placeholder — real impl would look up the tenant's key
         credits_msg = f"<p>Portal: <b>{subdomain}.yourplatform.com</b></p>"
 
