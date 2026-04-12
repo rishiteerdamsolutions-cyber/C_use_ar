@@ -1,10 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "rm -rf public && mkdir -p public && cp -R portal/. public/",
   "installCommand": "pip install -r requirements-vercel.txt",
-  "functions": {
-    "api/index.py": {
-      "includeFiles": "portal/**"
-    }
-  },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "rewrites": [
+    { "source": "/api", "destination": "/api/index" },
+    { "source": "/api/:path*", "destination": "/api/index" },
+    { "source": "/docs", "destination": "/api/index" },
+    { "source": "/docs/:path*", "destination": "/api/index" },
+    { "source": "/redoc", "destination": "/api/index" },
+    { "source": "/openapi.json", "destination": "/api/index" },
+    { "source": "/api-meta", "destination": "/api/index" },
+    { "source": "/admin", "destination": "/api/index" },
+    { "source": "/admin/:path*", "destination": "/api/index" }
+  ]
 }
