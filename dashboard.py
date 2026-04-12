@@ -25,6 +25,12 @@ WORKFLOWS_DIR.mkdir(exist_ok=True)
 SCREENSHOTS_DIR.mkdir(exist_ok=True)
 PORT = 7788
 
+# First token of each “shell” step must match one of these (override via TRAINER_SHELL_ALLOWLIST).
+# Covers: git/GitHub, Cursor, OpenAI CLI, Node/npm builds, Vercel, Firebase, Google Cloud, MongoDB.
+_TRAINER_SHELL_ALLOWLIST_DEFAULT = (
+    "git,gh,cursor,openai,npm,pnpm,yarn,node,vercel,firebase,gcloud,gsutil,mongosh,mongo,atlas"
+)
+
 # Click-step vision: OpenAI and/or Anthropic (see analyse_screenshot_for_click).
 def _vision_keys_available() -> bool:
     return bool(
@@ -74,6 +80,108 @@ def _trainer_use_live_vision_click(step: dict, x: int, y: int) -> bool:
 
 # Serialize all workflow JSON read-modify-write (concurrent Add Step clicks used to drop steps).
 _WORKFLOW_IO_LOCK = threading.Lock()
+
+
+def _activate_trainer_target_app_if_configured() -> None:
+    """
+    Bring TRAINER_ACTIVATE_APP to the foreground (macOS only).
+
+    Used before Type and Click so keystrokes and pixel clicks hit the browser, not the terminal.
+    """
+    import platform
+    import subprocess
+    import time as _time
+
+    if platform.system() != "Darwin":
+        return
+    activate = (os.environ.get("TRAINER_ACTIVATE_APP") or "").strip()
+    if not activate:
+        return
+    subprocess.run(
+        ["osascript", "-e", f'tell application "{activate}" to activate'],
+        check=False,
+        capture_output=True,
+    )
+    _time.sleep(float((os.environ.get("TRAINER_ACTIVATE_DELAY") or "0.5").strip() or "0.5"))
+
+
+def _trainer_run_shell_step(step: dict) -> None:
+    """
+    Run a single argv-only command (no shell=True). Stable alternative to clicking web UIs.
+
+    Requires TRAINER_ALLOW_SHELL=1. First token must match TRAINER_SHELL_ALLOWLIST unless
+    TRAINER_SHELL_UNRESTRICTED=1 (disables allowlist — localhost / expert use only).
+
+    Default allowlist: git, gh, cursor, openai, npm, pnpm, yarn, node, vercel, firebase,
+    gcloud, gsutil, mongosh, mongo, atlas.
+    """
+    import shlex
+    import subprocess
+
+    if os.environ.get("TRAINER_ALLOW_SHELL", "").strip().lower() not in ("1", "true", "yes"):
+        raise RuntimeError(
+            "Shell steps are disabled. Set TRAINER_ALLOW_SHELL=1 in .env.local and restart dashboard.py."
+        )
+    raw = (step.get("shell_command") or "").strip()
+    if not raw:
+        raise ValueError("shell step has empty shell_command")
+
+    unrestricted = os.environ.get("TRAINER_SHELL_UNRESTRICTED", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+    try:
+        argv = shlex.split(raw, posix=os.name != "nt")
+    except ValueError as exc:
+        raise ValueError(f"invalid shell_command quoting: {exc}") from exc
+    if not argv:
+        raise ValueError("shell_command parsed to empty argv")
+
+    if not unrestricted:
+        allow_raw = (os.environ.get("TRAINER_SHELL_ALLOWLIST") or _TRAINER_SHELL_ALLOWLIST_DEFAULT).strip()
+        allowed = {x.strip().lower() for x in allow_raw.split(",") if x.strip()}
+        if not allowed:
+            allowed = {
+                x.strip().lower() for x in _TRAINER_SHELL_ALLOWLIST_DEFAULT.split(",") if x.strip()
+            }
+
+        exe = Path(argv[0]).name.lower()
+        if os.name == "nt" and exe.endswith(".exe"):
+            exe = exe[:-4]
+        if exe not in allowed:
+            raise RuntimeError(
+                f"Command {exe!r} is not allowed. TRAINER_SHELL_ALLOWLIST={sorted(allowed)}. "
+                "Add the binary name in .env.local, or set TRAINER_SHELL_UNRESTRICTED=1 (high risk)."
+            )
+
+    timeout = float((os.environ.get("TRAINER_SHELL_TIMEOUT") or "180").strip() or "180")
+    timeout = max(1.0, min(timeout, 600.0))
+    cwd = (os.environ.get("TRAINER_SHELL_CWD") or "").strip() or None
+
+    sn = step.get("step", "?")
+    preview = raw if len(raw) <= 140 else raw[:137] + "…"
+    print(f"  ▶ Step {sn}: shell  {preview}")
+
+    proc = subprocess.run(
+        argv,
+        shell=False,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        cwd=cwd,
+    )
+    if proc.stdout:
+        for line in proc.stdout.strip().splitlines()[:20]:
+            print(f"      | {line[:240]}")
+    if proc.stderr:
+        for line in proc.stderr.strip().splitlines()[:20]:
+            print(f"      ! {line[:240]}")
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip()[:800]
+        raise RuntimeError(f"shell exited with code {proc.returncode}: {tail}")
+    print(f"  ✓ Step {sn}: shell OK (exit 0)")
 
 
 def _mac_automation_hint() -> str:
@@ -242,7 +350,7 @@ def save_workflow(name, steps):
 
 
 def run_workflow(name, dry_run=False):
-    """Load workflow and replay each step using pyautogui."""
+    """Load workflow and replay each step (pyautogui UI actions + optional shell argv steps)."""
     import time, subprocess
     path = WORKFLOWS_DIR / f"{name}.json"
     if not path.exists():
@@ -256,14 +364,30 @@ def run_workflow(name, dry_run=False):
         y      = step.get("y") or step.get("trained_y", 0)
         desc   = step.get("description", f"Step {step.get('step','')}")
         if dry_run:
-            if action == "click" and _trainer_use_live_vision_click(step, int(x or 0), int(y or 0)):
+            if action == "wait":
+                try:
+                    wsv = float(step.get("wait_seconds", 2))
+                except (TypeError, ValueError):
+                    wsv = 2.0
+                wsv = max(0.0, min(wsv, 120.0))
+                print(f"  [DRY RUN] Step {step.get('step')}: wait {wsv:g}s — {desc}")
+            elif action == "click" and _trainer_use_live_vision_click(step, int(x or 0), int(y or 0)):
                 print(f"  [DRY RUN] Step {step.get('step')}: click — LIVE VISION (fresh screen + API) — {desc}")
+            elif action == "shell":
+                sc = (step.get("shell_command") or "").strip() or desc
+                print(f"  [DRY RUN] Step {step.get('step')}: shell — {sc[:160]}{'…' if len(sc) > 160 else ''}")
             else:
                 print(f"  [DRY RUN] Step {step.get('step')}: {action} — {desc}")
             results.append({"step": step.get("step"), "action": action, "status": "dry_run"})
             time.sleep(0.1)
             continue
         try:
+            if action == "shell":
+                time.sleep(0.6)
+                _trainer_run_shell_step(step)
+                results.append({"step": step.get("step"), "action": action, "status": "ok"})
+                continue
+
             import pyautogui
             pyautogui.FAILSAFE = True
             time.sleep(0.6)
@@ -295,6 +419,14 @@ def run_workflow(name, dry_run=False):
             elif action == "press_enter":
                 pyautogui.press("enter")
                 print(f"  ✓ Step {step.get('step')}: Pressed Enter — {desc}")
+            elif action == "wait":
+                try:
+                    ws = float(step.get("wait_seconds", 2))
+                except (TypeError, ValueError):
+                    ws = 2.0
+                ws = max(0.0, min(ws, 120.0))
+                print(f"  ✓ Step {step.get('step')}: Wait {ws:g}s — {desc}")
+                time.sleep(ws)
             elif action == "copy":
                 import platform as _plat
 
@@ -336,16 +468,14 @@ def run_workflow(name, dry_run=False):
                 sysn = _plat.system()
                 darwin = sysn == "Darwin"
 
-                activate = (os.environ.get("TRAINER_ACTIVATE_APP") or "").strip()
-                if darwin and activate:
-                    subprocess.run(
-                        ["osascript", "-e", f'tell application "{activate}" to activate'],
-                        check=False,
-                        capture_output=True,
-                    )
-                    time.sleep(float(os.environ.get("TRAINER_ACTIVATE_DELAY", "0.5")))
+                _type_focus_delay = float(
+                    (os.environ.get("TRAINER_TYPE_FOCUS_DELAY") or "0").strip() or "0"
+                )
+                if _type_focus_delay > 0:
+                    time.sleep(_type_focus_delay)
 
                 if darwin:
+                    _activate_trainer_target_app_if_configured()
                     time.sleep(0.45)
 
                 old_pause = getattr(pyautogui, "PAUSE", 0.1)
@@ -384,6 +514,7 @@ def run_workflow(name, dry_run=False):
                 pyautogui.hotkey(*keys)
                 print(f"  ✓ Step {step.get('step')}: Hotkey {desc}")
             else:  # click
+                _activate_trainer_target_app_if_configured()
                 ix, iy = int(x or 0), int(y or 0)
                 use_live = _trainer_use_live_vision_click(step, ix, iy)
                 if use_live:
@@ -719,6 +850,17 @@ class Handler(BaseHTTPRequestHandler):
                     self._json({"error": "type_text required for type action"}, 400); return
                 if action_type == "open_url" and not open_url:
                     self._json({"error": "url required for open_url action"}, 400); return
+                if action_type == "wait":
+                    try:
+                        _ws = float(str(fields.get("wait_seconds", "2") or "2").strip())
+                    except ValueError:
+                        self._json({"error": "wait_seconds must be a number"}, 400); return
+                    if not (0.0 <= _ws <= 120.0):
+                        self._json({"error": "wait_seconds must be between 0 and 120"}, 400); return
+                shell_cmd_f = fields.get("shell_command", "")
+                shell_cmd = shell_cmd_f.strip() if isinstance(shell_cmd_f, str) else ""
+                if action_type == "shell" and not shell_cmd:
+                    self._json({"error": "shell_command required for shell action"}, 400); return
 
                 live_vis = str(fields.get("live_vision", "")).strip().lower() in ("1", "true", "yes")
                 screenshots_early = fields.get("screenshot", [])
@@ -766,6 +908,16 @@ class Handler(BaseHTTPRequestHandler):
                     elif action_type == "open_url":
                         step["url"] = open_url
                         step["description"] = open_url if len(open_url) <= 120 else open_url[:117] + "..."
+                    elif action_type == "wait":
+                        ws_save = float(str(fields.get("wait_seconds", "2") or "2").strip())
+                        step["wait_seconds"] = ws_save
+                        note = description.strip()
+                        step["description"] = (
+                            (f"Wait {ws_save:g}s — {note}" if note else f"Wait {ws_save:g}s")[:220]
+                        )
+                    elif action_type == "shell":
+                        step["shell_command"] = shell_cmd
+                        step["description"] = (shell_cmd[:117] + "...") if len(shell_cmd) > 120 else shell_cmd
 
                     if action_type == "click":
                         step["live_vision"] = live_vis
@@ -804,6 +956,10 @@ class Handler(BaseHTTPRequestHandler):
                         step["status"] = "saved"
                         if action_type == "open_url":
                             print(f"  ✓ Step {step_num} saved: open_url — {open_url}")
+                        elif action_type == "wait":
+                            print(f"  ✓ Step {step_num} saved: wait {step.get('wait_seconds', '?')}s")
+                        elif action_type == "shell":
+                            print(f"  ✓ Step {step_num} saved: shell — {step.get('shell_command', '')[:80]}")
                         else:
                             print(f"  ✓ Step {step_num} saved: {action_type} — {description}")
 
@@ -866,6 +1022,24 @@ if __name__ == "__main__":
         "  Live vision at run: TRAINER_LIVE_VISION_CLICKS=1 (all clicks) · "
         "TRAINER_LIVE_VISION_DELAY=0.35 (seconds before capture)"
     )
+    _sh = os.environ.get("TRAINER_ALLOW_SHELL", "").strip().lower() in ("1", "true", "yes")
+    _al = (os.environ.get("TRAINER_SHELL_ALLOWLIST") or _TRAINER_SHELL_ALLOWLIST_DEFAULT).strip()
+    _ur = os.environ.get("TRAINER_SHELL_UNRESTRICTED", "").strip().lower() in ("1", "true", "yes")
+    print(
+        f"  Shell steps: TRAINER_ALLOW_SHELL={'on' if _sh else 'off'}"
+        f" · unrestricted={'YES (any binary)' if _ur and _sh else 'no'}"
+        f" · allowlist={_al or _TRAINER_SHELL_ALLOWLIST_DEFAULT}"
+    )
+    if _sh and _ur:
+        print(
+            "  ⚠ TRAINER_SHELL_UNRESTRICTED=1 — allowlist ignored. Workflows can run arbitrary commands. "
+            "Use only on a trusted dev machine."
+        )
+    if not _sh:
+        print(
+            "  Tip: TRAINER_ALLOW_SHELL=1 + Shell steps use CLIs (git, cursor, vercel, firebase, …) "
+            "instead of fragile browser clicks."
+        )
     if _platform.system() == "Darwin":
         print(f"  Python executable: {_sys.executable}")
         print(f"  macOS: {_mac_automation_hint()}")
@@ -874,8 +1048,8 @@ if __name__ == "__main__":
             print(f"  {ctx}")
         print(f"  Tip: TRAINER_NO_OPEN_BROWSER=1  → do not auto-open a browser tab on start")
         print(
-            "  Tip: TRAINER_ACTIVATE_APP='Google Chrome'  → activate that app before each Type step "
-            "(helps focus)"
+            "  Tip: TRAINER_ACTIVATE_APP='Google Chrome'  → activate Chrome before each Type and Click "
+            "(so URL/Enter and the next click hit the browser, not the terminal)"
         )
     print(f"{'━'*50}\n")
     if os.environ.get("TRAINER_NO_OPEN_BROWSER", "").strip().lower() not in ("1", "true", "yes"):

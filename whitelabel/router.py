@@ -30,7 +30,20 @@ from whitelabel.tenant_config import (
 
 logger = logging.getLogger(__name__)
 
-PLATFORM_DOMAIN = os.environ.get("PLATFORM_DOMAIN", "yourplatform.com")
+
+def _default_platform_domain() -> str:
+    """On Vercel, infer production host so agency.cuseai.vercel.app resolves to tenant 'agency'."""
+    for key in ("VERCEL_PROJECT_PRODUCTION_URL", "VERCEL_URL"):
+        raw = (os.environ.get(key) or "").strip()
+        if not raw:
+            continue
+        host = raw.lower().replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
+        if host:
+            return host
+    return "yourplatform.com"
+
+
+PLATFORM_DOMAIN = os.environ.get("PLATFORM_DOMAIN") or _default_platform_domain()
 
 
 def _extract_subdomain(host: str) -> Optional[str]:

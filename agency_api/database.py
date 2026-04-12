@@ -56,3 +56,4 @@ class Collections:
     BILLING   = "billing"        # Razorpay orders and webhook events
     TENANTS   = "tenants"        # white-label agency configs
     TEMPLATES = "templates"      # website template metadata
+    TRAINER   = "trainer_workflows"  # Web UI trainer: { name, data: workflow JSON }

@@ -7,6 +7,7 @@ FAILSAFE always enabled: move mouse to top-left corner to abort.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from typing import Any
 
@@ -65,6 +66,62 @@ class ExecutionEngine:
 
         return "command" if platform.system() == "Darwin" else "ctrl"
 
+    @staticmethod
+    def _set_clipboard_utf8(text: str) -> None:
+        """Put full Unicode text on the system clipboard (reliable for paste typing)."""
+        import platform
+        import subprocess
+
+        if platform.system() == "Darwin":
+            proc = subprocess.run(
+                ["pbcopy"],
+                input=text.encode("utf-8"),
+                capture_output=True,
+            )
+            if proc.returncode != 0:
+                err = proc.stderr.decode("utf-8", errors="replace").strip()
+                raise RuntimeError(err or "pbcopy failed")
+            return
+
+        import pyperclip  # type: ignore
+
+        pyperclip.copy(text)
+
+    def _type_text_keystrokes(self, text: str, clear_first: bool, interval: float) -> None:
+        """Legacy path: real keystrokes only work well for US-keyboard ASCII."""
+        mod = self._primary_mod()
+        if clear_first:
+            self._pg.hotkey(mod, "a")
+            time.sleep(0.1)
+            self._pg.press("delete")
+            time.sleep(0.1)
+        logger.info("Typing %d characters (keystrokes)", len(text))
+        for ch in text:
+            if ch == "\n":
+                self._pg.press("enter")
+                time.sleep(max(interval, 0.02))
+            elif ch == "\r":
+                continue
+            elif ch == "\t":
+                self._pg.press("tab")
+                time.sleep(max(interval, 0.02))
+            else:
+                self._pg.write(ch, interval=interval)
+        time.sleep(ACTION_PAUSE)
+
+    def _type_text_clipboard(self, text: str, clear_first: bool) -> None:
+        """Select-all + paste from clipboard — matches trainer; supports newlines & Unicode."""
+        mod = self._primary_mod()
+        self._set_clipboard_utf8(text)
+        time.sleep(0.15)
+        if clear_first:
+            self._pg.hotkey(mod, "a")
+            time.sleep(0.22)
+        self._pg.hotkey(mod, "v")
+        time.sleep(0.4)
+        logger.info("Typed %d characters via clipboard paste", len(text))
+        time.sleep(ACTION_PAUSE)
+
     # ── Click ──────────────────────────────────────────────────────────────────
     def click(self, x: int, y: int, confidence: float) -> None:
         """
@@ -106,25 +163,50 @@ class ExecutionEngine:
         """
         Type text into the currently focused field.
 
+        By default uses clipboard + paste (⌘/Ctrl+A then ⌘/Ctrl+V) so newlines,
+        Unicode, and long prompts match exactly. PyAutoGUI keystrokes alone
+        cannot do that reliably.
+
+        Set EXECUTOR_TYPE_USE_KEYSTROKES=1 to force legacy key-by-key typing
+        (ASCII-oriented, current keyboard layout).
+
         Args:
             text:        String to type.
-            clear_first: Select-all + delete before typing (default True).
+            clear_first: Select-all before paste so the field is replaced (default True).
         """
-        if clear_first:
-            self._pg.hotkey(self._primary_mod(), "a")
-            time.sleep(0.1)
-            self._pg.press("delete")
-            time.sleep(0.1)
-
-        logger.info("Typing %d characters", len(text))
-        self._pg.write(text, interval=TYPING_INTERVAL)
-        time.sleep(ACTION_PAUSE)
+        use_keys = os.environ.get("EXECUTOR_TYPE_USE_KEYSTROKES", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if use_keys:
+            self._type_text_keystrokes(text, clear_first, TYPING_INTERVAL)
+            return
+        try:
+            self._type_text_clipboard(text, clear_first)
+        except Exception as exc:
+            logger.warning("Clipboard typing failed (%s); trying keystrokes", exc)
+            try:
+                text.encode("ascii")
+            except UnicodeEncodeError as uerr:
+                raise RuntimeError(
+                    "Clipboard typing failed and text is not ASCII-only; "
+                    "fix paste permissions or set EXECUTOR_TYPE_USE_KEYSTROKES after "
+                    "narrowing the text to ASCII."
+                ) from uerr
+            self._type_text_keystrokes(text, clear_first, TYPING_INTERVAL)
 
     def type_slow(self, text: str, interval: float = 0.08) -> None:
-        """Type with a slower interval (useful for terminal / Cursor AI)."""
-        logger.info("Slow-typing %d characters", len(text))
-        self._pg.write(text, interval=interval)
-        time.sleep(ACTION_PAUSE)
+        """Same as type_text by default (clipboard). Keystroke mode honors interval."""
+        use_keys = os.environ.get("EXECUTOR_TYPE_USE_KEYSTROKES", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if use_keys:
+            self._type_text_keystrokes(text, clear_first=True, interval=interval)
+        else:
+            self._type_text_clipboard(text, clear_first=True)
 
     # ── Clipboard ──────────────────────────────────────────────────────────────
     def copy_all_text(self) -> str:

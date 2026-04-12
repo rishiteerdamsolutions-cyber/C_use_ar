@@ -49,3 +49,6 @@ Thumbs.db
 .pytest_cache/
 htmlcov/
 .coverage
+
+# Vercel build output (copied from portal/ on deploy)
+/public/

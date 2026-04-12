@@ -17,12 +17,13 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from agency_api.middleware import global_exception_handler, logging_middleware
-from agency_api.routes import billing, keys, templates, validator, workflows
+from agency_api.routes import billing, keys, templates, trainer, validator, workflows
 from whitelabel.api_routes import router as whitelabel_router
 from whitelabel.admin_panel.routes import router as admin_router
 from whitelabel.router import TenantMiddleware
@@ -98,10 +99,15 @@ app = FastAPI(
 )
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
-ALLOWED_ORIGINS = os.environ.get(
-    "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://localhost:7788,https://yourplatform.com",
-).split(",")
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get(
+        "ALLOWED_ORIGINS",
+        "http://localhost:3000,http://localhost:7788,http://localhost:8000,"
+        "https://cuseai.vercel.app,https://yourplatform.com",
+    ).split(",")
+    if o.strip()
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -125,15 +131,49 @@ app.include_router(validator.router,    prefix=PREFIX)
 app.include_router(billing.router,      prefix=PREFIX)
 app.include_router(whitelabel_router,   prefix=PREFIX)   # /api/v1/whitelabel/...
 app.include_router(admin_router)                         # /admin/...  (tenant-aware)
+app.include_router(trainer.router)                       # /api/trainer/... (Mongo, no live run)
+
+# ─── Marketing site (portal/*.html) — local + Vercel ───────────────────────────
+_PORTAL_DIR = Path(__file__).resolve().parent.parent / "portal"
+if _PORTAL_DIR.is_dir():
+    app.mount(
+        "/site",
+        StaticFiles(directory=str(_PORTAL_DIR), html=True),
+        name="portal_site",
+    )
 
 
 # ─── Root endpoints ────────────────────────────────────────────────────────────
 @app.get("/", include_in_schema=False)
 async def root():
+    """
+    Serve the marketing homepage as HTML (Vercel sends all traffic here via rewrite).
+    Redirect-only broke when `portal/` was missing from the serverless bundle; inline
+    FileResponse works when `includeFiles: portal/**` is set in vercel.json.
+    """
+    index = _PORTAL_DIR / "index.html"
+    if index.is_file():
+        return FileResponse(str(index), media_type="text/html; charset=utf-8")
+    if _PORTAL_DIR.is_dir():
+        return RedirectResponse(url="/site/", status_code=302)
     return JSONResponse({
         "service":  "Autonomous Web Agency API",
         "version":  VERSION,
         "status":   "ok",
+        "website":  "/site/",
+        "docs":     "/docs",
+        "base_url": "/api/v1",
+    })
+
+
+@app.get("/api-meta", include_in_schema=False)
+async def api_meta():
+    return JSONResponse({
+        "service":  "Autonomous Web Agency API",
+        "version":  VERSION,
+        "status":   "ok",
+        "website":  "/site/",
+        "trainer_api": "/api/trainer",
         "docs":     "/docs",
         "base_url": "/api/v1",
     })
@@ -148,6 +188,35 @@ async def health():
         "version":  VERSION,
         "uptime_s": round(time.time() - _START_TIME, 1),
     }
+
+
+def _register_portal_html_routes() -> None:
+    """Top-level /trainer.html etc. for Vercel (single rewrite to /api/index)."""
+    if not _PORTAL_DIR.is_dir():
+        return
+    for name in ("trainer.html", "pricing.html", "signup.html", "dashboard.html", "docs.html"):
+        fp = _PORTAL_DIR / name
+        if not fp.is_file():
+            continue
+
+        def _make(n: str, path: Path):
+            async def _send() -> FileResponse:
+                if path.is_file():
+                    return FileResponse(str(path), media_type="text/html; charset=utf-8")
+                raise HTTPException(status_code=404)
+
+            return _send
+
+        app.add_api_route(
+            f"/{name}",
+            _make(name, fp),
+            methods=["GET"],
+            name=f"portal_{name.replace('.', '_')}",
+            include_in_schema=False,
+        )
+
+
+_register_portal_html_routes()
 
 
 # ─── Run directly ─────────────────────────────────────────────────────────────
