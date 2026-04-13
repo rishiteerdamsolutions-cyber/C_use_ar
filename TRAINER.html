@@ -125,6 +125,10 @@ select.fld{cursor:pointer}
 .template-item{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:10px 12px;
               font-size:.82rem;line-height:1.5;color:var(--text)}
 .template-item code{color:var(--gold)}
+.template-dropdown{border:1px solid var(--border);border-radius:8px;background:var(--bg2)}
+.template-dropdown summary{cursor:pointer;list-style:none;padding:10px 12px;font-size:.82rem;color:var(--gold);font-weight:700}
+.template-dropdown summary::-webkit-details-marker{display:none}
+.template-dropdown .template-list{padding:0 10px 10px}
 </style>
 </head>
 <body>
@@ -172,25 +176,28 @@ select.fld{cursor:pointer}
       <code>TRAINER_ACTIVATE_APP=Google Chrome</code>,
       <code>TRAINER_LIVE_VISION_DELAY=0.7</code>.
     </p>
-    <div class="template-list">
-      <div class="template-item">Click the <code>"Sign in"</code> button in the top-right header.</div>
-      <div class="template-item">Click the <code>"New repository"</code> button on the repositories page header.</div>
-      <div class="template-item">Click the <code>"Create repository"</code> green button below the repository name input.</div>
-      <div class="template-item">Click the <code>"New pull request"</code> button in the Pull requests page header.</div>
-      <div class="template-item">Click the <code>"Create pull request"</code> green button below the PR title and description fields.</div>
-      <div class="template-item">Click the <code>"Settings"</code> tab in the top repository navigation bar.</div>
-      <div class="template-item">Click the <code>"Run workflow"</code> button on the right side of the workflow page.</div>
-      <div class="template-item">Click the <code>"New Project"</code> button in the Vercel dashboard top-right corner.</div>
-      <div class="template-item">Click the <code>"Import Git Repository"</code> button in the New Project page main panel.</div>
-      <div class="template-item">Click the <code>"Deploy"</code> black button at the bottom-right of the project configuration page.</div>
-      <div class="template-item">Click the <code>"Environment Variables"</code> section in the Vercel project settings page.</div>
-      <div class="template-item">Click the <code>"Save"</code> button below the environment variable form.</div>
-      <div class="template-item">Click the <code>"Select a project"</code> dropdown in the Google Cloud Console top header.</div>
-      <div class="template-item">Click the <code>"NEW PROJECT"</code> button in the project selector dialog top-right corner.</div>
-      <div class="template-item">Click the <code>"Create"</code> button at the bottom of the New Project form.</div>
-      <div class="template-item">Click the <code>"ENABLE APIS AND SERVICES"</code> button in the APIs dashboard header.</div>
-      <div class="template-item">Click the <code>"IAM &amp; Admin"</code> menu item in the left sidebar navigation.</div>
-    </div>
+    <details class="template-dropdown">
+      <summary>▼ Show click templates</summary>
+      <div class="template-list">
+        <div class="template-item">Click the <code>"Sign in"</code> button in the top-right header.</div>
+        <div class="template-item">Click the <code>"New repository"</code> button on the repositories page header.</div>
+        <div class="template-item">Click the <code>"Create repository"</code> green button below the repository name input.</div>
+        <div class="template-item">Click the <code>"New pull request"</code> button in the Pull requests page header.</div>
+        <div class="template-item">Click the <code>"Create pull request"</code> green button below the PR title and description fields.</div>
+        <div class="template-item">Click the <code>"Settings"</code> tab in the top repository navigation bar.</div>
+        <div class="template-item">Click the <code>"Run workflow"</code> button on the right side of the workflow page.</div>
+        <div class="template-item">Click the <code>"New Project"</code> button in the Vercel dashboard top-right corner.</div>
+        <div class="template-item">Click the <code>"Import Git Repository"</code> button in the New Project page main panel.</div>
+        <div class="template-item">Click the <code>"Deploy"</code> black button at the bottom-right of the project configuration page.</div>
+        <div class="template-item">Click the <code>"Environment Variables"</code> section in the Vercel project settings page.</div>
+        <div class="template-item">Click the <code>"Save"</code> button below the environment variable form.</div>
+        <div class="template-item">Click the <code>"Select a project"</code> dropdown in the Google Cloud Console top header.</div>
+        <div class="template-item">Click the <code>"NEW PROJECT"</code> button in the project selector dialog top-right corner.</div>
+        <div class="template-item">Click the <code>"Create"</code> button at the bottom of the New Project form.</div>
+        <div class="template-item">Click the <code>"ENABLE APIS AND SERVICES"</code> button in the APIs dashboard header.</div>
+        <div class="template-item">Click the <code>"IAM &amp; Admin"</code> menu item in the left sidebar navigation.</div>
+      </div>
+    </details>
   </div>
 
   <!-- Saved steps first so long “Type” drafts don’t push the list off-screen -->
