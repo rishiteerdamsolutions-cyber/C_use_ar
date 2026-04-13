@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Annotated, Any
+from typing import Annotated, Any, Dict, Optional
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from agency_api.keys import validate_key
+from agency_api.trainer_service import ANONYMOUS_OWNER
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ def _require_trainer_api_key() -> bool:
 
 
 async def resolve_trainer_owner(
-    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+    x_api_key: Annotated[Optional[str], Header(alias="X-API-Key")] = None,
 ) -> str:
     require = _require_trainer_api_key()
     raw = (x_api_key or "").strip()
@@ -55,7 +56,7 @@ def _mongo_error(exc: Exception) -> JSONResponse:
 
 
 @router.get("/health")
-async def trainer_health() -> dict[str, str]:
+async def trainer_health() -> Dict[str, str]:
     return {"status": "ok"}
 
 

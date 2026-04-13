@@ -121,6 +121,10 @@ select.fld{cursor:pointer}
           color:var(--muted);background:var(--bg2);border:1px solid var(--border);
           border-radius:7px;transition:all .2s}
 .mode-btn.active{background:#1a1400;border-color:var(--gold);color:var(--gold);font-weight:700}
+.template-list{display:grid;gap:8px}
+.template-item{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:10px 12px;
+              font-size:.82rem;line-height:1.5;color:var(--text)}
+.template-item code{color:var(--gold)}
 </style>
 </head>
 <body>
@@ -158,6 +162,35 @@ select.fld{cursor:pointer}
     <span class="wf-bar-label">Workflow:</span>
     <input type="text" id="wf-name" placeholder="e.g. salon_build" oninput="onWfNameChange()">
     <span class="step-badge" id="step-badge">0 steps</span>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Click Description Templates</div>
+    <p style="font-size:.8rem;color:var(--muted);line-height:1.5;margin-bottom:12px">
+      Use exact button text and location hints. Recommended local env:
+      <code>TRAINER_LIVE_VISION_CLICKS=1</code>,
+      <code>TRAINER_ACTIVATE_APP=Google Chrome</code>,
+      <code>TRAINER_LIVE_VISION_DELAY=0.7</code>.
+    </p>
+    <div class="template-list">
+      <div class="template-item">Click the <code>"Sign in"</code> button in the top-right header.</div>
+      <div class="template-item">Click the <code>"New repository"</code> button on the repositories page header.</div>
+      <div class="template-item">Click the <code>"Create repository"</code> green button below the repository name input.</div>
+      <div class="template-item">Click the <code>"New pull request"</code> button in the Pull requests page header.</div>
+      <div class="template-item">Click the <code>"Create pull request"</code> green button below the PR title and description fields.</div>
+      <div class="template-item">Click the <code>"Settings"</code> tab in the top repository navigation bar.</div>
+      <div class="template-item">Click the <code>"Run workflow"</code> button on the right side of the workflow page.</div>
+      <div class="template-item">Click the <code>"New Project"</code> button in the Vercel dashboard top-right corner.</div>
+      <div class="template-item">Click the <code>"Import Git Repository"</code> button in the New Project page main panel.</div>
+      <div class="template-item">Click the <code>"Deploy"</code> black button at the bottom-right of the project configuration page.</div>
+      <div class="template-item">Click the <code>"Environment Variables"</code> section in the Vercel project settings page.</div>
+      <div class="template-item">Click the <code>"Save"</code> button below the environment variable form.</div>
+      <div class="template-item">Click the <code>"Select a project"</code> dropdown in the Google Cloud Console top header.</div>
+      <div class="template-item">Click the <code>"NEW PROJECT"</code> button in the project selector dialog top-right corner.</div>
+      <div class="template-item">Click the <code>"Create"</code> button at the bottom of the New Project form.</div>
+      <div class="template-item">Click the <code>"ENABLE APIS AND SERVICES"</code> button in the APIs dashboard header.</div>
+      <div class="template-item">Click the <code>"IAM &amp; Admin"</code> menu item in the left sidebar navigation.</div>
+    </div>
   </div>
 
   <!-- Saved steps first so long “Type” drafts don’t push the list off-screen -->
