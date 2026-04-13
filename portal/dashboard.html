@@ -266,7 +266,12 @@ tr:last-child td{border-bottom:none}
 </div>
 
 <script>
-const API_BASE = 'https://api.yourplatform.com/api/v1';
+const API_BASE = (() => {
+  if (location.protocol === 'file:' || !location.origin || location.origin === 'null') {
+    return 'http://localhost:8000/api/v1';
+  }
+  return location.origin.replace(/\/$/, '') + '/api/v1';
+})();
 let apiKey = '';
 let usageData = null;
 let topupPack = { id: 'professional', amount: 2999 };
@@ -419,7 +424,7 @@ async function topUpCredits() {
     if (!res.ok) throw new Error(order.detail);
     const rzp = new (window.Razorpay || function(){})({
       key: order.key_id || 'rzp_live_REPLACE',
-      amount: order.amount, currency: 'INR', order_id: order.order_id,
+      amount: order.amount_paise, currency: 'INR', order_id: order.order_id,
       name: 'Autonomous Web Agency', description: 'Credit top-up',
       theme: { color: '#c9a96e' },
       handler: (r) => { alert('Top-up successful! Credits will appear shortly.'); loadDashboard(); },
@@ -447,9 +452,7 @@ function logout() {
     '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Load your API key to see call history.</td></tr>';
 }
 
-// Auto-load if key in URL param (?key=ak_live_...)
-const urlKey = new URLSearchParams(location.search).get('key');
-if (urlKey) { document.getElementById('key-input').value = urlKey; apiKey = urlKey; loadDashboard(); }
+// Security hardening: do not auto-load keys from URL query params.
 </script>
 </body>
 </html>

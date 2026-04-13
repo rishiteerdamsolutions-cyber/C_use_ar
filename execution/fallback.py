@@ -89,26 +89,26 @@ def _ai_recovery(
         True if recovery click succeeded.
     """
     import os
-    import anthropic                            # type: ignore
 
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
         logger.warning("AI recovery: ANTHROPIC_API_KEY not set")
         return False
 
-    client = anthropic.Anthropic(api_key=api_key)
-    platform_meta = config.get("platforms", {}).get(platform, {})
-    action_meta = platform_meta.get("actions", {}).get(action_key, {})
-
-    prompt = (
-        f"A GUI automation agent is trying to perform the action '{action_key}' on {platform}.\n"
-        f"Known labels: {action_meta.get('labels', [])}\n"
-        f"Normal position: {action_meta.get('position_hint', 'unknown')}\n\n"
-        "Suggest 2 alternative text labels or positions where this button/element might appear. "
-        "Reply with JSON: {\"alt_labels\": [\"...\", \"...\"], \"alt_hint\": \"...\"}"
-    )
-
     try:
+        import anthropic                            # type: ignore
+        client = anthropic.Anthropic(api_key=api_key)
+        platform_meta = config.get("platforms", {}).get(platform, {})
+        action_meta = platform_meta.get("actions", {}).get(action_key, {})
+
+        prompt = (
+            f"A GUI automation agent is trying to perform the action '{action_key}' on {platform}.\n"
+            f"Known labels: {action_meta.get('labels', [])}\n"
+            f"Normal position: {action_meta.get('position_hint', 'unknown')}\n\n"
+            "Suggest 2 alternative text labels or positions where this button/element might appear. "
+            "Reply with JSON: {\"alt_labels\": [\"...\", \"...\"], \"alt_hint\": \"...\"}"
+        )
+
         resp = client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=256,

@@ -39,12 +39,18 @@ async def require_admin(request: Request) -> dict[str, Any]:
     if not tenant:
         # Platform owner admin
         import os
-        if token != os.environ.get("PLATFORM_ADMIN_TOKEN", ""):
+        expected = (os.environ.get("PLATFORM_ADMIN_TOKEN", "") or "").strip()
+        if not expected:
+            raise HTTPException(status_code=503, detail="PLATFORM_ADMIN_TOKEN not configured")
+        if token != expected:
             raise HTTPException(status_code=401, detail="Invalid admin token")
         return {"role": "platform_admin", "tenant": None}
 
     # Tenant admin
-    if token != tenant.get("admin_token", ""):
+    tenant_token = (tenant.get("admin_token", "") or "").strip()
+    if not tenant_token:
+        raise HTTPException(status_code=503, detail="Tenant admin token is not configured")
+    if token != tenant_token:
         raise HTTPException(status_code=401, detail="Invalid admin token")
 
     return {"role": "tenant_admin", "tenant": tenant}
@@ -112,6 +118,8 @@ input[type=text]{{background:#111;border:1px solid #333;color:#e8e8e8;
 
   <div class="card">
     <h2>🎨 Branding</h2>
+    <label style="color:#888;font-size:.78rem">Admin Token</label>
+    <input type="text" id="adminToken" placeholder="Paste X-Admin-Token" style="margin-bottom:10px">
     <label style="color:#888;font-size:.78rem">Primary Colour</label>
     <input type="color" id="primaryColor" value="{{}}" style="margin-bottom:10px;height:36px;border:none;background:none;cursor:pointer">
     <br>
@@ -139,12 +147,46 @@ input[type=text]{{background:#111;border:1px solid #333;color:#e8e8e8;
   </div>
 </main>
 <script>
-async function saveBranding() {{
-  alert('Branding saved! Page will refresh to apply changes.');
+function adminHeaders() {{
+  const token = document.getElementById('adminToken').value.trim();
+  return token ? {{ 'Content-Type': 'application/json', 'X-Admin-Token': token }} : {{ 'Content-Type': 'application/json' }};
 }}
-function saveDomain() {{
+
+async function saveBranding() {{
+  const payload = {{
+    primary_color: document.getElementById('primaryColor').value || undefined,
+    agency_name: document.getElementById('agencyName').value || undefined,
+    logo_url: document.getElementById('logoUrl').value || undefined,
+  }};
+  const res = await fetch('/admin/branding', {{
+    method: 'PATCH',
+    headers: adminHeaders(),
+    body: JSON.stringify(payload),
+  }});
+  const data = await res.json().catch(() => ({{}}));
+  if (!res.ok) {{
+    alert(data.detail || data.error || 'Branding update failed');
+    return;
+  }}
+  alert('Branding updated successfully.');
+}}
+async function saveDomain() {{
   const d = document.getElementById('customDomain').value;
-  if (d) alert('Custom domain ' + d + ' saved. Make sure your CNAME is pointing to yourplatform.com');
+  if (!d) {{
+    alert('Enter a custom domain first');
+    return;
+  }}
+  const res = await fetch('/admin/domain', {{
+    method: 'POST',
+    headers: adminHeaders(),
+    body: JSON.stringify({{ domain: d }}),
+  }});
+  const data = await res.json().catch(() => ({{}}));
+  if (!res.ok) {{
+    alert(data.detail || data.error || 'Domain update failed');
+    return;
+  }}
+  alert('Custom domain saved: ' + d);
 }}
 function copyKey() {{
   navigator.clipboard.writeText(document.getElementById('apiKeyDisplay').value);
@@ -162,6 +204,10 @@ class BrandingPatch(BaseModel):
     tagline:        str | None = None
     support_email:  str | None = None
     support_phone:  str | None = None
+
+
+class DomainPatch(BaseModel):
+    domain: str
 
 
 @router.patch("/branding",
@@ -187,12 +233,15 @@ async def patch_branding(
     summary="Set custom domain for tenant",
 )
 async def set_domain(
-    domain: str,
+    payload: DomainPatch,
     admin:  dict = Depends(require_admin),
 ) -> dict[str, Any]:
     tenant = admin.get("tenant")
     if not tenant:
         raise HTTPException(status_code=403, detail="Tenant required")
+    domain = (payload.domain or "").strip()
+    if not domain:
+        raise HTTPException(status_code=400, detail="domain required")
     ok = set_custom_domain(tenant["_id"], domain)
     return {"ok": ok, "domain": domain, "note": "Point CNAME to yourplatform.com"}
 

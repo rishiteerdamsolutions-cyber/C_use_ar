@@ -16,25 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 # ─── Auth dependency ─────────────────────────────────────────────────────────
-async def require_api_key(
-    x_api_key: str = Header(..., alias="X-API-Key", description="Your API key: ak_live_xxxxx"),
-) -> dict[str, Any]:
-    """
-    FastAPI dependency — validates X-API-Key header.
-
-    Injects the key document into the route handler.
-    Raises HTTP 401 if key is missing / invalid / inactive.
-    Raises HTTP 429 if rate limit exceeded.
-
-    Usage in route:
-        @router.post("/run-workflow")
-        async def run_wf(req: ..., key_doc=Depends(require_api_key)):
-            credits_remaining = key_doc["credits_total"] - key_doc["credits_used"]
-    """
+def _validate_key_and_rate_limit(x_api_key: str) -> dict[str, Any]:
+    """Shared validator: key status + rate limit (no credit checks)."""
     from agency_api.keys import validate_key
     from agency_api.rate_limiter import check_rate_limit
 
-    # 1. Validate key
     key_doc = validate_key(x_api_key)
     if not key_doc:
         raise HTTPException(
@@ -48,19 +34,6 @@ async def require_api_key(
 
     key_id = str(key_doc["_id"])
 
-    # 2. Check credits
-    remaining = key_doc["credits_total"] - key_doc["credits_used"]
-    if remaining <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail={
-                "error":  "Insufficient credits",
-                "code":   402,
-                "detail": "Top up your wallet at https://agency.yourplatform.com/billing",
-            },
-        )
-
-    # 3. Check rate limit
     allowed, reason = check_rate_limit(key_id)
     if not allowed:
         raise HTTPException(
@@ -68,6 +41,37 @@ async def require_api_key(
             detail={"error": "Rate limit exceeded", "code": 429, "detail": reason},
         )
 
+    return key_doc
+
+
+async def require_api_key_allow_zero_credits(
+    x_api_key: str = Header(..., alias="X-API-Key", description="Your API key: ak_live_xxxxx"),
+) -> dict[str, Any]:
+    """
+    Validate key + rate-limit checks, but allow 0-credit keys.
+
+    Used for top-up/payment endpoints where users must be able to recharge.
+    """
+    return _validate_key_and_rate_limit(x_api_key)
+
+
+async def require_api_key(
+    x_api_key: str = Header(..., alias="X-API-Key", description="Your API key: ak_live_xxxxx"),
+) -> dict[str, Any]:
+    """
+    Validate key + rate limit + positive credit balance.
+    """
+    key_doc = _validate_key_and_rate_limit(x_api_key)
+    remaining = key_doc["credits_total"] - key_doc["credits_used"]
+    if remaining <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail={
+                "error":  "Insufficient credits",
+                "code":   402,
+                "detail": "Top up your wallet from the dashboard billing page.",
+            },
+        )
     return key_doc
 
 
@@ -119,7 +123,13 @@ async def logging_middleware(request: Request, call_next):
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Catch-all — return clean JSON instead of HTML 500 pages."""
     logger.error("Unhandled exception: %s", exc, exc_info=True)
+    import os
+    is_dev = os.environ.get("ENV", "").strip().lower() == "development"
     return JSONResponse(
         status_code=500,
-        content={"error": "Internal server error", "code": 500, "detail": str(exc)},
+        content={
+            "error": "Internal server error",
+            "code": 500,
+            "detail": str(exc) if is_dev else "Unexpected server error",
+        },
     )

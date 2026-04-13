@@ -163,6 +163,7 @@ def teach_from_screenshots(
     workflow_name: str,
     steps: list[dict[str, Any]],
     screenshot_dir: Path | None = None,
+    save_to_disk: bool = True,
 ) -> dict[str, Any]:
     """
     Analyse a list of numbered screenshots + instructions and save
@@ -188,7 +189,8 @@ def teach_from_screenshots(
         workflow = teach_from_screenshots("vercel_deploy", steps)
     """
     src_dir = screenshot_dir or SCREENSHOTS_INPUT_DIR
-    WORKFLOWS_DIR.mkdir(parents=True, exist_ok=True)
+    if save_to_disk:
+        WORKFLOWS_DIR.mkdir(parents=True, exist_ok=True)
 
     print(f"\n{'═'*60}")
     print(f"  Teaching workflow: '{workflow_name}'")
@@ -239,13 +241,17 @@ def teach_from_screenshots(
         "steps":          learned_steps,
     }
 
-    out_path = WORKFLOWS_DIR / f"{workflow_name}.json"
-    out_path.write_text(json.dumps(workflow, indent=2), encoding="utf-8")
-
-    print(f"{'═'*60}")
-    print(f"  ✅  Workflow saved → workflows/{workflow_name}.json")
-    print(f"  To replay: python main.py --run-workflow {workflow_name}")
-    print(f"{'═'*60}\n")
+    if save_to_disk:
+        out_path = WORKFLOWS_DIR / f"{workflow_name}.json"
+        out_path.write_text(json.dumps(workflow, indent=2), encoding="utf-8")
+        print(f"{'═'*60}")
+        print(f"  ✅  Workflow saved → workflows/{workflow_name}.json")
+        print(f"  To replay: python main.py --run-workflow {workflow_name}")
+        print(f"{'═'*60}\n")
+    else:
+        print(f"{'═'*60}")
+        print("  ✅  Workflow analysed (not written to local disk in cloud mode)")
+        print(f"{'═'*60}\n")
 
     return workflow
 

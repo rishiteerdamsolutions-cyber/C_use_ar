@@ -9,6 +9,7 @@ One codebase, N tenants — branding injected at request time.
 from __future__ import annotations
 
 import logging
+import secrets
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -40,6 +41,7 @@ def create_tenant(
     owner_name:    str,
     branding:      Optional[dict[str, Any]] = None,
     plan:          str = "whitelabel_monthly",
+    admin_token:   Optional[str] = None,
 ) -> str:
     """
     Create a new white-label tenant in MongoDB.
@@ -65,12 +67,16 @@ def create_tenant(
 
     merged_branding = {**DEFAULT_BRANDING, **(branding or {})}
     merged_branding["agency_name"] = agency_name
+    tenant_admin_token = (admin_token or secrets.token_urlsafe(24)).strip()
+    if not tenant_admin_token:
+        raise ValueError("admin_token cannot be empty")
 
     doc = {
         "subdomain":    subdomain.lower(),
         "agency_name":  agency_name,
         "owner_email":  owner_email,
         "owner_name":   owner_name,
+        "admin_token":  tenant_admin_token,
         "branding":     merged_branding,
         "plan":         plan,
         "status":       "active",

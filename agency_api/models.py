@@ -98,7 +98,8 @@ class TeachResponse(BaseModel):
 class RunWorkflowRequest(BaseModel):
     workflow_name: str
     mode:          RunMode  = RunMode.smart
-    variables:     dict[str, str] = {}
+    variables:     dict[str, str] = Field(default_factory=dict)
+    dry_run:       bool = False
 
 
 class RunWorkflowResponse(BaseModel):
@@ -160,7 +161,7 @@ class TemplateResponse(BaseModel):
 # ─── Billing models ───────────────────────────────────────────────────────────
 class CreateOrderRequest(BaseModel):
     pack:        str       = Field(..., description="starter | professional | agency")
-    owner_email: EmailStr
+    owner_email: Optional[EmailStr] = None
 
 
 class CreateOrderResponse(BaseModel):

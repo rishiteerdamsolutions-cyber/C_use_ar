@@ -8,9 +8,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Header, HTTPException, Request, status
 
-from agency_api.middleware import require_api_key
 from agency_api.models import CREDIT_PACKS, CreateOrderRequest, CreateOrderResponse
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
@@ -26,7 +25,7 @@ logger = logging.getLogger(__name__)
 )
 async def create_order(
     req:     CreateOrderRequest,
-    key_doc: dict = Depends(require_api_key),
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
 ) -> dict[str, Any]:
     from agency_api.billing import create_order as _create
 
@@ -37,7 +36,18 @@ async def create_order(
             detail=f"Unknown pack '{req.pack}'. Valid: {list(CREDIT_PACKS.keys())}",
         )
 
-    key_id = str(key_doc["_id"])
+    key_id = "public_checkout"
+    if x_api_key:
+        from agency_api.keys import validate_key
+        from agency_api.rate_limiter import check_rate_limit
+
+        key_doc = validate_key(x_api_key)
+        if not key_doc:
+            raise HTTPException(status_code=401, detail="Invalid or inactive API key")
+        allowed, reason = check_rate_limit(str(key_doc["_id"]))
+        if not allowed:
+            raise HTTPException(status_code=429, detail=reason)
+        key_id = str(key_doc["_id"])
 
     try:
         order = _create(
@@ -51,8 +61,8 @@ async def create_order(
             detail="Razorpay not configured on this server. Contact support.",
         )
     except Exception as exc:
-        logger.error("Order creation failed: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        logger.error("Order creation failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Order creation failed")
 
     return {
         "order_id":     order["order_id"],

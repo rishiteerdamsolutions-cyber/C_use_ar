@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import os
 import time
 from typing import Any
 
@@ -47,7 +48,8 @@ async def run_workflow(
     cost     = ENDPOINT_COSTS[cost_key]
     key_id   = str(key_doc["_id"])
 
-    assert_credits(key_doc, cost)
+    if not req.dry_run:
+        assert_credits(key_doc, cost)
 
     t0 = time.time()
     success      = False
@@ -59,14 +61,14 @@ async def run_workflow(
     try:
         if req.mode == RunMode.fast:
             from teach.runner_v1 import RunnerV1
-            runner = RunnerV1(req.workflow_name, dry_run=False)
+            runner = RunnerV1(req.workflow_name, dry_run=req.dry_run)
         else:
             from teach.workflow_runner import WorkflowRunner
-            runner = WorkflowRunner(req.workflow_name, dry_run=False)
+            runner = WorkflowRunner(req.workflow_name, dry_run=req.dry_run)
 
-        ok       = runner.run(variables=req.variables)
-        success  = ok
-        steps_run    = runner._workflow.get("total_steps", 0)
+        ok = runner.run(variables=req.variables)
+        success = ok
+        steps_run = runner.total_steps() if hasattr(runner, "total_steps") else 0
         success_rate = 1.0 if ok else 0.5
 
     except FileNotFoundError as exc:
@@ -80,12 +82,15 @@ async def run_workflow(
     # Deduct credits and log
     from agency_api.keys import deduct_credits
     from agency_api.usage import log_call
-    _, remaining = deduct_credits(key_id, cost)
+    if req.dry_run:
+        remaining = key_doc["credits_total"] - key_doc["credits_used"]
+    else:
+        _, remaining = deduct_credits(key_id, cost)
     log_call(
         key_id=key_id,
         endpoint="run_workflow",
         mode=req.mode.value,
-        credits_used=cost,
+        credits_used=0 if req.dry_run else cost,
         credits_remaining=remaining,
         duration_s=duration,
         success=success,
@@ -101,7 +106,7 @@ async def run_workflow(
         "steps_run":         steps_run,
         "success_rate":      success_rate,
         "duration_s":        round(duration, 2),
-        "credits_used":      cost,
+        "credits_used":      0 if req.dry_run else cost,
         "credits_remaining": remaining,
     }
 
@@ -161,16 +166,18 @@ async def teach_workflow(
                 img_path.write_bytes(content)
                 steps.append({"screenshot": str(img_path), "instruction": instr})
 
+            cloud_mode = bool(os.environ.get("VERCEL"))
             workflow_result = teach_from_screenshots(
                 workflow_name=workflow_name,
                 steps=steps,
                 screenshot_dir=tmp,
+                save_to_disk=not cloud_mode,
             )
             success = True
 
     except Exception as exc:
         logger.error("Teach failed: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="Teach workflow failed")
 
     duration = time.time() - t0
 
@@ -202,5 +209,12 @@ async def teach_workflow(
     summary="List all available workflows",
 )
 async def list_workflows(key_doc: dict = Depends(require_api_key)) -> dict[str, Any]:
-    from teach.workflow_runner import list_workflows as _list
-    return {"workflows": _list()}
+    # Prefer cloud-scoped Mongo workflows when available.
+    try:
+        from agency_api.trainer_service import list_workflows as list_cloud_workflows
+        owner_id = str(key_doc["_id"])
+        cloud = list_cloud_workflows(owner_id)
+        return {"workflows": [w["name"] for w in cloud]}
+    except Exception:
+        from teach.workflow_runner import list_workflows as list_local_workflows
+        return {"workflows": list_local_workflows()}

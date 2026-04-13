@@ -77,6 +77,9 @@ class RunnerV1:
             dry_run,
         )
 
+    def total_steps(self) -> int:
+        return int(self._workflow.get("total_steps", len(self._workflow.get("steps", []))))
+
     # ── Load ──────────────────────────────────────────────────────────────────
     @staticmethod
     def _load(name: str) -> dict[str, Any]:

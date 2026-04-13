@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,21 @@ from agency_api.models import (
 router  = APIRouter(prefix="/templates", tags=["Templates & Build"])
 logger  = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).parent.parent.parent
+
+
+def _match_template_local(command: str) -> dict[str, Any] | None:
+    """Server-safe template matcher (no desktop orchestrator import)."""
+    command_lower = command.lower()
+    for tmpl_file in BASE_DIR.glob("templates/*/template.json"):
+        try:
+            tmpl = json.loads(tmpl_file.read_text(encoding="utf-8"))
+            keywords: list[str] = tmpl.get("keywords", [])
+            if any(kw.lower() in command_lower for kw in keywords):
+                tmpl["_prompt_file"] = str(tmpl_file.parent / "prompt.txt")
+                return tmpl
+        except Exception as exc:
+            logger.warning("Could not load template %s: %s", tmpl_file, exc)
+    return None
 
 
 # ─── List all templates ───────────────────────────────────────────────────────
@@ -77,9 +93,6 @@ async def build_website(
     req:     BuildWebsiteRequest,
     key_doc: dict = Depends(require_api_key),
 ) -> dict[str, Any]:
-    import sys
-    sys.path.insert(0, str(BASE_DIR))
-
     cost   = ENDPOINT_COSTS["build_website"]
     key_id = str(key_doc["_id"])
 
@@ -92,7 +105,26 @@ async def build_website(
     session_id    = ""
 
     try:
-        from main import _match_template, run_website_workflow
+        template = _match_template_local(req.command)
+        if not template:
+            raise HTTPException(
+                status_code=422,
+                detail=f"No template matched for: '{req.command}'. "
+                       "Try keywords like: salon, restaurant, portfolio, ecommerce",
+            )
+        template_used = template.get("template_id", "unknown")
+
+        # Desktop automation pipeline is intentionally unavailable in cloud runtime.
+        if os.environ.get("VERCEL"):
+            raise HTTPException(
+                status_code=501,
+                detail=(
+                    "Full build automation is desktop-only. Run `python3 dashboard.py` or `python3 main.py` "
+                    "on your machine for Cursor/GitHub/Vercel automation."
+                ),
+            )
+
+        from main import run_website_workflow
         from config.remote_config import fetch_remote_config
 
         config = {}
@@ -100,30 +132,20 @@ async def build_website(
             config = fetch_remote_config()
         except Exception:
             pass
-
-        template = _match_template(req.command)
-        if not template:
-            raise HTTPException(
-                status_code=422,
-                detail=f"No template matched for: '{req.command}'. "
-                       "Try keywords like: salon, restaurant, portfolio, ecommerce",
-            )
-
-        template_used = template.get("template_id", "unknown")
-        result_url    = run_website_workflow(
+        result_url = run_website_workflow(
             command=req.command,
             template=template,
             config=config,
             dry_run=False,
         )
         live_url = result_url or ""
-        success  = bool(live_url)
+        success = bool(live_url)
 
     except HTTPException:
         raise
     except Exception as exc:
         logger.error("Build website failed: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="Build workflow failed")
 
     duration = time.time() - t0
 

@@ -257,7 +257,12 @@ input.error-field{border-color:var(--error)}
 </div>
 
 <script>
-const API_BASE = 'https://api.yourplatform.com/api/v1';
+const API_BASE = (() => {
+  if (location.protocol === 'file:' || !location.origin || location.origin === 'null') {
+    return 'http://localhost:8000/api/v1';
+  }
+  return location.origin.replace(/\/$/, '') + '/api/v1';
+})();
 const RZP_KEY  = 'rzp_live_REPLACE_WITH_YOUR_KEY'; // Replace at deployment
 
 let selectedPlan = { id: 'starter', amount: 999, credits: 500 };
@@ -335,14 +340,14 @@ async function payForAPIKey() {
     const res = await fetch(`${API_BASE}/billing/create-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pack: selectedPlan.id }),
+      body: JSON.stringify({ pack: selectedPlan.id, owner_email: email }),
     });
     const order = await res.json();
     if (!res.ok) throw new Error(order.detail || 'Order creation failed');
 
     openRazorpay({
       key:      order.key_id || RZP_KEY,
-      amount:   order.amount,
+      amount:   order.amount_paise,
       currency: order.currency || 'INR',
       order_id: order.order_id,
       name:     name,
@@ -417,7 +422,7 @@ async function payForWhitelabel() {
 
     openRazorpay({
       key:      order.key_id || RZP_KEY,
-      amount:   order.amount,
+      amount:   order.amount_paise,
       currency: order.currency || 'INR',
       order_id: order.order_id,
       name:     wlData.name,

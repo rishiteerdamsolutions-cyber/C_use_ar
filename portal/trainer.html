@@ -357,6 +357,7 @@ let currentFile = null;
 let currentSteps = [];
 let currentWfName = '';
 let runMode = 'fast';
+const IS_CLOUD_TRAINER = location.port !== '7788';
 
 function trainerAuthHeaders() {
   const k = (localStorage.getItem(API_KEY_STORAGE) || '').trim();
@@ -408,7 +409,9 @@ async function checkServer() {
     }
   } catch {}
   document.getElementById('dot').className = 'dot err';
-  document.getElementById('status-text').textContent = 'Offline — run: python3 dashboard.py';
+  document.getElementById('status-text').textContent = IS_CLOUD_TRAINER
+    ? 'Offline — check deployment/env/api key'
+    : 'Offline — run: python3 dashboard.py';
   document.getElementById('start-btn').disabled = true;
   return false;
 }
@@ -822,7 +825,7 @@ async function executeRun(name, dryRun, logId) {
     const res = await fetch(`${API}/run`, mergeTrainerFetchOpts({
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({workflow_name: name, dry_run: dryRun}),
+      body: JSON.stringify({workflow_name: name, dry_run: dryRun, mode: runMode}),
     }));
     const data = await res.json();
     if (!res.ok) throw new Error(apiErrMessage(data));
@@ -843,6 +846,7 @@ async function executeRun(name, dryRun, logId) {
 }
 
 function setMode(el, mode) {
+  if (IS_CLOUD_TRAINER) return;
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active'); runMode = mode;
 }
@@ -957,6 +961,18 @@ function showAlert(id, msg, type) {
 function hideAlert(id) {
   const el = document.getElementById(id);
   if (el) el.style.display = 'none';
+}
+
+if (IS_CLOUD_TRAINER) {
+  const dryRun = document.getElementById('dry-run');
+  if (dryRun) dryRun.checked = true;
+  const dryBuild = document.getElementById('dry-build');
+  if (dryBuild) dryBuild.checked = true;
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.style.opacity = '0.55';
+    btn.style.cursor = 'not-allowed';
+    btn.title = 'Mode selection applies to local desktop execution.';
+  });
 }
 </script>
 </body>

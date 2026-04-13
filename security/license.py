@@ -110,7 +110,7 @@ def get_machine_id() -> str:
     if platform.system() == "Windows":
         try:
             import subprocess
-            result = subprocess.check_output("vol C:", shell=True, stderr=subprocess.DEVNULL)
+            result = subprocess.check_output(["cmd", "/c", "vol", "C:"], stderr=subprocess.DEVNULL)
             parts.append(result.decode(errors="ignore"))
         except Exception:
             pass

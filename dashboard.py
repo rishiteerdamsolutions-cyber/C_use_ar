@@ -411,7 +411,7 @@ def run_workflow(name, dry_run=False):
                 if sys_name == "Darwin":
                     subprocess.Popen(["open", "-a", "Google Chrome"])
                 elif sys_name == "Windows":
-                    subprocess.Popen(["start", "chrome"], shell=True)
+                    subprocess.Popen(["cmd", "/c", "start", "", "chrome"])
                 else:  # Linux
                     subprocess.Popen(["google-chrome"])
                 time.sleep(1.5)

@@ -24,7 +24,11 @@ router = APIRouter(prefix="/api/trainer", tags=["Trainer (cloud)"])
 
 
 def _require_trainer_api_key() -> bool:
-    return os.environ.get("TRAINER_REQUIRE_API_KEY", "").strip().lower() in ("1", "true", "yes")
+    raw = os.environ.get("TRAINER_REQUIRE_API_KEY", "").strip().lower()
+    if raw:
+        return raw in ("1", "true", "yes")
+    # Safer default in production deployments.
+    return os.environ.get("APP_MODE", "production").strip().lower() != "development"
 
 
 async def resolve_trainer_owner(
@@ -125,7 +129,7 @@ async def trainer_teach_step(request: Request, owner_id: TrainerOwner) -> Any:
         return JSONResponse(status_code=400, content={"error": str(ve)})
     except Exception as exc:
         logger.exception("trainer teach/step")
-        return JSONResponse(status_code=500, content={"error": str(exc)})
+        return JSONResponse(status_code=500, content={"error": "teach step failed"})
 
 
 @router.post("/run")
@@ -137,6 +141,7 @@ async def trainer_run(request: Request, owner_id: TrainerOwner) -> Any:
 
     name = (data.get("workflow_name") or "").strip()
     dry_run = bool(data.get("dry_run", False))
+    mode = str(data.get("mode") or "smart").strip().lower()
     if not name:
         return JSONResponse(status_code=400, content={"error": "workflow_name required"})
 
@@ -158,9 +163,9 @@ async def trainer_run(request: Request, owner_id: TrainerOwner) -> Any:
         from agency_api.trainer_service import run_dry
 
         results = run_dry(owner_id, name)
-        return {"success": True, "steps": results}
+        return {"success": True, "mode": mode, "steps": results}
     except FileNotFoundError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
     except Exception as exc:
         logger.exception("trainer run")
-        return JSONResponse(status_code=500, content={"error": str(exc)})
+        return JSONResponse(status_code=500, content={"error": "trainer run failed"})

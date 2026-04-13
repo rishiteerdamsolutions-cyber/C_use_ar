@@ -308,7 +308,7 @@ curl -X POST https://api.yourplatform.com/api/v1/templates/build \<br>
       <table class="params">
         <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
         <tr><td class="param-name">workflow_name</td><td class="param-type">string</td><td><span class="param-req">required</span></td><td class="param-desc">Name of the saved workflow</td></tr>
-        <tr><td class="param-name">mode</td><td class="param-type">enum</td><td><span class="param-opt">optional</span></td><td class="param-desc">fast (default) or smart</td></tr>
+        <tr><td class="param-name">mode</td><td class="param-type">enum</td><td><span class="param-opt">optional</span></td><td class="param-desc">smart (default) or fast</td></tr>
         <tr><td class="param-name">variables</td><td class="param-type">object</td><td><span class="param-opt">optional</span></td><td class="param-desc">Key-value pairs for {{PLACEHOLDER}} substitution</td></tr>
         <tr><td class="param-name">dry_run</td><td class="param-type">boolean</td><td><span class="param-opt">optional</span></td><td class="param-desc">Validate without executing (default: false)</td></tr>
       </table>
@@ -317,13 +317,13 @@ curl -X POST https://api.yourplatform.com/api/v1/templates/build \<br>
       <div class="endpoint">
         <span class="method post">POST</span>
         <span class="endpoint-path">/api/v1/workflows/teach</span>
-        <span class="endpoint-tag">🔑 3 credits · multipart/form-data</span>
+        <span class="endpoint-tag">🔑 3 credits per screenshot · multipart/form-data</span>
       </div>
       <p class="doc-p">Upload numbered screenshots (1.png, 2.png…) with step descriptions to teach a new workflow.</p>
       <table class="params">
         <tr><th>Field</th><th>Type</th><th>Description</th></tr>
         <tr><td class="param-name">workflow_name</td><td class="param-type">string</td><td class="param-desc">Unique name for this workflow</td></tr>
-        <tr><td class="param-name">instructions</td><td class="param-type">JSON array</td><td class="param-desc">[{"step":1,"description":"Click New File"},...] — one per screenshot</td></tr>
+        <tr><td class="param-name">instructions</td><td class="param-type">JSON array</td><td class="param-desc">["Click New File","Type project name", ...] — one instruction per screenshot</td></tr>
         <tr><td class="param-name">screenshots</td><td class="param-type">file[]</td><td class="param-desc">PNG/JPG files, numbered to match instructions</td></tr>
       </table>
 

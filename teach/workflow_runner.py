@@ -58,6 +58,9 @@ class WorkflowRunner:
             dry_run,
         )
 
+    def total_steps(self) -> int:
+        return int(self._workflow.get("total_steps", len(self._workflow.get("steps", []))))
+
     # ── Load ──────────────────────────────────────────────────────────────────
     @staticmethod
     def _load(name: str) -> dict[str, Any]:
@@ -157,7 +160,8 @@ class WorkflowRunner:
         Execute one action dict. Returns (success, method_used).
         """
         from vision import vision_engine as ve
-        from execution.executor import LowConfidenceError
+        from execution.executor import LowConfidenceError as ExecutorLowConfidenceError
+        from vision.vision_engine import LowConfidenceError as VisionLowConfidenceError
 
         act_type     = action.get("action_type", "click")
         intent       = action.get("intent", "")
@@ -232,7 +236,7 @@ class WorkflowRunner:
                 logger.warning("Unknown action_type: %s", act_type)
                 return False, "unknown_action"
 
-        except LowConfidenceError as e:
+        except (ExecutorLowConfidenceError, VisionLowConfidenceError) as e:
             logger.warning("Low confidence on step: %s", e)
             # Try fallback
             fb = _fallback_click(intent, labels, pos_hint, self._executor)

@@ -137,6 +137,9 @@ class ExecutionEngine:
         if confidence < MIN_CONFIDENCE:
             logger.error("Click refused at (%d,%d) confidence=%.2f", x, y, confidence)
             raise LowConfidenceError(confidence)
+        w, h = self.get_screen_size()
+        if not (0 <= x < w and 0 <= y < h):
+            raise ExecutionEngineError(f"Click coordinates out of bounds: ({x},{y}) for screen {w}x{h}")
 
         logger.info("Click (%d, %d) confidence=%.2f", x, y, confidence)
         self._pg.click(x, y)
@@ -146,6 +149,9 @@ class ExecutionEngine:
         """Double-click at (x, y)."""
         if confidence < MIN_CONFIDENCE:
             raise LowConfidenceError(confidence)
+        w, h = self.get_screen_size()
+        if not (0 <= x < w and 0 <= y < h):
+            raise ExecutionEngineError(f"Double-click coordinates out of bounds: ({x},{y}) for screen {w}x{h}")
         logger.info("Double-click (%d, %d)", x, y)
         self._pg.doubleClick(x, y)
         time.sleep(ACTION_PAUSE)
@@ -154,6 +160,9 @@ class ExecutionEngine:
         """Right-click at (x, y)."""
         if confidence < MIN_CONFIDENCE:
             raise LowConfidenceError(confidence)
+        w, h = self.get_screen_size()
+        if not (0 <= x < w and 0 <= y < h):
+            raise ExecutionEngineError(f"Right-click coordinates out of bounds: ({x},{y}) for screen {w}x{h}")
         logger.info("Right-click (%d, %d)", x, y)
         self._pg.rightClick(x, y)
         time.sleep(ACTION_PAUSE)

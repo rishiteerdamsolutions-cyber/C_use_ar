@@ -72,6 +72,7 @@ class OnboardResponse(BaseModel):
 class OrderResponse(BaseModel):
     order_id:   str
     amount:     int
+    amount_paise: int
     currency:   str
     key_id:     str         # Razorpay key_id for the frontend
 
@@ -100,15 +101,16 @@ async def create_whitelabel_order(body: OrderRequest) -> dict[str, Any]:
             owner_email=body.owner_email,
         )
     except Exception as exc:
-        logger.error("Order creation failed: %s", exc)
+        logger.error("Order creation failed: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Payment gateway error: {exc}",
+            detail="Payment gateway error",
         )
 
     return {
         "order_id":  order.get("id", ""),
         "amount":    order.get("amount", 999900),
+        "amount_paise": order.get("amount", 999900),
         "currency":  order.get("currency", "INR"),
         "key_id":    os.environ.get("RAZORPAY_KEY_ID", ""),
     }
@@ -170,10 +172,12 @@ async def check_subdomain(subdomain: str) -> dict[str, Any]:
 
     from whitelabel.tenant_config import get_tenant_by_subdomain
     taken = get_tenant_by_subdomain(slug) is not None
+    import os
+    platform_domain = os.environ.get("PLATFORM_DOMAIN", "yourplatform.com")
     return {
         "subdomain": slug,
         "available": not taken,
-        "portal_url": f"https://{slug}.yourplatform.com",
+        "portal_url": f"https://{slug}.{platform_domain}",
     }
 
 

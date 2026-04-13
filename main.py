@@ -27,17 +27,25 @@ from typing import Any
 # ─── Structured logging setup ─────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
 LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(parents=True, exist_ok=True)
+_handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+try:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    _handlers.append(logging.FileHandler(LOG_DIR / "agent.log", encoding="utf-8"))
+except OSError:
+    # Serverless runtimes can have readonly application filesystems.
+    pass
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(name)-30s  %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(LOG_DIR / "agent.log", encoding="utf-8"),
-    ],
+    handlers=_handlers,
 )
 logger = logging.getLogger("main")
+
+
+def _primary_mod_key() -> str:
+    import platform
+    return "command" if platform.system() == "Darwin" else "ctrl"
 
 # Add credential redact filter to root logger
 try:
@@ -295,7 +303,7 @@ def run_website_workflow(
         if fb_result.success:
             t0 = time.time()
             executor.set_clipboard(validated_prompt)
-            executor.shortcut("ctrl", "a")
+            executor.shortcut(_primary_mod_key(), "a")
             executor.paste()
             executor.press_enter()
             recorder.log_step("cursor_paste_prompt", "SUCCESS", time.time() - t0, "clipboard")
@@ -402,30 +410,32 @@ def _create_github_repo(template_id: str, github_pat: str) -> str:
 
 # ─── Cursor monitoring ────────────────────────────────────────────────────────
 def _wait_for_cursor_completion(executor: Any, recorder: Any) -> None:
-    """Poll Cursor output every 10 minutes for completion keywords."""
+    """Poll Cursor output frequently with bounded timeout."""
     COMPLETION_KEYWORDS = ["successfully", "done", "complete", "ready", "built"]
     ERROR_KEYWORDS = ["error", "failed", "exception", "cannot", "undefined"]
-    MAX_POLLS = 18   # 18 × 10 min = 3 hours max
+    poll_seconds = int(os.environ.get("CURSOR_POLL_SECONDS", "30") or "30")
+    max_wait_seconds = int(os.environ.get("CURSOR_MAX_WAIT_SECONDS", "1800") or "1800")
+    max_polls = max(1, max_wait_seconds // max(1, poll_seconds))
 
-    logger.info("Monitoring Cursor for completion (max 3 hours)…")
+    logger.info("Monitoring Cursor for completion (max %ds, poll=%ds)…", max_wait_seconds, poll_seconds)
 
-    for poll in range(MAX_POLLS):
-        time.sleep(600)   # 10 minutes
+    for poll in range(max_polls):
+        time.sleep(poll_seconds)
         text = executor.copy_all_text().lower()
 
         if any(kw in text for kw in COMPLETION_KEYWORDS):
             logger.info("Cursor completion detected on poll %d", poll + 1)
-            recorder.log_step("cursor_build_wait", "SUCCESS", poll * 600, "polling",
+            recorder.log_step("cursor_build_wait", "SUCCESS", poll * poll_seconds, "polling",
                               metadata={"polls": poll + 1})
             return
 
         if any(kw in text for kw in ERROR_KEYWORDS):
             logger.warning("Cursor error detected — retrying prompt")
-            executor.shortcut("ctrl", "z")
+            executor.shortcut(_primary_mod_key(), "z")
             time.sleep(2)
             executor.press_enter()
 
-    recorder.log_step("cursor_build_wait", "FAILURE", MAX_POLLS * 600, "polling", "Timeout")
+    recorder.log_step("cursor_build_wait", "FAILURE", max_polls * poll_seconds, "polling", "Timeout")
 
 
 # ─── Vercel ENV ───────────────────────────────────────────────────────────────

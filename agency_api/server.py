@@ -37,6 +37,8 @@ logger = logging.getLogger("agency_api.server")
 
 _START_TIME = time.time()
 VERSION     = (Path(__file__).parent.parent / "VERSION").read_text().strip()
+_PLATFORM_DOMAIN = os.environ.get("PLATFORM_DOMAIN", "yourplatform.com").strip() or "yourplatform.com"
+_API_BASE_URL = f"https://{_PLATFORM_DOMAIN}/api/v1"
 
 
 # ─── Lifespan (startup / shutdown) ───────────────────────────────────────────
@@ -84,7 +86,7 @@ app = FastAPI(
         "`X-API-Key: ak_live_your_key_here`\n\n"
         "**Credits:** Each endpoint costs a fixed number of credits. "
         "Top up via POST /billing/create-order (Razorpay).\n\n"
-        "**Base URL:** `https://api.yourplatform.com/api/v1`"
+        f"**Base URL:** `{_API_BASE_URL}`"
     ),
     version     = VERSION,
     lifespan    = lifespan,
@@ -92,8 +94,8 @@ app = FastAPI(
     redoc_url   = "/redoc",
     contact     = {
         "name":  "Autonomous Web Agency",
-        "email": "support@yourplatform.com",
-        "url":   "https://yourplatform.com",
+        "email": f"support@{_PLATFORM_DOMAIN}",
+        "url":   f"https://{_PLATFORM_DOMAIN}",
     },
     license_info= {"name": "Proprietary"},
 )
@@ -104,7 +106,7 @@ ALLOWED_ORIGINS = [
     for o in os.environ.get(
         "ALLOWED_ORIGINS",
         "http://localhost:3000,http://localhost:7788,http://localhost:8000,"
-        "https://cuseai.vercel.app,https://yourplatform.com",
+        f"https://cuseai.vercel.app,https://{_PLATFORM_DOMAIN}",
     ).split(",")
     if o.strip()
 ]
