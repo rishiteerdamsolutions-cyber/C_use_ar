@@ -145,25 +145,24 @@ async def trainer_run(request: Request, owner_id: TrainerOwner) -> Any:
     if not name:
         return JSONResponse(status_code=400, content={"error": "workflow_name required"})
 
+    # Cloud trainer API is validation-only. Coerce to dry-run for consistency.
+    coerced_to_dry_run = False
     if not dry_run:
-        return JSONResponse(
-            status_code=501,
-            content={
-                "success": False,
-                "error": (
-                    "Live desktop execution is not available in the cloud. "
-                    "Use Dry run here to validate steps, or run `python3 dashboard.py` on your machine "
-                    "with this client's credentials in the OS keychain / env, and sync workflows from Mongo "
-                    "or recreate the workflow name under workflows/ locally."
-                ),
-            },
-        )
+        dry_run = True
+        coerced_to_dry_run = True
 
     try:
         from agency_api.trainer_service import run_dry
 
         results = run_dry(owner_id, name)
-        return {"success": True, "mode": mode, "steps": results}
+        out: dict[str, Any] = {"success": True, "mode": mode, "steps": results}
+        if coerced_to_dry_run:
+            out["note"] = (
+                "Cloud trainer runs validation-only (dry run). "
+                "For live desktop execution use local `python3 dashboard.py`."
+            )
+            out["coerced_to_dry_run"] = True
+        return out
     except FileNotFoundError as e:
         return JSONResponse(status_code=404, content={"error": str(e)})
     except Exception as exc:

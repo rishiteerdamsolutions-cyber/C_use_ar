@@ -358,6 +358,8 @@ let currentSteps = [];
 let currentWfName = '';
 let runMode = 'fast';
 const IS_CLOUD_TRAINER = location.port !== '7788';
+let healthFailStreak = 0;
+let healthCheckInFlight = false;
 
 function trainerAuthHeaders() {
   const k = (localStorage.getItem(API_KEY_STORAGE) || '').trim();
@@ -399,24 +401,34 @@ function apiErrMessage(data) {
 
 // ── Server health ────────────────────────────────────────────────────────────
 async function checkServer() {
+  if (healthCheckInFlight) return false;
+  healthCheckInFlight = true;
   try {
     const r = await fetch(`${API}/health`, mergeTrainerFetchOpts({ signal: AbortSignal.timeout(2000) }));
     if (r.ok) {
+      healthFailStreak = 0;
       document.getElementById('dot').className = 'dot ok';
       document.getElementById('status-text').textContent = 'Server online';
       document.getElementById('start-btn').disabled = !currentWfName;
+      healthCheckInFlight = false;
       return true;
     }
   } catch {}
-  document.getElementById('dot').className = 'dot err';
-  document.getElementById('status-text').textContent = IS_CLOUD_TRAINER
-    ? 'Offline — check deployment/env/api key'
-    : 'Offline — run: python3 dashboard.py';
-  document.getElementById('start-btn').disabled = true;
+  healthFailStreak += 1;
+  if (healthFailStreak >= 3) {
+    document.getElementById('dot').className = 'dot err';
+    document.getElementById('status-text').textContent = IS_CLOUD_TRAINER
+      ? 'Offline — check deployment/env/api key'
+      : 'Offline — run: python3 dashboard.py';
+    document.getElementById('start-btn').disabled = true;
+  } else {
+    document.getElementById('status-text').textContent = `Reconnecting… (${healthFailStreak}/3)`;
+  }
+  healthCheckInFlight = false;
   return false;
 }
 checkServer();
-setInterval(checkServer, 8000);
+setInterval(checkServer, 12000);
 
 (function restoreLastWorkflow() {
   try {
@@ -965,14 +977,20 @@ function hideAlert(id) {
 
 if (IS_CLOUD_TRAINER) {
   const dryRun = document.getElementById('dry-run');
-  if (dryRun) dryRun.checked = true;
+  if (dryRun) { dryRun.checked = true; dryRun.disabled = true; }
   const dryBuild = document.getElementById('dry-build');
-  if (dryBuild) dryBuild.checked = true;
+  if (dryBuild) { dryBuild.checked = true; dryBuild.disabled = true; }
   document.querySelectorAll('.mode-btn').forEach(btn => {
     btn.style.opacity = '0.55';
     btn.style.cursor = 'not-allowed';
     btn.title = 'Mode selection applies to local desktop execution.';
   });
+  const runAlert = document.getElementById('run-alert');
+  if (runAlert) {
+    runAlert.textContent = 'Cloud trainer runs validation-only. Use local dashboard.py for real desktop clicks.';
+    runAlert.className = 'alert alert-ok';
+    runAlert.style.display = 'block';
+  }
 }
 </script>
 </body>
