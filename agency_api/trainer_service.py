@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import os
 import re
 import sys
 import tempfile
@@ -26,6 +27,38 @@ ANONYMOUS_OWNER = "anonymous"
 def _ensure_dash_imports():
     if str(_ROOT) not in sys.path:
         sys.path.insert(0, str(_ROOT))
+
+
+def _parse_multipart(body: bytes, boundary: str) -> dict[str, Any]:
+    """
+    Parse multipart/form-data payload into field dict.
+
+    Mirrors dashboard.parse_multipart but lives in cloud trainer service so
+    Vercel does not need to import dashboard.py (which may touch readonly paths).
+    """
+    result: dict[str, Any] = {}
+    sep = ("--" + boundary).encode()
+    for part in body.split(sep)[1:]:
+        if not part.strip() or part.strip() == b"--":
+            continue
+        if b"\r\n\r\n" not in part:
+            continue
+        header_bytes, _, data = part.partition(b"\r\n\r\n")
+        while data.endswith(b"\r\n"):
+            data = data[:-2]
+        headers = header_bytes.decode(errors="ignore")
+        cd = next((l for l in headers.splitlines() if "Content-Disposition" in l), "")
+        nm = re.search(r'name="([^"]+)"', cd)
+        fn = re.search(r'filename="([^"]+)"', cd)
+        if not nm:
+            continue
+        name = nm.group(1)
+        if fn:
+            filename = fn.group(1).strip()
+            result.setdefault(name, []).append({"filename": filename, "data": data})
+        else:
+            result[name] = data.decode(errors="utf-8")
+    return result
 
 
 def _col():
@@ -89,14 +122,11 @@ def delete_step(owner_id: str, wf_name: str, step_num: int) -> tuple[bool, int]:
 
 
 def process_teach_step(owner_id: str, raw_body: bytes, content_type: str) -> dict[str, Any]:
-    _ensure_dash_imports()
-    import dashboard as dash
-
     bnd = re.search(r"boundary=([^\s;]+)", content_type)
     if not bnd:
         raise ValueError("no multipart boundary")
 
-    fields = dash.parse_multipart(raw_body, bnd.group(1))
+    fields = _parse_multipart(raw_body, bnd.group(1))
     wf_name = fields.get("workflow_name", "").strip()
     description = fields.get("description", "").strip()
     action_type = fields.get("action_type", "click").strip()
@@ -182,8 +212,15 @@ def process_teach_step(owner_id: str, raw_body: bytes, content_type: str) -> dic
                 tmp.close()
             try:
                 step["screenshot"] = f"{wf_name}_step{step_num}.png"
-                if dash._vision_keys_available():
+                has_vision_key = bool(
+                    (os.environ.get("OPENAI_API_KEY") or "").strip()
+                    or (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+                )
+                if has_vision_key:
                     try:
+                        _ensure_dash_imports()
+                        import dashboard as dash
+
                         coords = dash.analyse_screenshot_for_click(tmp_path, description)
                         step["x"] = int(coords.get("x") or 0)
                         step["y"] = int(coords.get("y") or 0)
