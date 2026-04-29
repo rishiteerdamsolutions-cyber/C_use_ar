@@ -1,6 +1,6 @@
 """
 Runner V1 — Training Only Mode
-Autonomous Web Agency Agent v1.0
+cusear™ Agent v1.0
 
 Replays a workflow using ONLY the coordinates and actions recorded during
 training. Zero AI API calls at runtime — fast, offline-capable, free.
@@ -29,13 +29,15 @@ from __future__ import annotations
 import json
 import logging
 import time
+import warnings
 from pathlib import Path
 from typing import Any
 
+from config.local_paths import agency_root
+
 logger = logging.getLogger(__name__)
 
-BASE_DIR  = Path(__file__).parent.parent
-WORKFLOWS_DIR = BASE_DIR / "workflows"
+WORKFLOWS_DIR = agency_root() / "workflows"
 
 
 class RunnerV1:
@@ -63,6 +65,10 @@ class RunnerV1:
         self.dry_run = dry_run
         self.speed = speed
         self._workflow = self._load(workflow_name)
+        self._type_project_text = (
+            str(self._workflow.get("workflow_name") or "").strip()
+            or (self.workflow_name or "").strip()
+        )
 
         if not dry_run:
             from execution.executor import ExecutionEngine
@@ -131,6 +137,23 @@ class RunnerV1:
         Returns:
             True if all steps completed without error.
         """
+        warnings.warn(
+            "teach.runner_v1 is deprecated; delegating to dashboard.run_workflow()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        from dashboard import run_workflow as _run_workflow
+
+        step_results = _run_workflow(
+            self.workflow_name,
+            dry_run=bool(self.dry_run),
+            runtime_vars_seed=variables or {},
+            run_mode="fast",
+            run_source="legacy_runner_v1",
+        )
+        return not any(str(s.get("status") or "") == "error" for s in step_results)
+
+        # Legacy path retained below for reference.
         from analytics.session import SessionRecorder
 
         steps: list[dict] = self._workflow.get("steps", [])
@@ -154,7 +177,11 @@ class RunnerV1:
         for step_def in steps:
             step_num  = step_def.get("step", "?")
             instr     = step_def.get("instruction", "")
-            action    = step_def.get("action", {})
+            action    = step_def.get("action", {}) if isinstance(step_def.get("action"), dict) else {}
+            if not action.get("action_type") and step_def.get("action_type"):
+                action = {**action, "action_type": step_def.get("action_type")}
+            if not action.get("hotkey_keys") and step_def.get("hotkey_keys"):
+                action = {**action, "hotkey_keys": step_def.get("hotkey_keys")}
             act_type  = action.get("action_type", "click")
 
             print(f"  Step {step_num}/{total}: {instr}")
@@ -249,6 +276,13 @@ class RunnerV1:
                 self._executor.type_text(type_text, clear_first=clear_first)
                 return True, "type", ""
 
+            elif act_type == "type_project_name":
+                wn = self._sub(self._type_project_text, variables).strip()
+                if not wn:
+                    return False, "type_project_name", "workflow name is empty"
+                self._executor.type_text(wn, clear_first=clear_first)
+                return True, "type_project_name", ""
+
             elif act_type == "click":
                 if not trained_x and not trained_y:
                     return False, "click_trained", "No trained_x/y — re-run --teach to capture coordinates"
@@ -269,16 +303,17 @@ class RunnerV1:
             text = text.replace(k, v)
         return text
 
-    @staticmethod
-    def _print_dry(act_type: str, action: dict, variables: dict) -> None:
+    def _print_dry(self, act_type: str, action: dict, variables: dict) -> None:
         x = action.get("trained_x", "?")
         y = action.get("trained_y", "?")
         text = action.get("type_text", "")
         for k, v in variables.items():
             text = text.replace(k, v)
+        wn = self._sub(self._type_project_text, variables).strip()
         details = {
             "click":    f"→ trained coords ({x}, {y})",
             "type":     f"→ '{text}'",
+            "type_project_name": f"→ workflow name '{wn}'",
             "hotkey":   f"→ {action.get('hotkey_keys',[])}",
             "open_url": f"→ {action.get('url','')}",
             "scroll":   f"→ {action.get('position_hint','down')}",

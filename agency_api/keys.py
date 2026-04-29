@@ -1,6 +1,6 @@
 """
 API Key Manager — generate, hash, validate, store.
-Autonomous Web Agency Platform · API Layer
+cusear™ Platform · API Layer
 
 Key format:  ak_live_<32 random chars>   (production)
              ak_test_<32 random chars>   (sandbox)
@@ -52,6 +52,7 @@ def create_key(
     credits:     int,
     pack:        str,
     razorpay_payment_id: Optional[str] = None,
+    **kwargs: Any,
 ) -> tuple[str, str]:
     """
     Create and persist a new API key in MongoDB.
@@ -72,7 +73,7 @@ def create_key(
 
     raw_key, hashed = generate_api_key()
 
-    doc = {
+    doc: dict[str, Any] = {
         "key_hash":             hashed,
         "owner_name":           owner_name,
         "owner_email":          owner_email,
@@ -87,7 +88,12 @@ def create_key(
         "calls_this_month":     0,
         "day_reset":            datetime.now(timezone.utc).date().isoformat(),
         "month_reset":          datetime.now(timezone.utc).strftime("%Y-%m"),
+        "ai_runs_this_month":     0,
+        "ai_runs_month_reset":    datetime.now(timezone.utc).strftime("%Y-%m"),
     }
+    for k, v in (kwargs or {}).items():
+        if k and not str(k).startswith("_"):
+            doc[k] = v
 
     col    = get_collection(Collections.API_KEYS)
     result = col.insert_one(doc)
@@ -252,4 +258,45 @@ def get_usage_summary(key_id: str) -> dict[str, Any]:
         "status":              doc["status"],
         "created_at":          doc["created_at"],
         "last_used_at":        doc.get("last_used_at"),
+        "ai_runs_this_month":   doc.get("ai_runs_this_month", 0),
+        "ai_runs_monthly_quota": doc.get("ai_runs_monthly_quota"),
+        "entitled_modules":     doc.get("entitled_modules"),
     }
+
+
+def get_ai_runs_this_month(key_id: str) -> int:
+    from agency_api.database import get_collection, Collections
+    from bson import ObjectId  # type: ignore
+
+    now = datetime.now(timezone.utc)
+    month_str = now.strftime("%Y-%m")
+    col = get_collection(Collections.API_KEYS)
+    doc = col.find_one({"_id": ObjectId(key_id)})
+    if not doc:
+        return 0
+    reset_patch: dict[str, Any] = {}
+    if doc.get("ai_runs_month_reset") != month_str:
+        reset_patch["ai_runs_this_month"] = 0
+        reset_patch["ai_runs_month_reset"] = month_str
+    if reset_patch:
+        col.update_one({"_id": ObjectId(key_id)}, {"$set": reset_patch})
+        doc = col.find_one({"_id": ObjectId(key_id)})
+    try:
+        return int((doc or {}).get("ai_runs_this_month") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def increment_ai_runs_this_month(key_id: str) -> int:
+    """Increment AI-attributed run counter for the key's current month; returns new count."""
+    from agency_api.database import get_collection, Collections
+    from bson import ObjectId  # type: ignore
+
+    _ = get_ai_runs_this_month(key_id)
+    col = get_collection(Collections.API_KEYS)
+    col.update_one({"_id": ObjectId(key_id)}, {"$inc": {"ai_runs_this_month": 1}})
+    doc = col.find_one({"_id": ObjectId(key_id)})
+    try:
+        return int((doc or {}).get("ai_runs_this_month") or 0)
+    except (TypeError, ValueError):
+        return 0

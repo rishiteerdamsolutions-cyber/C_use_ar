@@ -51,6 +51,21 @@ async def run_workflow(
     if not req.dry_run:
         assert_credits(key_doc, cost)
 
+    try:
+        from agency_api.entitlements import assert_run_allowed_for_key, load_workflow_dict
+
+        wf0 = load_workflow_dict(req.workflow_name)
+        if wf0 is None:
+            raise HTTPException(status_code=404, detail=f"Workflow '{req.workflow_name}' not found")
+        assert_run_allowed_for_key(
+            key_doc=key_doc,
+            workflow_name=req.workflow_name,
+            run_mode=req.mode.value,
+            wf=wf0,
+        )
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+
     t0 = time.time()
     success      = False
     session_id   = ""
@@ -86,6 +101,15 @@ async def run_workflow(
         remaining = key_doc["credits_total"] - key_doc["credits_used"]
     else:
         _, remaining = deduct_credits(key_id, cost)
+        try:
+            from agency_api.entitlements import infer_requires_ai, load_workflow_dict
+            from agency_api.keys import increment_ai_runs_this_month
+
+            wf1 = load_workflow_dict(req.workflow_name)
+            if wf1 and infer_requires_ai(wf1, req.mode.value) and success:
+                increment_ai_runs_this_month(key_id)
+        except Exception:
+            pass
     log_call(
         key_id=key_id,
         endpoint="run_workflow",

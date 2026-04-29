@@ -2,13 +2,29 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Web Agency Trainer</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<script>
+(function () {
+  try {
+    if (location.hash && location.hash.indexOf('trainerDesktopShell') !== -1) {
+      document.documentElement.classList.add('trainer-desktop-shell');
+    }
+  } catch (_) {}
+})();
+</script>
+<title>cusear Trainer</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--gold:#c9a96e;--bg:#0d0d0d;--bg2:#141414;--bg3:#1c1c1c;
       --text:#e8e8e8;--muted:#777;--border:#252525;--ok:#86efac;--err:#f87171}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+
+html.trainer-desktop-shell header{
+  padding-left:max(82px, env(safe-area-inset-left, 0px));
+  padding-right:max(24px, env(safe-area-inset-right, 0px));
+  padding-top:max(14px, env(safe-area-inset-top, 0px));
+  padding-bottom:14px;
+}
 
 /* HEADER */
 header{display:flex;align-items:center;justify-content:space-between;
@@ -36,6 +52,7 @@ header{display:flex;align-items:center;justify-content:space-between;
 /* MAIN */
 main{padding:28px 24px;max-width:820px}
 .panel{display:none}.panel.active{display:block}
+.step-builder-panel-shell{margin-bottom:22px}
 
 /* CARDS */
 .card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;
@@ -73,16 +90,16 @@ select.fld{cursor:pointer}
 
 /* STEP LIST */
 .step-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-.step-row{display:flex;align-items:center;gap:10px;padding:10px 14px;
+.step-row{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;
           background:var(--bg2);border-radius:7px;border:1px solid var(--border)}
 .step-num{width:26px;height:26px;border-radius:50%;background:var(--gold);color:#000;
           font-weight:700;font-size:.78rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.step-info{flex:1}
+.step-info{flex:1;min-width:0}
 .step-action{font-size:.72rem;color:var(--gold);font-weight:700;text-transform:uppercase}
 .step-desc{font-size:.83rem;color:var(--text);margin-top:2px;max-height:140px;overflow-y:auto}
 .step-coords{font-size:.7rem;color:var(--muted);margin-top:2px}
 .step-del{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px 8px;
-          font-size:.9rem;border-radius:4px}
+          font-size:.9rem;border-radius:4px;flex-shrink:0;align-self:flex-start}
 .step-del:hover{color:var(--err)}
 
 /* WORKFLOW NAME BAR */
@@ -106,8 +123,10 @@ select.fld{cursor:pointer}
 .alert-err{background:#2a0a0a;border:1px solid #7f1d1d;color:var(--err)}
 
 /* WF LIST */
-.wf-item{display:flex;align-items:center;justify-content:space-between;
+.wf-item{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
          padding:11px 14px;background:var(--bg3);border-radius:7px;margin-bottom:7px}
+.wf-item > div:first-of-type{min-width:0;flex:1 1 auto;word-break:break-word}
+.wf-item > div:last-of-type{flex-shrink:0}
 .wf-name{font-weight:600;font-size:.88rem}
 .wf-meta{font-size:.72rem;color:var(--muted)}
 
@@ -129,30 +148,55 @@ select.fld{cursor:pointer}
 .template-dropdown summary{cursor:pointer;list-style:none;padding:10px 12px;font-size:.82rem;color:var(--gold);font-weight:700}
 .template-dropdown summary::-webkit-details-marker{display:none}
 .template-dropdown .template-list{padding:0 10px 10px}
+.easywork-intro{font-size:.84rem;color:var(--muted);line-height:1.5;margin-bottom:14px}
+.easywork-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.easywork-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px}
+.easywork-title{font-size:.86rem;font-weight:700;margin-bottom:6px}
+.easywork-sub{font-size:.78rem;color:var(--muted);line-height:1.4;margin-bottom:10px;min-height:32px}
+.easywork-actions{display:flex;gap:8px}
+#easywork-preview{min-height:220px;white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:.77rem;line-height:1.5}
+#easywork-alert{display:none}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">⚡ Web Agency Trainer</div>
+  <div class="logo">cusear Trainer</div>
   <div class="hdr-right">
     <div class="api-key-bar" title="Each client’s ak_live_… key scopes cloud-saved workflows to that customer (MongoDB). Stored only in this browser.">
       <input type="password" id="api-key-inp" placeholder="Client API key" autocomplete="off"
         style="width:min(200px,28vw);font-size:.72rem;padding:6px 9px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
       <button type="button" class="btn btn-outline btn-sm" style="padding:6px 10px;font-size:.72rem" onclick="saveTrainerApiKey()">Save</button>
     </div>
-    <div id="server-status">
+    <div id="server-status" style="flex-wrap:wrap">
       <div class="dot" id="dot"></div>
       <span id="status-text">Connecting…</span>
+      <button type="button" class="btn btn-outline btn-sm" style="padding:3px 8px;font-size:.68rem" onclick="void recheckTrainerServer()" title="Retry connection">↻ Retry</button>
     </div>
     <span id="countdown"></span>
-    <button id="start-btn" onclick="startRun()" disabled>▶ START</button>
+    <button id="start-btn" onclick="handleStartStopButton()" disabled>▶ START</button>
   </div>
 </header>
+<div id="entitlement-banner" style="display:none;font-size:.72rem;color:#fca5a5;padding:8px 24px;background:#1a0505;border-bottom:1px solid #7f1d1d;text-align:center"></div>
+<div id="trainer-run-activity-banner" style="display:none;font-size:.78rem;color:#fef3c7;padding:10px 24px;background:#291c00;border-bottom:1px solid rgba(201,169,110,0.45);text-align:center;line-height:1.45">
+  <strong style="color:var(--gold)">Run in progress</strong> — a workflow is executing on this computer (scheduler, ar™, or Run). The header shows <strong>■ STOP</strong> — use it to request a graceful stop between steps.
+</div>
+
+<div id="trainer-automation-notice-modal" style="display:none;position:fixed;inset:0;z-index:10040;background:rgba(3,3,8,.88);align-items:center;justify-content:center;padding:16px;box-sizing:border-box" role="dialog" aria-modal="true" aria-labelledby="trainer-auto-notice-title">
+  <div class="card" style="max-width:500px;width:100%;border-color:rgba(201,169,110,0.45);position:relative" onclick="event.stopPropagation()">
+    <div id="trainer-auto-notice-title" class="card-title" style="text-transform:none;letter-spacing:.2px;margin-bottom:10px">Automation can start runs on its own</div>
+    <p id="trainer-auto-notice-body" style="font-size:.84rem;color:var(--muted);line-height:1.55;margin-bottom:16px"></p>
+    <p style="font-size:.8rem;color:var(--text);line-height:1.5;margin-bottom:16px">Whenever a run is active, the header shows an enabled <strong style="color:var(--gold)">■ STOP</strong> button. Press STOP to cancel between steps.</p>
+    <button type="button" class="btn btn-gold" onclick="dismissTrainerAutomationNotice()">OK — I understand</button>
+  </div>
+</div>
 
 <div class="tabs">
   <div class="tab active" onclick="switchTab('build',this)">🎓 Step Builder</div>
+  <div class="tab" onclick="switchTab('easywork',this)">✨ Easy Work</div>
+  <div class="tab" onclick="switchTab('ai-media',this)">🖼 AI Media Studio</div>
   <div class="tab" onclick="switchTab('run',this)">▶ Run</div>
+  <div class="tab" onclick="switchTab('best-ai',this)">✨ Best AI™</div>
   <div class="tab" onclick="switchTab('workflows',this)">📋 Saved</div>
 </div>
 
@@ -160,12 +204,25 @@ select.fld{cursor:pointer}
 
 <!-- ═══════════════ STEP BUILDER ═══════════════ -->
 <div class="panel active" id="panel-build">
+  <div id="step-builder-shell-build" class="step-builder-panel-shell">
+  <div id="step-builder-dock">
 
   <!-- Workflow name bar -->
   <div class="wf-bar">
     <span class="wf-bar-label">Workflow:</span>
     <input type="text" id="wf-name" placeholder="e.g. salon_build" oninput="onWfNameChange()">
     <span class="step-badge" id="step-badge">0 steps</span>
+  </div>
+  <div class="wf-bar" style="flex-wrap:wrap;align-items:flex-end;margin-top:4px;gap:10px">
+    <div style="flex:1;min-width:min(100%, 380px)">
+      <label class="lbl" for="build-whatsapp-number" style="font-size:.76rem">Notify number (this workflow)</label>
+      <p style="font-size:.68rem;color:var(--muted);margin:2px 0 6px;line-height:1.4">For end-of-run notify + prefilled completion text. Optional fallback: <code>TRAINER_WHATSAPP_NOTIFY_NUMBER</code> in <code>.env</code>.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <input class="fld" type="text" id="build-whatsapp-number" inputmode="tel" placeholder="e.g. 919876543210" style="flex:1;min-width:200px" />
+        <button type="button" class="btn btn-outline" onclick="saveBuildWhatsAppNumber()">Save Notify</button>
+        <span id="build-whatsapp-status" style="font-size:.72rem;color:var(--gold)"></span>
+      </div>
+    </div>
   </div>
 
   <div class="card">
@@ -213,6 +270,16 @@ select.fld{cursor:pointer}
         <input type="checkbox" id="dry-build" style="accent-color:var(--gold)"> Dry run
       </label>
     </div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
+      <label class="lbl" for="join-source-select">Join another workflow into this one</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select class="fld" id="join-source-select" style="flex:1">
+          <option value="">— choose workflow to append —</option>
+        </select>
+        <button class="btn btn-outline" id="join-workflow-btn" onclick="joinWorkflowSteps()" disabled>➕ Join</button>
+      </div>
+      <div id="join-workflow-status" style="font-size:.78rem;color:var(--muted);margin-top:8px"></div>
+    </div>
     <div class="log-box" id="build-log" style="display:none"></div>
   </div>
 
@@ -226,13 +293,26 @@ select.fld{cursor:pointer}
       <option value="minimize">🗕 Minimize Window — hide the active window</option>
       <option value="maximize">🗖 Maximize Window — bring window to full size</option>
       <option value="open_chrome">🌐 Open Chrome — launch Google Chrome</option>
+      <option value="close_chrome">🛑 Close Chrome — quit Google Chrome (all windows)</option>
+      <option value="open_cursor">🧩 Open Cursor — launch Cursor app</option>
       <option value="open_url">🔗 Open URL — default browser (no typing; best for navigation)</option>
+      <option value="open_tab">🗂 Open Tab — new tab in current browser (optional URL)</option>
+      <option value="completion_link">✅ Completion Link — generate WhatsApp URL + prefilled run summary</option>
       <option value="press_enter">⏎ Press Enter — send Enter key to the focused field / window</option>
+      <option value="press_home">⌂ Press Home — jump to start of row/field (Windows / Mac)</option>
       <option value="wait">⏳ Wait — pause (use after Enter so the page can load before the next click)</option>
       <option value="shell">🔧 Shell — run gh / git (stable: create repo, clone, push — no UI clicks)</option>
       <option value="copy">📋 Copy — ⌘C / Ctrl+C (selection must already be highlighted)</option>
       <option value="paste">📥 Paste — ⌘V / Ctrl+V (clipboard into focused field)</option>
+      <option value="best_ai_copy_query_bundle">✨ Best AI — Copy query bundle → clipboard</option>
+      <option value="best_ai_capture_slot_from_clipboard">✨ Best AI — Clipboard → Trainer slot</option>
+      <option value="best_ai_run_synthesizer">✨ Best AI — Run OpenAI synthesizer</option>
       <option value="type">⌨ Type text — types exactly what you write into the focused field (click the field first)</option>
+      <option value="type_project_name">🏷 Type project name — types the current workflow name; updates if you rename the project</option>
+      <option value="type_image_text_caption">🖼 Type ImageText caption — pastes caption matched to current image item</option>
+      <option value="type_video_text_caption">🎬 Type VideoText caption — pastes caption matched to current video item</option>
+      <option value="upload">📤 Upload — reminder step (describe what to upload; run does not open the picker)</option>
+      <option value="ai_type">🧠 AI Type — OpenAI generates text and types it into the focused field</option>
     </select>
 
     <div id="desc-row">
@@ -246,6 +326,22 @@ select.fld{cursor:pointer}
       <label class="lbl" for="type-text">Text to type (exact characters)</label>
       <textarea class="fld" id="type-text" rows="5" placeholder="Whatever you put here is typed character-for-character after the previous step (e.g. after a click focused the input)."
                 style="margin-bottom:14px;resize:vertical;min-height:88px;max-height:220px;overflow-y:auto;font-family:inherit"></textarea>
+    </div>
+
+    <div id="ai-prompt-row" style="display:none">
+      <label class="lbl" for="ai-prompt">AI instruction (what OpenAI should generate)</label>
+      <textarea class="fld" id="ai-prompt" rows="5" placeholder="Write a high-quality LinkedIn post about {{CURRENT_TOPIC}} for founders and professionals..."
+                style="margin-bottom:14px;resize:vertical;min-height:88px;max-height:220px;overflow-y:auto;font-family:inherit"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:-4px">
+        <button type="button" class="btn btn-outline btn-sm" onclick="insertAiPromptToken('{{CURRENT_TOPIC}}')">＋ Insert {{CURRENT_TOPIC}}</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="useDefaultLinkedinPrompt()">Use LinkedIn template</button>
+      </div>
+    </div>
+
+    <div id="ai-model-row" style="display:none">
+      <label class="lbl" for="ai-model">OpenAI model (optional override)</label>
+      <input class="fld" type="text" id="ai-model" placeholder="e.g. gpt-4o-mini (default from TRAINER_AI_TYPE_MODEL)"
+             style="margin-bottom:14px">
     </div>
 
     <div id="url-row" style="display:none">
@@ -265,6 +361,15 @@ select.fld{cursor:pointer}
       <textarea class="fld" id="shell-command" rows="3"
                 style="margin-bottom:14px;resize:vertical;min-height:72px;max-height:200px;overflow-y:auto;font-family:ui-monospace,Consolas,monospace;font-size:.78rem"
                 placeholder="cursor /path/to/your-project&#10;gh repo create my-client-site --public --confirm"></textarea>
+    </div>
+
+    <div id="best-ai-step-slot-row" style="display:none;margin-bottom:14px">
+      <label class="lbl" for="best-ai-step-slot">Best AI slot</label>
+      <select class="fld" id="best-ai-step-slot" onchange="updateAddBtn()">
+        <option value="chatgpt">ChatGPT</option>
+        <option value="gemini">Gemini</option>
+        <option value="claude">Claude</option>
+      </select>
     </div>
 
     <!-- Screenshot upload (only for click) -->
@@ -300,6 +405,74 @@ select.fld{cursor:pointer}
     <p id="add-step-hint" style="font-size:.72rem;color:var(--muted);margin-top:10px;line-height:1.45;display:none"></p>
   </div>
 
+  </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════ AI MEDIA STUDIO ═══════════════ -->
+<div class="panel" id="panel-ai-media">
+  <div class="card">
+    <div class="card-title">AI Media Studio</div>
+    <p style="font-size:.8rem;color:var(--muted);line-height:1.45;margin-bottom:12px">
+      Generate topics + captions and AI image/video assets one-by-one. Generated files are copied to Downloads.
+    </p>
+    <div id="ai-media-alert" class="alert"></div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:10px;margin-bottom:10px">
+      <label class="lbl" style="margin:0">Main topic
+        <input class="fld" id="ai-media-main-topic" type="text" placeholder="e.g. AI automation for local businesses" style="margin-top:4px">
+      </label>
+      <label class="lbl" style="margin:0">Industry (optional)
+        <input class="fld" id="ai-media-industry" type="text" placeholder="e.g. fitness, salon, real estate" style="margin-top:4px">
+      </label>
+      <label class="lbl" style="margin:0">Media type
+        <select class="fld" id="ai-media-type" style="margin-top:4px">
+          <option value="image">Images only</option>
+          <option value="video">Videos only</option>
+          <option value="both">Both (image then video per topic)</option>
+        </select>
+      </label>
+      <label class="lbl" style="margin:0">Count (max 30)
+        <input class="fld" id="ai-media-count" type="number" min="1" max="30" step="1" value="10" style="margin-top:4px" inputmode="numeric">
+      </label>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+      <label style="font-size:.8rem;color:var(--muted)"><input type="checkbox" id="ai-pf-instagram" checked style="accent-color:var(--gold)"> Instagram</label>
+      <label style="font-size:.8rem;color:var(--muted)"><input type="checkbox" id="ai-pf-facebook" checked style="accent-color:var(--gold)"> Facebook</label>
+      <label style="font-size:.8rem;color:var(--muted)"><input type="checkbox" id="ai-pf-linkedin" checked style="accent-color:var(--gold)"> LinkedIn</label>
+    </div>
+    <label class="lbl" for="ai-media-base-prompt">Base creative prompt (optional)</label>
+    <textarea class="fld" id="ai-media-base-prompt" rows="4" style="resize:vertical;margin-bottom:10px"
+      placeholder="Optional style direction for all generated items. Safe margins are auto-enforced: 20% left/right, 30% top/bottom (4:5)."></textarea>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-gold" onclick="startAiMediaJob()">▶ Generate</button>
+      <button class="btn btn-outline" onclick="refreshAiMediaStatus()">↻ Refresh</button>
+      <button class="btn btn-outline" onclick="stopAiMediaJob()">■ Stop</button>
+      <span class="step-badge" id="ai-media-status">Idle</span>
+      <span class="step-badge" id="ai-media-progress">0/0</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Generated Queue</div>
+    <div id="ai-media-list" class="step-list" style="max-height:420px;overflow:auto"></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════ EASY WORK ═══════════════ -->
+<div class="panel" id="panel-easywork">
+  <div class="card">
+    <div class="card-title">Easy Work Prompts</div>
+    <p class="easywork-intro">
+      Click any website type to copy its full prompt. Paste it into Cursor/agent and run your workflow to produce a live URL.
+    </p>
+    <div id="easywork-alert" class="alert alert-ok"></div>
+    <div class="easywork-grid" id="easywork-grid"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Selected Prompt Preview</div>
+    <div id="easywork-preview" class="template-item">Click "Preview" on any prompt card to view it here.</div>
+  </div>
 </div>
 
 
@@ -314,8 +487,8 @@ select.fld{cursor:pointer}
     <div id="run-steps-preview" class="step-list" style="margin-bottom:14px"></div>
 
     <div class="mode-row">
-      <div class="mode-btn active" onclick="setMode(this,'fast')">⚡ Fast — replay saved clicks</div>
-      <div class="mode-btn" onclick="setMode(this,'smart')">🤖 Smart — AI-assisted</div>
+      <div class="mode-btn" onclick="setMode(this,'fast')">⚡ Fast — replay saved clicks</div>
+      <div class="mode-btn active" onclick="setMode(this,'smart')">🤖 Smart — AI-assisted</div>
     </div>
 
     <label style="display:flex;align-items:center;gap:8px;font-size:.84rem;color:var(--muted);
@@ -330,10 +503,60 @@ select.fld{cursor:pointer}
 </div>
 
 
+<!-- ═══════════════ BEST AI™ ═══════════════ -->
+<div class="panel" id="panel-best-ai">
+  <div id="step-builder-shell-best-ai" class="step-builder-panel-shell"></div>
+  <div class="card" style="border-color:rgba(201,169,110,0.45)">
+    <div class="card-title">1 — Query (save → copy → paste on each site)</div>
+    <p style="font-size:.72rem;color:var(--muted);line-height:1.45;margin:0 0 8px">Save locks the query. Clipboard = <strong>query + instructions</strong> so each model returns one fenced block. When ChatGPT, Gemini, and Claude slots are all filled, the synthesizer runs automatically.</p>
+    <label class="lbl" for="best-ai-query">CURRENT_TOPIC</label>
+    <textarea class="fld" id="best-ai-query" rows="4" style="min-height:96px;font-size:.86rem" placeholder="Your question…"></textarea>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">
+      <button type="button" class="btn btn-gold btn-sm" id="best-ai-query-save-btn" onclick="bestAiToggleSaveEdit()">Save</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="copyBestAiQueryToClipboard()" title="Query plus one-block reply instructions">📋 Copy for platform</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="bestAiSelectQuery()">Select all</button>
+      <span id="best-ai-copy-status" style="font-size:.74rem;color:var(--ok);min-height:1.2em"></span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">2 — Paste platform replies</div>
+    <div style="display:grid;gap:10px;grid-template-columns:1fr">
+      <div><label class="lbl" for="best-ai-slot-chatgpt">ChatGPT</label><textarea class="fld" id="best-ai-slot-chatgpt" rows="4" placeholder="Paste…"></textarea></div>
+      <div><label class="lbl" for="best-ai-slot-gemini">Gemini</label><textarea class="fld" id="best-ai-slot-gemini" rows="4"></textarea></div>
+      <div><label class="lbl" for="best-ai-slot-claude">Claude</label><textarea class="fld" id="best-ai-slot-claude" rows="4"></textarea></div>
+    </div>
+    <details class="template-dropdown" style="margin-top:8px"><summary>More slots</summary>
+      <div class="template-list" style="padding:8px;display:grid;gap:8px">
+        <textarea class="fld" id="best-ai-slot-grok" rows="2" placeholder="Grok"></textarea>
+        <textarea class="fld" id="best-ai-slot-perplexity" rows="2" placeholder="Perplexity"></textarea>
+        <textarea class="fld" id="best-ai-slot-deepseek" rows="2" placeholder="DeepSeek"></textarea>
+        <textarea class="fld" id="best-ai-slot-copilot" rows="2" placeholder="Copilot"></textarea>
+        <textarea class="fld" id="best-ai-slot-le_chat" rows="2" placeholder="Le Chat"></textarea>
+        <textarea class="fld" id="best-ai-slot-meta_ai" rows="2" placeholder="Meta AI"></textarea>
+        <textarea class="fld" id="best-ai-slot-you" rows="2" placeholder="You.com"></textarea>
+      </div>
+    </details>
+  </div>
+  <div class="card">
+    <div class="card-title">3 — OpenAI synthesizer</div>
+    <p style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Needs <code>OPENAI_API_KEY</code> on the Trainer. Auto-runs when the three main slots are filled.</p>
+    <button type="button" class="btn btn-gold btn-sm" onclick="void runBestAiSynthesize()">Run synthesizer</button>
+    <button type="button" class="btn btn-outline btn-sm" onclick="copyBestAiFinalResult()">Copy result</button>
+    <span id="best-ai-synth-status" style="font-size:.72rem;color:var(--muted);margin-left:6px"></span>
+    <div id="best-ai-synth-result" class="template-item" style="display:none;margin-top:8px;white-space:pre-wrap;font-size:.8rem;max-height:280px;overflow:auto"></div>
+    <div id="best-ai-workflow-complete" class="alert alert-ok" style="display:none;margin-top:8px;font-size:.78rem">Workflow complete.</div>
+  </div>
+</div>
+
+
 <!-- ═══════════════ SAVED WORKFLOWS ═══════════════ -->
 <div class="panel" id="panel-workflows">
   <div class="card">
     <div class="card-title">Saved Workflows</div>
+    <p style="font-size:.78rem;color:var(--muted);margin:0 0 10px;line-height:1.45">
+      <strong>Clone</strong> copies the workflow JSON to a new file. The original is unchanged.
+    </p>
+    <div id="wf-list-alert" class="alert" style="display:none;margin-bottom:10px"></div>
     <div id="wf-list"><p style="color:var(--muted);font-size:.84rem">Loading…</p></div>
   </div>
 </div>
@@ -343,23 +566,327 @@ select.fld{cursor:pointer}
 <script>
 /** Local dashboard.py :7788 uses root paths; deployed site uses /api/trainer. */
 const API = (function () {
-  if (location.protocol === 'file:' || !location.origin || location.origin === 'null') {
-    return 'http://localhost:7788';
+  try {
+    if (location.protocol === 'file:' || !location.origin || location.origin === 'null') {
+      return 'http://127.0.0.1:7788';
+    }
+    if (location.port === '7788' || String(location.host || '').indexOf(':7788') !== -1) {
+      return location.origin;
+    }
+    return location.origin.replace(/\/$/, '') + '/api/trainer';
+  } catch (_) {
+    return 'http://127.0.0.1:7788';
   }
-  if (location.port === '7788') {
-    return location.origin;
-  }
-  return location.origin.replace(/\/$/, '') + '/api/trainer';
 })();
 const TRAINER_WF_STORAGE_KEY = 'trainer_last_workflow';
 const API_KEY_STORAGE = 'agency_trainer_api_key';
 let currentFile = null;
 let currentSteps = [];
 let currentWfName = '';
-let runMode = 'fast';
+let runMode = 'smart';
+let runInProgress = false;
+let cachedWorkflowNames = [];
 const IS_CLOUD_TRAINER = location.port !== '7788';
+function isLocalDashboardTrainer() {
+  try {
+    if (location.port === '7788') return true;
+    const a = String(typeof API !== 'undefined' ? API : '');
+    if (a.includes('127.0.0.1:7788') || a.includes('localhost:7788')) return true;
+  } catch (_) {}
+  return false;
+}
 let healthFailStreak = 0;
 let healthCheckInFlight = false;
+window.__trainerHealthPageLoadAt = Date.now();
+const EASY_WORK_PROMPTS = [
+  {
+    key: 'business',
+    label: '🚀 Business Website',
+    subtitle: 'Professional business site with CTA flow.',
+    prompt: `Create a modern, fast-loading business website for lead generation.
+
+Business details:
+- Business Type: [e.g., Digital Marketing Agency]
+- Business Name: [Name]
+- Location: [City]
+
+Pages required:
+1) Home: strong headline, services snapshot, trust badges, primary CTA, WhatsApp CTA
+2) About: company story, mission, values
+3) Services: 3-6 services with icon + short description
+4) Contact: phone, email, contact form, Google Map embed, WhatsApp
+
+Design requirements:
+- Clean, professional UI
+- Fully responsive on mobile/tablet/desktop
+- Fast loading and lightweight assets
+- Sticky navigation with clear CTA
+- Floating WhatsApp button
+
+Conversion extras:
+- Testimonials section
+- Repeated CTA sections across pages
+- SEO-friendly semantic structure (meta title, description, headings)`
+  },
+  {
+    key: 'ecommerce',
+    label: '🛍️ E-Commerce Website',
+    subtitle: 'Simple product store with cart and checkout.',
+    prompt: `Create a simple e-commerce website with clean UI and basic cart logic.
+
+Store details:
+- Store Name: [Name]
+- Product Type: [Clothing / Electronics / etc.]
+
+Pages required:
+1) Home: hero banner, featured products, offers
+2) Shop: product listing with basic filters
+3) Product Details: gallery, price, specs, add-to-cart
+4) Cart: item list, quantity controls, totals
+5) Checkout: dummy checkout form
+
+Core features:
+- Add to cart functionality (front-end only)
+- Product cards with image, title, price, short description
+- Responsive layout and intuitive navigation
+
+Extras:
+- Offer/discount highlight blocks
+- WhatsApp order button on product/cart pages`
+  },
+  {
+    key: 'portfolio',
+    label: '👨‍🎓 Portfolio Website',
+    subtitle: 'Personal brand site for freelancer or student.',
+    prompt: `Create a personal portfolio website with a modern and minimal style.
+
+Profile details:
+- Name: [Your Name]
+- Profession: [Developer / Designer / Student]
+
+Sections required:
+1) Hero: name, one-line value proposition, profile image, CTA
+2) About Me
+3) Skills: icons or progress bars
+4) Projects: project cards with image, tech stack, brief description
+5) Contact: contact form + social links
+
+Design requirements:
+- Smooth scrolling navigation
+- Mobile responsive and accessible
+- Visual hierarchy focused on projects
+
+Extras:
+- Resume download button
+- GitHub and LinkedIn links`
+  },
+  {
+    key: 'education',
+    label: '🏫 Educational Website',
+    subtitle: 'Institute website with admissions CTA.',
+    prompt: `Create a website for an educational institute.
+
+Institute details:
+- Institute Name: [Name]
+- Type: [School / Coaching Center]
+
+Pages required:
+1) Home: intro, key highlights, outcomes
+2) Courses: structured course list with details
+3) About Us
+4) Admissions: form or process details
+5) Contact
+
+Features:
+- Student-friendly layout and navigation
+- Announcement / notice section
+- Testimonials from students/parents
+
+Extras:
+- Photo gallery section
+- Strong admission CTA blocks`
+  },
+  {
+    key: 'hospital',
+    label: '🏥 Hospital / Clinic',
+    subtitle: 'Trust-first healthcare website with booking.',
+    prompt: `Create a website for a hospital or clinic.
+
+Organization details:
+- Hospital Name: [Name]
+- Specialties: [e.g., Multi-specialty, Dental, etc.]
+
+Pages required:
+1) Home: core services, emergency contact, quick actions
+2) Doctors: profile cards with specialization and availability
+3) Services
+4) Appointment Booking: simple form
+5) Contact
+
+Features:
+- Clean, trust-building design
+- Prominent emergency phone number
+- WhatsApp booking CTA
+
+Extras:
+- Patient testimonials
+- Health tips or blog section`
+  },
+  {
+    key: 'restaurant',
+    label: '🍽️ Restaurant Website',
+    subtitle: 'Menu-focused site with reservation flow.',
+    prompt: `Create a website for a restaurant.
+
+Restaurant details:
+- Restaurant Name: [Name]
+- Cuisine: [Type]
+
+Pages required:
+1) Home: hero section with food visuals
+2) Menu: category-wise items with price
+3) About
+4) Contact: map, address, phone, timings
+
+Features:
+- Attractive food-first visual layout
+- WhatsApp ordering button
+- Fully mobile-friendly UI
+
+Extras:
+- Online reservation form
+- Customer reviews section`
+  },
+  {
+    key: 'realestate',
+    label: '🏢 Real Estate Website',
+    subtitle: 'Property listing and inquiry website.',
+    prompt: `Create a real estate company website.
+
+Company details:
+- Company Name: [Name]
+
+Pages required:
+1) Home: featured properties and value proposition
+2) Properties: listing grid with image, price, location
+3) Property Details: full property page with gallery
+4) About
+5) Contact
+
+Features:
+- Property cards (image, price, location, type)
+- Inquiry form on listing and detail pages
+- Professional clean UI
+
+Extras:
+- Basic filters (price/type/location)
+- Premium listings highlight section`
+  },
+  {
+    key: 'service',
+    label: '🔧 Service-Based Website',
+    subtitle: 'Local business website for service providers.',
+    prompt: `Create a website for a service-based local business.
+
+Business details:
+- Service Type: [Plumbing / Electrician / etc.]
+- Business Name: [Name]
+
+Pages required:
+1) Home: service summary with primary CTA
+2) Services: detailed offerings
+3) About
+4) Contact
+
+Features:
+- Click-to-call button + WhatsApp CTA
+- Testimonials and trust indicators
+- Quick service highlight badges
+
+Extras:
+- Optional pricing section
+- Service areas covered section`
+  },
+  {
+    key: 'blog',
+    label: '📰 Blog Website',
+    subtitle: 'Content-focused reading experience.',
+    prompt: `Create a blog website with a clean reading experience.
+
+Blog details:
+- Blog Name: [Name]
+- Niche: [Tech / Health / etc.]
+
+Pages required:
+1) Home: latest and featured posts
+2) Blog Post page template
+3) Categories page
+4) About
+5) Contact
+
+Features:
+- Search bar
+- Category filtering
+- Reader-friendly typography and spacing
+
+Extras:
+- Featured posts block
+- Author bio section`
+  },
+  {
+    key: 'event',
+    label: '🎉 Event Website',
+    subtitle: 'Event landing site with registration.',
+    prompt: `Create a website for an event.
+
+Event details:
+- Event Name: [Name]
+- Date: [Date]
+
+Pages required:
+1) Home: event highlights and hero
+2) About Event
+3) Schedule
+4) Speakers
+5) Registration form
+
+Features:
+- Countdown timer to event date
+- Prominent registration CTA
+- Clean, modern event UI
+
+Extras:
+- Photo/video gallery
+- Sponsors section`
+  },
+  {
+    key: 'saas',
+    label: '🧠 SaaS Landing Page',
+    subtitle: 'Conversion-focused product landing page.',
+    prompt: `Create a SaaS product landing page focused on conversions.
+
+Product details:
+- Product Name: [Name]
+- Purpose: [What it does]
+
+Sections required:
+1) Hero: strong headline, supporting copy, CTA
+2) Features
+3) How it works
+4) Pricing
+5) Testimonials
+6) FAQ
+
+Design requirements:
+- Modern startup style
+- Conversion-oriented layout with repeated CTA
+- Mobile responsive and fast
+
+Extras:
+- Email signup form
+- CTA buttons throughout page`
+  }
+];
 
 function trainerAuthHeaders() {
   const k = (localStorage.getItem(API_KEY_STORAGE) || '').trim();
@@ -371,6 +898,48 @@ function trainerAuthHeaders() {
 function mergeTrainerFetchOpts(extra = {}) {
   const { headers: h2, ...rest } = extra;
   return { ...rest, headers: { ...trainerAuthHeaders(), ...(h2 || {}) } };
+}
+
+function trainerAbortMs(ms) {
+  const n = Math.max(800, Math.min(120000, Number(ms) || 9000));
+  try {
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      return AbortSignal.timeout(n);
+    }
+  } catch (_) {}
+  const c = new AbortController();
+  setTimeout(() => {
+    try {
+      c.abort();
+    } catch (_) {}
+  }, n);
+  return c.signal;
+}
+
+async function trainerFetchHealthOk() {
+  const local = typeof isLocalDashboardTrainer === 'function' && isLocalDashboardTrainer();
+  const outerTries = local ? 3 : 2;
+  const perFetchMs = local ? 10000 : 9000;
+  const innerAttempts = local ? 4 : 3;
+  for (let o = 0; o < outerTries; o++) {
+    for (let i = 0; i < innerAttempts; i++) {
+      try {
+        const r = await fetch(`${API}/health`, mergeTrainerFetchOpts({
+          cache: 'no-store',
+          signal: trainerAbortMs(perFetchMs),
+        }));
+        if (r.ok) return true;
+      } catch (_) {}
+      if (i < innerAttempts - 1) await new Promise((res) => setTimeout(res, 450));
+    }
+    if (o < outerTries - 1) await new Promise((res) => setTimeout(res, 700));
+  }
+  return false;
+}
+
+async function recheckTrainerServer() {
+  healthFailStreak = 0;
+  await checkServer();
 }
 
 function saveTrainerApiKey() {
@@ -390,6 +959,8 @@ function saveTrainerApiKey() {
     if (k) document.getElementById('api-key-inp').value = k;
   } catch (_) {}
 })();
+renderEasyWorkCards();
+refreshJoinWorkflowOptions();
 
 function apiErrMessage(data) {
   if (!data || typeof data !== 'object') return 'Request failed';
@@ -403,32 +974,146 @@ function apiErrMessage(data) {
 async function checkServer() {
   if (healthCheckInFlight) return false;
   healthCheckInFlight = true;
+  const dot = document.getElementById('dot');
+  const st = document.getElementById('status-text');
+  const maxFail = isLocalDashboardTrainer() ? 6 : 3;
+  let ok = false;
   try {
-    const r = await fetch(`${API}/health`, mergeTrainerFetchOpts({ signal: AbortSignal.timeout(2000) }));
-    if (r.ok) {
-      healthFailStreak = 0;
-      document.getElementById('dot').className = 'dot ok';
-      document.getElementById('status-text').textContent = 'Server online';
-      document.getElementById('start-btn').disabled = !currentWfName;
-      healthCheckInFlight = false;
-      return true;
-    }
-  } catch {}
+    ok = await trainerFetchHealthOk();
+  } catch (_) {
+    ok = false;
+  }
+  if (ok) {
+    healthFailStreak = 0;
+    dot.className = 'dot ok';
+    st.textContent = 'Server online';
+    st.removeAttribute('title');
+    updateStartButtonDisabledState();
+    const wfPanel = document.getElementById('panel-workflows');
+    if (wfPanel && wfPanel.classList.contains('active')) void loadWorkflowsList();
+    healthCheckInFlight = false;
+    return true;
+  }
+  if (isLocalDashboardTrainer() && Date.now() - (window.__trainerHealthPageLoadAt || 0) < 14000) {
+    dot.className = 'dot';
+    st.textContent = 'Connecting…';
+    st.title =
+      'The local Trainer server (port 7788) may still be starting. Wait a few seconds or click ↻ Retry.';
+    healthCheckInFlight = false;
+    return false;
+  }
   healthFailStreak += 1;
-  if (healthFailStreak >= 3) {
-    document.getElementById('dot').className = 'dot err';
-    document.getElementById('status-text').textContent = IS_CLOUD_TRAINER
-      ? 'Offline — check deployment/env/api key'
-      : 'Offline — run: python3 dashboard.py';
+  if (healthFailStreak >= maxFail) {
+    dot.className = 'dot err';
+    st.textContent = IS_CLOUD_TRAINER
+      ? 'Offline — check deployment / env / API key'
+      : 'Offline — start dashboard (see tip)';
+    st.title = IS_CLOUD_TRAINER
+      ? 'Confirm API base URL and X-API-Key if required.'
+      : 'Run: python3 dashboard.py then open http://127.0.0.1:7788/ in the browser. Hover for details.';
     document.getElementById('start-btn').disabled = true;
   } else {
-    document.getElementById('status-text').textContent = `Reconnecting… (${healthFailStreak}/3)`;
+    dot.className = 'dot';
+    st.textContent = `Reconnecting… (${healthFailStreak}/${maxFail})`;
+    st.title = IS_CLOUD_TRAINER ? 'Retry or check API / key.' : 'Tip: start dashboard, use http://127.0.0.1:7788/ — click ↻ Retry.';
   }
   healthCheckInFlight = false;
   return false;
 }
-checkServer();
+setTimeout(() => {
+  void checkServer();
+}, 500);
 setInterval(checkServer, 12000);
+if (isLocalDashboardTrainer()) {
+  startTrainerRunStatusPolling();
+  setTimeout(() => { void maybeShowTrainerAutomationNotice(); }, 900);
+}
+(async function entitlementBanner() {
+  try {
+    const r = await fetch(`${API}/health`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    const d = await r.json();
+    const e = d && d.entitlements;
+    if (!e || !e.enforcement) return;
+    const el = document.getElementById('entitlement-banner');
+    if (!el) return;
+    const mods = Array.isArray(e.entitled_modules) && e.entitled_modules.length
+      ? e.entitled_modules.join(', ')
+      : '(see ENTITLED_MODULES in .env.local)';
+    el.style.display = 'block';
+    el.textContent = 'Module restriction is on — allowed cusear modules: ' + mods;
+  } catch (_) {}
+})();
+
+const TRAINER_AUTOMATION_NOTICE_KEY = 'trainer_automation_notice_v1';
+
+function dismissTrainerAutomationNotice() {
+  try {
+    sessionStorage.setItem(TRAINER_AUTOMATION_NOTICE_KEY, '1');
+  } catch (_) {}
+  const m = document.getElementById('trainer-automation-notice-modal');
+  if (m) m.style.display = 'none';
+}
+
+async function maybeShowTrainerAutomationNotice() {
+  try {
+    if (sessionStorage.getItem(TRAINER_AUTOMATION_NOTICE_KEY) === '1') return;
+    if (!(await checkServer())) return;
+    const r = await fetch(`${API}/trainer/automation-summary`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d || !d.scheduler_enabled) return;
+    const nwf = Number(d.standalone_automation_workflows) || 0;
+    const nar = Number(d.ar_bundle_schedules_enabled) || 0;
+    if (nwf + nar < 1) return;
+    const body = document.getElementById('trainer-auto-notice-body');
+    const modal = document.getElementById('trainer-automation-notice-modal');
+    if (!body || !modal) return;
+    const parts = [];
+    parts.push('The built-in <strong>scheduler</strong> is on for this app.');
+    if (nwf > 0) {
+      parts.push(`${nwf} saved workflow(s) have <strong>automation</strong> enabled — they can start while this window stays open.`);
+    }
+    if (nar > 0) {
+      parts.push(`${nar} <strong>ar™</strong> bundle schedule(s) are on — chained flows can run on their own.`);
+    }
+    body.innerHTML = parts.join(' ');
+    modal.style.display = 'flex';
+  } catch (_) {}
+}
+
+async function pollTrainerRunStatus() {
+  const banner = document.getElementById('trainer-run-activity-banner');
+  try {
+    const r = await fetch(`${API}/run/status`, mergeTrainerFetchOpts({ cache: 'no-store', signal: trainerAbortMs(4000) }));
+    if (!r.ok) return;
+    const d = await r.json();
+    const serverRunning = !!(d && d.running);
+    if (serverRunning && !runInProgress && !countdownTimer) {
+      serverSideRunActive = true;
+      if (banner) banner.style.display = 'block';
+      setStartButtonRunning();
+      const btn = document.getElementById('start-btn');
+      if (btn) btn.disabled = false;
+    } else if (!serverRunning) {
+      serverSideRunActive = false;
+      if (banner) banner.style.display = 'none';
+      if (!runInProgress && !countdownTimer) {
+        setStartButtonIdle();
+        updateStartButtonDisabledState();
+      }
+    } else if (serverRunning && runInProgress) {
+      serverSideRunActive = false;
+      if (banner) banner.style.display = 'none';
+    }
+  } catch (_) {}
+}
+
+function startTrainerRunStatusPolling() {
+  if (trainerRunStatusPollTimer) return;
+  const tick = () => { void pollTrainerRunStatus(); };
+  trainerRunStatusPollTimer = setInterval(tick, 1500);
+  setTimeout(tick, 500);
+}
 
 (function restoreLastWorkflow() {
   try {
@@ -446,36 +1131,708 @@ setInterval(checkServer, 12000);
 })();
 
 // ── Tab switch ────────────────────────────────────────────────────────────────
-function switchTab(name, el) {
+function switchTab(name, el, opts = {}) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
-  el.classList.add('active');
+  const tabBtn = el || getTabEl(name);
+  if (tabBtn) tabBtn.classList.add('active');
   if (name === 'workflows') loadWorkflowsList();
-  if (name === 'run') loadRunDropdown();
+  if (name === 'run' && !opts.skipRunLoad) void loadRunDropdown();
+  if (name === 'ai-media') refreshAiMediaStatus();
+  if (name === 'build') dockStepBuilder('step-builder-shell-build');
+  else if (name === 'best-ai') {
+    dockStepBuilder('step-builder-shell-best-ai');
+    restoreBestAiQueryUI();
+  }
+}
+
+function dockStepBuilder(shellId) {
+  const dock = document.getElementById('step-builder-dock');
+  const shell = document.getElementById(shellId);
+  if (!dock || !shell) return;
+  if (dock.parentElement === shell) return;
+  shell.appendChild(dock);
+}
+
+const BEST_AI_SLOT_IDS = ['chatgpt', 'gemini', 'claude', 'grok', 'perplexity', 'deepseek', 'copilot', 'le_chat', 'meta_ai', 'you'];
+const BEST_AI_CORE_SLOT_IDS = ['chatgpt', 'gemini', 'claude'];
+const BEST_AI_PLATFORM_WRAP_INSTRUCTIONS =
+  '\n\n---\nFormatting instructions for your reply (follow after answering the question above):\n' +
+  '- Put the complete answer the user should reuse inside ONE markdown fenced code block (triple backticks). They will copy that single block back into another tool.\n' +
+  '- Keep prose outside the fence minimal (a short intro is fine). Do not split the deliverable across multiple code fences.\n';
+let bestAiQueryLocked = false;
+let bestAiSynthRunning = false;
+let bestAiSynthAutoTimer = null;
+
+function bestAiCoreSlotsFilled() {
+  return BEST_AI_CORE_SLOT_IDS.every((id) => {
+    const el = document.getElementById('best-ai-slot-' + id);
+    return el && (el.value || '').trim().length > 0;
+  });
+}
+
+function scheduleBestAiAutoSynthesize() {
+  if (bestAiSynthAutoTimer) clearTimeout(bestAiSynthAutoTimer);
+  bestAiSynthAutoTimer = setTimeout(() => {
+    bestAiSynthAutoTimer = null;
+    if (!bestAiQueryLocked || !bestAiCoreSlotsFilled() || bestAiSynthRunning) return;
+    if (typeof isLocalDashboardTrainer === 'function' && !isLocalDashboardTrainer()) return;
+    void runBestAiSynthesize();
+  }, 900);
+}
+
+function bestAiNotifySlotsChangedFromWorkflow() {
+  scheduleBestAiAutoSynthesize();
+}
+
+function initBestAiSlotAutoSynth() {
+  BEST_AI_CORE_SLOT_IDS.forEach((id) => {
+    const el = document.getElementById('best-ai-slot-' + id);
+    if (!el) return;
+    el.addEventListener('input', scheduleBestAiAutoSynthesize);
+    el.addEventListener('paste', () => setTimeout(scheduleBestAiAutoSynthesize, 0));
+  });
+}
+
+let bestAiBridgeRev = 0;
+
+async function syncBestAiTopicToServer() {
+  if (typeof isLocalDashboardTrainer === 'function' && !isLocalDashboardTrainer()) return;
+  const ta = document.getElementById('best-ai-query');
+  if (!ta) return;
+  const topic = (ta.value || '').trim();
+  if (!topic) return;
+  try {
+    await fetch(`${API}/best-ai/ui-bridge`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic }),
+    }));
+  } catch (_) {}
+}
+
+async function pollBestAiUiBridge() {
+  if (typeof isLocalDashboardTrainer === 'function' && !isLocalDashboardTrainer()) return;
+  try {
+    const r = await fetch(`${API}/best-ai/ui-bridge`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    if (!r.ok) return;
+    const d = await r.json();
+    const rev = Number(d.rev) || 0;
+    if (rev <= bestAiBridgeRev) return;
+    bestAiBridgeRev = rev;
+    const slots = d.slots || {};
+    ['chatgpt', 'gemini', 'claude'].forEach((id) => {
+      const el = document.getElementById('best-ai-slot-' + id);
+      if (!el || typeof slots[id] !== 'string') return;
+      if (el.value !== slots[id]) el.value = slots[id];
+    });
+    const syn = d.synthesis || {};
+    const synText = (syn.text && String(syn.text)) ? String(syn.text).trim() : '';
+    if (synText) {
+      const resEl = document.getElementById('best-ai-synth-result');
+      const doneEl = document.getElementById('best-ai-workflow-complete');
+      const stEl = document.getElementById('best-ai-synth-status');
+      if (resEl) {
+        resEl.textContent = synText;
+        resEl.style.display = 'block';
+      }
+      if (doneEl) doneEl.style.display = 'block';
+      if (stEl) {
+        const m = syn.model || '';
+        const pu = Array.isArray(syn.platforms_used) ? syn.platforms_used.join(', ') : '';
+        stEl.textContent = (m ? 'Model: ' + m : '') + (pu ? ' · slots: ' + pu : '');
+      }
+      try { sessionStorage.setItem('best_ai_last_synthesis_v1', synText); } catch (_) {}
+    }
+    bestAiNotifySlotsChangedFromWorkflow();
+  } catch (_) {}
+}
+
+function startBestAiBridgePolling() {
+  if (window.__bestAiBridgePollStarted) return;
+  window.__bestAiBridgePollStarted = true;
+  void pollBestAiUiBridge();
+  setInterval(pollBestAiUiBridge, 1600);
+}
+
+function getBestAiClipboardPayloadForPlatform() {
+  const ta = document.getElementById('best-ai-query');
+  const q = (ta && ta.value) ? ta.value.trim() : '';
+  if (!q) return '';
+  return q + BEST_AI_PLATFORM_WRAP_INSTRUCTIONS;
+}
+
+function persistBestAiQueryState() {
+  try {
+    const ta = document.getElementById('best-ai-query');
+    if (ta) sessionStorage.setItem('best_ai_saved_query_v1', ta.value);
+    sessionStorage.setItem('best_ai_query_locked_v1', bestAiQueryLocked ? '1' : '0');
+  } catch (_) {}
+}
+
+function restoreBestAiQueryUI() {
+  const ta = document.getElementById('best-ai-query');
+  const btn = document.getElementById('best-ai-query-save-btn');
+  if (!ta || !btn) return;
+  try {
+    const saved = sessionStorage.getItem('best_ai_saved_query_v1');
+    if (saved != null) ta.value = saved;
+    bestAiQueryLocked = sessionStorage.getItem('best_ai_query_locked_v1') === '1';
+    ta.readOnly = bestAiQueryLocked;
+    if (bestAiQueryLocked) {
+      btn.textContent = 'Edit';
+      btn.classList.remove('btn-gold');
+      btn.classList.add('btn-outline');
+    } else {
+      btn.textContent = 'Save';
+      btn.classList.add('btn-gold');
+      btn.classList.remove('btn-outline');
+    }
+  } catch (_) {}
+}
+
+function bestAiToggleSaveEdit() {
+  const ta = document.getElementById('best-ai-query');
+  const btn = document.getElementById('best-ai-query-save-btn');
+  const st = document.getElementById('best-ai-copy-status');
+  if (!ta || !btn) return;
+  if (!bestAiQueryLocked) {
+    const v = ta.value.trim();
+    if (!v) {
+      if (st) { st.textContent = 'Enter a query first.'; setTimeout(() => { if (st) st.textContent = ''; }, 2500); }
+      return;
+    }
+    bestAiQueryLocked = true;
+    ta.readOnly = true;
+    btn.textContent = 'Edit';
+    btn.classList.remove('btn-gold');
+    btn.classList.add('btn-outline');
+    persistBestAiQueryState();
+    void syncBestAiTopicToServer();
+    copyBestAiQueryToClipboard();
+    if (st) { st.textContent = 'Saved — query + instructions copied.'; setTimeout(() => { if (st) st.textContent = ''; }, 3500); }
+  } else {
+    bestAiQueryLocked = false;
+    ta.readOnly = false;
+    btn.textContent = 'Save';
+    btn.classList.add('btn-gold');
+    btn.classList.remove('btn-outline');
+    persistBestAiQueryState();
+    if (st) st.textContent = '';
+  }
+}
+
+function collectBestAiSlotResponses() {
+  const out = {};
+  BEST_AI_SLOT_IDS.forEach((id) => {
+    const el = document.getElementById('best-ai-slot-' + id);
+    if (!el) return;
+    const t = (el.value || '').trim();
+    if (t) out[id] = t;
+  });
+  return out;
+}
+
+async function runBestAiSynthesize() {
+  if (bestAiSynthRunning) return;
+  const statusEl = document.getElementById('best-ai-synth-status');
+  const resEl = document.getElementById('best-ai-synth-result');
+  const doneEl = document.getElementById('best-ai-workflow-complete');
+  if (!bestAiQueryLocked) { if (statusEl) statusEl.textContent = 'Save query first.'; return; }
+  let query = '';
+  try { query = (sessionStorage.getItem('best_ai_saved_query_v1') || '').trim(); } catch (_) {}
+  if (!query) {
+    const ta = document.getElementById('best-ai-query');
+    query = (ta && ta.value) ? ta.value.trim() : '';
+  }
+  const responses = collectBestAiSlotResponses();
+  if (!Object.keys(responses).length) {
+    if (statusEl) statusEl.textContent = 'Paste at least one answer.';
+    return;
+  }
+  if (typeof isLocalDashboardTrainer === 'function' && !isLocalDashboardTrainer()) {
+    if (statusEl) statusEl.textContent = 'Local :7788 only.';
+    return;
+  }
+  bestAiSynthRunning = true;
+  if (statusEl) statusEl.textContent = '';
+  if (doneEl) doneEl.style.display = 'none';
+  if (resEl) { resEl.style.display = 'none'; resEl.textContent = ''; }
+  if (statusEl) statusEl.textContent = 'OpenAI…';
+  try {
+    const res = await fetch(`${API}/best-ai/synthesize`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, responses }),
+    }));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(apiErrMessage(data) || res.statusText);
+    const text = data.synthesis || '';
+    if (resEl) { resEl.textContent = text; resEl.style.display = 'block'; }
+    if (statusEl) statusEl.textContent = (data.model || '') + ' · ' + (data.platforms_used || []).join(',');
+    if (doneEl) doneEl.style.display = 'block';
+    try { sessionStorage.setItem('best_ai_last_synthesis_v1', text); } catch (_) {}
+  } catch (e) {
+    if (statusEl) statusEl.textContent = (e && e.message) ? e.message : String(e);
+  } finally {
+    bestAiSynthRunning = false;
+  }
+}
+
+function copyBestAiFinalResult() {
+  const resEl = document.getElementById('best-ai-synth-result');
+  const st = document.getElementById('best-ai-synth-status');
+  let t = (resEl && resEl.style.display !== 'none' && resEl.textContent) ? resEl.textContent.trim() : '';
+  if (!t) { try { t = (sessionStorage.getItem('best_ai_last_synthesis_v1') || '').trim(); } catch (_) {} }
+  if (!t) { if (st) st.textContent = 'Nothing to copy.'; return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(() => { if (st) { st.textContent = 'Copied.'; setTimeout(() => { if (st) st.textContent = ''; }, 2500); } });
+  }
+}
+
+function getTabEl(name) {
+  return Array.from(document.querySelectorAll('.tab')).find((tab) => {
+    const raw = tab.getAttribute('onclick') || '';
+    return raw.includes(`switchTab('${name}'`);
+  }) || null;
+}
+
+function copyBestAiQueryToClipboard() {
+  const ta = document.getElementById('best-ai-query');
+  const st = document.getElementById('best-ai-copy-status');
+  if (!ta) return;
+  const text = getBestAiClipboardPayloadForPlatform();
+  const done = (msg) => {
+    if (st) {
+      st.textContent = msg;
+      setTimeout(() => { if (st) st.textContent = ''; }, 3200);
+    }
+  };
+  if (!text.trim()) {
+    done('Type a query first.');
+    return;
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => done('Copied query + instructions.')).catch(() => {
+      try {
+        const tmp = document.createElement('textarea');
+        tmp.value = text;
+        document.body.appendChild(tmp);
+        tmp.select();
+        document.execCommand('copy');
+        document.body.removeChild(tmp);
+        done('Copied (fallback).');
+      } catch (_) {
+        done('Use ⌘C / Ctrl+C after Select all.');
+      }
+    });
+  } else {
+    try {
+      const tmp = document.createElement('textarea');
+      tmp.value = text;
+      document.body.appendChild(tmp);
+      tmp.select();
+      document.execCommand('copy');
+      document.body.removeChild(tmp);
+      done('Copied.');
+    } catch (_) {
+      done('Copy failed.');
+    }
+  }
+}
+
+function bestAiSelectQuery() {
+  const ta = document.getElementById('best-ai-query');
+  if (!ta) return;
+  ta.focus();
+  ta.select();
+}
+
+function renderEasyWorkCards() {
+  const grid = document.getElementById('easywork-grid');
+  if (!grid) return;
+  grid.innerHTML = EASY_WORK_PROMPTS.map(item => `
+    <div class="easywork-card">
+      <div class="easywork-title">${escapeHtml(item.label)}</div>
+      <div class="easywork-sub">${escapeHtml(item.subtitle)}</div>
+      <div class="easywork-actions">
+        <button class="btn btn-gold btn-sm" onclick="copyEasyWorkPrompt('${item.key}')">📋 Copy Prompt</button>
+        <button class="btn btn-outline btn-sm" onclick="previewEasyWorkPrompt('${item.key}')">👁 Preview</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getEasyWorkPrompt(key) {
+  return EASY_WORK_PROMPTS.find(p => p.key === key) || null;
+}
+
+function showEasyWorkAlert(message, type = 'ok') {
+  const el = document.getElementById('easywork-alert');
+  if (!el) return;
+  el.className = `alert alert-${type}`;
+  el.textContent = message;
+  el.style.display = 'block';
+  setTimeout(() => {
+    el.style.display = 'none';
+  }, 2200);
+}
+
+let aiMediaJobId = '';
+let aiMediaPollTimer = null;
+
+function aiMediaSelectedPlatforms() {
+  const out = [];
+  if (document.getElementById('ai-pf-instagram')?.checked) out.push('instagram');
+  if (document.getElementById('ai-pf-facebook')?.checked) out.push('facebook');
+  if (document.getElementById('ai-pf-linkedin')?.checked) out.push('linkedin');
+  return out;
+}
+
+function renderAiMediaJob(job) {
+  const st = document.getElementById('ai-media-status');
+  const pg = document.getElementById('ai-media-progress');
+  const list = document.getElementById('ai-media-list');
+  if (!st || !pg || !list) return;
+  if (!job) {
+    st.textContent = 'Idle';
+    pg.textContent = '0/0';
+    list.innerHTML = '<div style="font-size:.8rem;color:var(--muted)">No active job.</div>';
+    return;
+  }
+  const p = job.progress || {};
+  const done = Number(p.completed_items || 0);
+  const total = Number(p.total_topics || 0);
+  st.textContent = String(job.status || 'unknown').toUpperCase();
+  pg.textContent = `${done}/${total}`;
+  const items = Array.isArray(job.items) ? job.items : [];
+  list.innerHTML = items.map((it) => {
+    const status = String(it.status || '').toLowerCase();
+    const cls = status === 'done' ? 'var(--ok)' : (status === 'error' ? 'var(--err)' : 'var(--muted)');
+    const cap = escapeHtml(String(it.caption || ''));
+    const capPath = escapeHtml(String(it.caption_download_path || ''));
+    const capImgPath = escapeHtml(String(it.caption_image_download_path || ''));
+    const capVidPath = escapeHtml(String(it.caption_video_download_path || ''));
+    const img = escapeHtml(String(it.image_download_path || ''));
+    const vid = escapeHtml(String(it.video_download_path || ''));
+    return `
+      <div class="step-row" style="align-items:flex-start">
+        <div class="step-num">${Number(it.index || 0)}</div>
+        <div class="step-info">
+          <div class="step-action" style="color:${cls}">${escapeHtml(status || 'pending')}</div>
+          <div class="step-desc"><strong>${escapeHtml(String(it.topic || ''))}</strong></div>
+          <div class="step-desc" style="white-space:pre-wrap">${cap || '<span style="color:var(--muted)">Caption pending</span>'}</div>
+          ${capPath ? `<div class="step-coords">Caption file: ${capPath}</div>` : ''}
+          ${capImgPath ? `<div class="step-coords">Image caption file: ${capImgPath}</div>` : ''}
+          ${capVidPath ? `<div class="step-coords">Video caption file: ${capVidPath}</div>` : ''}
+          ${img ? `<div class="step-coords">Image: ${img}</div>` : ''}
+          ${vid ? `<div class="step-coords">Video: ${vid}</div>` : ''}
+          ${it.error ? `<div class="step-coords" style="color:var(--err)">Error: ${escapeHtml(String(it.error))}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('') || '<div style="font-size:.8rem;color:var(--muted)">Queue is empty.</div>';
+}
+
+async function refreshAiMediaStatus() {
+  try {
+    const q = aiMediaJobId ? `?job_id=${encodeURIComponent(aiMediaJobId)}` : '';
+    const r = await fetch(`${API}/ai-media/status${q}`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    if (!r.ok) {
+      if (!aiMediaJobId) {
+        renderAiMediaJob(null);
+        return;
+      }
+      throw new Error('Could not load media job status');
+    }
+    const d = await r.json();
+    const job = d.job || null;
+    if (!job) {
+      renderAiMediaJob(null);
+      return;
+    }
+    aiMediaJobId = String(job.job_id || aiMediaJobId || '');
+    renderAiMediaJob(job);
+    const status = String(job.status || '').toLowerCase();
+    if (status === 'running' || status === 'queued') {
+      if (!aiMediaPollTimer) {
+        aiMediaPollTimer = setInterval(() => { refreshAiMediaStatus().catch(() => {}); }, 2500);
+      }
+    } else if (aiMediaPollTimer) {
+      clearInterval(aiMediaPollTimer);
+      aiMediaPollTimer = null;
+    }
+  } catch (e) {
+    showAlert('ai-media-alert', e.message || 'Failed to refresh AI media status', 'err');
+  }
+}
+
+async function startAiMediaJob() {
+  const mainTopic = (document.getElementById('ai-media-main-topic')?.value || '').trim();
+  const industry = (document.getElementById('ai-media-industry')?.value || '').trim();
+  const mediaType = (document.getElementById('ai-media-type')?.value || 'image').trim();
+  const countRaw = parseInt((document.getElementById('ai-media-count')?.value || '1'), 10);
+  const count = Math.max(1, Math.min(30, Number.isFinite(countRaw) ? countRaw : 1));
+  const basePrompt = (document.getElementById('ai-media-base-prompt')?.value || '').trim();
+  const platforms = aiMediaSelectedPlatforms();
+  if (!mainTopic) {
+    showAlert('ai-media-alert', 'Main topic is required.', 'err');
+    return;
+  }
+  if (!platforms.length) {
+    showAlert('ai-media-alert', 'Select at least one platform.', 'err');
+    return;
+  }
+  hideAlert('ai-media-alert');
+  try {
+    const r = await fetch(`${API}/ai-media/start`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        main_topic: mainTopic,
+        industry,
+        media_type: mediaType,
+        count,
+        platforms,
+        base_prompt: basePrompt,
+      }),
+    }));
+    const d = await r.json();
+    if (!r.ok) throw new Error(apiErrMessage(d));
+    aiMediaJobId = String((d.job || {}).job_id || '');
+    renderAiMediaJob(d.job || null);
+    showAlert('ai-media-alert', 'AI media generation started.', 'ok');
+    await refreshAiMediaStatus();
+  } catch (e) {
+    showAlert('ai-media-alert', e.message || 'Failed to start generation', 'err');
+  }
+}
+
+async function stopAiMediaJob() {
+  try {
+    const r = await fetch(`${API}/ai-media/stop`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: aiMediaJobId || '' }),
+    }));
+    const d = await r.json();
+    if (!r.ok) throw new Error(apiErrMessage(d));
+    showAlert('ai-media-alert', 'Stop requested for AI media job.', 'ok');
+    await refreshAiMediaStatus();
+  } catch (e) {
+    showAlert('ai-media-alert', e.message || 'Failed to stop generation', 'err');
+  }
+}
+
+function previewEasyWorkPrompt(key) {
+  const item = getEasyWorkPrompt(key);
+  if (!item) return;
+  const preview = document.getElementById('easywork-preview');
+  if (!preview) return;
+  preview.textContent = item.prompt;
+}
+
+async function copyEasyWorkPrompt(key) {
+  const item = getEasyWorkPrompt(key);
+  if (!item) return;
+  try {
+    await navigator.clipboard.writeText(item.prompt);
+    previewEasyWorkPrompt(key);
+    showEasyWorkAlert(`Copied: ${item.label}`, 'ok');
+  } catch (_) {
+    const ta = document.createElement('textarea');
+    ta.value = item.prompt;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      document.execCommand('copy');
+      previewEasyWorkPrompt(key);
+      showEasyWorkAlert(`Copied: ${item.label}`, 'ok');
+    } catch (err) {
+      showEasyWorkAlert('Copy failed. Please copy from preview manually.', 'err');
+    } finally {
+      document.body.removeChild(ta);
+    }
+  }
 }
 
 // ── Workflow name ─────────────────────────────────────────────────────────────
 let _wfTimer = null;
+
+async function loadBuildWhatsappForWorkflow(name) {
+  const el = document.getElementById('build-whatsapp-number');
+  if (!el) return;
+  if (!name) {
+    el.value = '';
+    return;
+  }
+  try {
+    const r = await fetch(`${API}/workflow/${encodeURIComponent(name)}/automation`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    if (!r.ok) {
+      el.value = '';
+      return;
+    }
+    const d = await r.json();
+    const a = d.automation || {};
+    el.value = a.whatsapp_number != null && String(a.whatsapp_number) !== '' ? String(a.whatsapp_number) : '';
+  } catch (_) {
+    el.value = '';
+  }
+}
+
+async function saveBuildWhatsAppNumber() {
+  const name = document.getElementById('wf-name').value.trim();
+  const el = document.getElementById('build-whatsapp-number');
+  const st = document.getElementById('build-whatsapp-status');
+  if (!name) {
+    if (st) {
+      st.textContent = 'Set the workflow name first.';
+      st.style.color = 'var(--rose)';
+    }
+    return;
+  }
+  const w = el ? String(el.value || '').trim() : '';
+  if (st) {
+    st.textContent = '…';
+    st.style.color = 'var(--muted)';
+  }
+  try {
+    const r = await fetch(`${API}/workflow/${encodeURIComponent(name)}/automation`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ whatsapp_number: w }),
+    }));
+    const d = await r.json();
+    if (!r.ok) {
+      const errS = (d && d.error) ? String(d.error) : 'Save failed';
+      throw new Error(
+        r.status === 404 && (errS.toLowerCase().indexOf('not found') >= 0)
+          ? 'Workflow not saved yet. Add a step and save, then set WhatsApp again (creates the workflow file).'
+          : errS
+      );
+    }
+    if (d.automation && el) {
+      const norm = d.automation.whatsapp_number;
+      el.value = norm != null && String(norm) !== '' ? String(norm) : '';
+    }
+    if (st) {
+      st.textContent = 'Saved for this workflow.';
+      st.style.color = 'var(--gold)';
+    }
+  } catch (e) {
+    if (st) {
+      st.textContent = (e && e.message) || 'Error';
+      st.style.color = 'var(--rose)';
+    }
+  }
+  if (st) {
+    setTimeout(function () {
+      if (st) {
+        st.textContent = '';
+        st.style.color = 'var(--gold)';
+      }
+    }, 5000);
+  }
+}
+
 function onWfNameChange() {
   const name = document.getElementById('wf-name').value.trim();
   currentWfName = name;
-  document.getElementById('start-btn').disabled = !name;
+  updateStartButtonDisabledState();
   updateAddBtn();
+  updateJoinWorkflowControls();
   clearTimeout(_wfTimer);
   if (!name) {
+    const bwn = document.getElementById('build-whatsapp-number');
+    if (bwn) bwn.value = '';
+    const bws = document.getElementById('build-whatsapp-status');
+    if (bws) bws.textContent = '';
     try { sessionStorage.removeItem(TRAINER_WF_STORAGE_KEY); } catch (_) {}
     currentSteps = [];
     renderStepList();
+    refreshJoinWorkflowOptions();
     return;
   }
   _wfTimer = setTimeout(() => loadWorkflowSteps(name), 500);
+}
+
+function updateJoinWorkflowControls() {
+  const target = document.getElementById('wf-name').value.trim();
+  const source = (document.getElementById('join-source-select') || {}).value || '';
+  const btn = document.getElementById('join-workflow-btn');
+  if (btn) btn.disabled = !(target && source && source !== target);
+}
+
+function renderJoinWorkflowOptions() {
+  const sel = document.getElementById('join-source-select');
+  if (!sel) return;
+  const target = document.getElementById('wf-name').value.trim();
+  const prev = sel.value;
+  const options = [`<option value="">— choose workflow to append —</option>`];
+  cachedWorkflowNames
+    .filter((name) => name && name !== target)
+    .forEach((name) => {
+      options.push(`<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`);
+    });
+  sel.innerHTML = options.join('');
+  if (prev && cachedWorkflowNames.includes(prev) && prev !== target) {
+    sel.value = prev;
+  }
+  updateJoinWorkflowControls();
+}
+
+async function refreshJoinWorkflowOptions() {
+  try {
+    const r = await fetch(`${API}/workflows`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    const d = await r.json();
+    const wfs = Array.isArray(d.workflows) ? d.workflows : [];
+    cachedWorkflowNames = wfs
+      .map((w) => (typeof w === 'string' ? w : w && w.name))
+      .filter((name) => typeof name === 'string' && name.trim().length > 0);
+  } catch (_) {
+    cachedWorkflowNames = [];
+  }
+  renderJoinWorkflowOptions();
+}
+
+async function joinWorkflowSteps() {
+  const target = document.getElementById('wf-name').value.trim();
+  const source = document.getElementById('join-source-select').value;
+  const statusEl = document.getElementById('join-workflow-status');
+  const btn = document.getElementById('join-workflow-btn');
+  if (!target || !source || source === target) return;
+  if (!confirm(`Append all steps from "${source}" into "${target}"?`)) return;
+  btn.disabled = true;
+  if (statusEl) statusEl.textContent = `Joining "${source}"...`;
+  try {
+    const r = await fetch(`${API}/workflow/${encodeURIComponent(target)}/join`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source_workflow: source }),
+    }));
+    const d = await r.json();
+    if (!r.ok) throw new Error(apiErrMessage(d));
+    const joined = Number(d.joined_steps || 0);
+    const total = Number(d.total_steps || 0);
+    if (statusEl) statusEl.textContent = `✓ Added ${joined} step${joined === 1 ? '' : 's'} from "${source}". Total: ${total}.`;
+    await loadWorkflowSteps(target);
+    await refreshJoinWorkflowOptions();
+  } catch (e) {
+    if (statusEl) statusEl.textContent = `✗ ${e.message}`;
+  } finally {
+    updateJoinWorkflowControls();
+  }
 }
 
 async function loadWorkflowSteps(name) {
   try {
     const r = await fetch(`${API}/workflow/${encodeURIComponent(name)}`, mergeTrainerFetchOpts({ cache: 'no-store' }));
     if (!r.ok) {
+      const bwn = document.getElementById('build-whatsapp-number');
+      if (bwn) bwn.value = '';
       currentSteps = [];
       try {
         if (sessionStorage.getItem(TRAINER_WF_STORAGE_KEY) === name) {
@@ -489,9 +1846,14 @@ async function loadWorkflowSteps(name) {
     currentSteps = d.steps || [];
     try { sessionStorage.setItem(TRAINER_WF_STORAGE_KEY, name); } catch (_) {}
     renderStepList();
+    await refreshJoinWorkflowOptions();
+    void loadBuildWhatsappForWorkflow(name);
   } catch {
+    const bwn = document.getElementById('build-whatsapp-number');
+    if (bwn) bwn.value = '';
     currentSteps = [];
     renderStepList();
+    await refreshJoinWorkflowOptions();
   }
 }
 
@@ -500,23 +1862,45 @@ const ACTION_DEFAULTS = {
   minimize:    'Minimize active window',
   maximize:    'Maximize active window',
   open_chrome: 'Open Google Chrome',
+  close_chrome: 'Close Google Chrome (quit browser)',
+  open_cursor: 'Open Cursor app',
   press_enter: 'Press Enter key',
+  press_home:  'Press Home key',
   copy:        'Copy selection to clipboard',
   paste:       'Paste from clipboard',
+  upload:      'Upload file(s) — complete manually when the run reaches this step',
+  best_ai_copy_query_bundle: 'Best AI — copy query bundle to clipboard',
+  best_ai_capture_slot_from_clipboard: 'Best AI — clipboard into Trainer slot',
+  best_ai_run_synthesizer: 'Best AI — OpenAI synthesizer',
 };
 function onActionChange() {
   const type = document.getElementById('action-type').value;
   const showScreenshot = type === 'click';
   const isType = type === 'type';
+  const isAiType = type === 'ai_type';
   const isOpenUrl = type === 'open_url';
+  const isOpenTab = type === 'open_tab';
+  const isCompletionLink = type === 'completion_link';
+  const isTypeProjectName = type === 'type_project_name';
+  const isTypeImageTextCaption = type === 'type_image_text_caption';
+  const isTypeVideoTextCaption = type === 'type_video_text_caption';
   const isWait = type === 'wait';
   const isShell = type === 'shell';
+  const isBestAiSlot = type === 'best_ai_capture_slot_from_clipboard';
+  const isBestAiNoDesc =
+    type === 'best_ai_copy_query_bundle' ||
+    type === 'best_ai_capture_slot_from_clipboard' ||
+    type === 'best_ai_run_synthesizer';
+  const bestAiSlotRow = document.getElementById('best-ai-step-slot-row');
+  if (bestAiSlotRow) bestAiSlotRow.style.display = isBestAiSlot ? 'block' : 'none';
   document.getElementById('screenshot-section').style.display = showScreenshot ? 'block' : 'none';
   document.getElementById('live-vision-wrap').style.display = showScreenshot ? 'flex' : 'none';
   if (!showScreenshot) document.getElementById('live-vision-at-run').checked = false;
-  document.getElementById('desc-row').style.display = (isType || isOpenUrl || isShell) ? 'none' : 'block';
+  document.getElementById('desc-row').style.display = (isType || isAiType || isOpenUrl || isOpenTab || isCompletionLink || isTypeProjectName || isTypeImageTextCaption || isTypeVideoTextCaption || isShell || isBestAiNoDesc) ? 'none' : 'block';
   document.getElementById('type-text-row').style.display = isType ? 'block' : 'none';
-  document.getElementById('url-row').style.display = isOpenUrl ? 'block' : 'none';
+  document.getElementById('ai-prompt-row').style.display = isAiType ? 'block' : 'none';
+  document.getElementById('ai-model-row').style.display = isAiType ? 'block' : 'none';
+  document.getElementById('url-row').style.display = (isOpenUrl || isOpenTab) ? 'block' : 'none';
   document.getElementById('wait-seconds-row').style.display = isWait ? 'block' : 'none';
   document.getElementById('shell-command-row').style.display = isShell ? 'block' : 'none';
   document.getElementById('desc-label').textContent =
@@ -525,25 +1909,88 @@ function onActionChange() {
   if (isType) {
     document.getElementById('step-desc').value = '';
     document.getElementById('step-url').value = '';
+    document.getElementById('ai-prompt').value = '';
+    document.getElementById('ai-model').value = '';
+  } else if (isAiType) {
+    document.getElementById('step-desc').value = '';
+    document.getElementById('type-text').value = '';
+    document.getElementById('step-url').value = '';
   } else if (isOpenUrl) {
     document.getElementById('step-desc').value = '';
     document.getElementById('type-text').value = '';
+    document.getElementById('ai-prompt').value = '';
+    document.getElementById('ai-model').value = '';
+  } else if (isOpenTab) {
+    document.getElementById('step-desc').value = '';
+    document.getElementById('type-text').value = '';
+    document.getElementById('ai-prompt').value = '';
+    document.getElementById('ai-model').value = '';
+  } else if (isCompletionLink || isTypeProjectName || isTypeImageTextCaption || isTypeVideoTextCaption) {
+    document.getElementById('step-desc').value = '';
+    document.getElementById('type-text').value = '';
+    document.getElementById('ai-prompt').value = '';
+    document.getElementById('ai-model').value = '';
+    document.getElementById('step-url').value = '';
   } else {
     document.getElementById('type-text').value = '';
+    document.getElementById('ai-prompt').value = '';
+    document.getElementById('ai-model').value = '';
     document.getElementById('step-url').value = '';
   }
   // Auto-fill description for hardcoded actions (not type — user supplies text in textarea)
-  if (!isType && !isOpenUrl && !isWait && !isShell && ACTION_DEFAULTS[type]) {
+  if (!isType && !isAiType && !isOpenUrl && !isOpenTab && !isCompletionLink && !isTypeProjectName && !isTypeImageTextCaption && !isTypeVideoTextCaption && !isWait && !isShell && !isBestAiNoDesc && ACTION_DEFAULTS[type]) {
     document.getElementById('step-desc').value = ACTION_DEFAULTS[type];
-  } else if (!isType && !isOpenUrl && !isWait && !isShell && !ACTION_DEFAULTS[type] && type !== 'click') {
+  } else if (!isType && !isAiType && !isOpenUrl && !isOpenTab && !isCompletionLink && !isTypeProjectName && !isTypeImageTextCaption && !isTypeVideoTextCaption && !isWait && !isShell && !isBestAiNoDesc && !ACTION_DEFAULTS[type] && type !== 'click') {
     document.getElementById('step-desc').value = '';
-  } else if (!isType && !isOpenUrl && !isWait && !isShell && type === 'click') {
+  } else if (!isType && !isAiType && !isOpenUrl && !isOpenTab && !isCompletionLink && !isTypeProjectName && !isTypeImageTextCaption && !isTypeVideoTextCaption && !isWait && !isShell && type === 'click') {
     document.getElementById('step-desc').value = '';
   } else if (isWait) {
     document.getElementById('step-desc').value = '';
+  } else if (isCompletionLink) {
+    document.getElementById('step-desc').value = '';
+  } else if (isTypeProjectName) {
+    document.getElementById('step-desc').value = '';
+  } else if (isTypeImageTextCaption || isTypeVideoTextCaption) {
+    document.getElementById('step-desc').value = '';
   } else if (isShell) {
     document.getElementById('step-desc').value = '';
+  } else if (isBestAiNoDesc) {
+    document.getElementById('step-desc').value = '';
   }
+  updateAddBtn();
+}
+
+function insertAiPromptToken(token) {
+  const el = document.getElementById('ai-prompt');
+  if (!el) return;
+  const start = el.selectionStart ?? el.value.length;
+  const end = el.selectionEnd ?? start;
+  const nextVal = el.value.slice(0, start) + token + el.value.slice(end);
+  el.value = nextVal;
+  const pos = start + token.length;
+  el.focus();
+  el.setSelectionRange(pos, pos);
+  updateAddBtn();
+}
+
+function useDefaultLinkedinPrompt() {
+  const el = document.getElementById('ai-prompt');
+  if (!el) return;
+  el.value = `Act as a high-ticket ghostwriter and LinkedIn strategist for an AI tech founder. Convert this topic into an authority-building LinkedIn post.
+
+STRICT RULES:
+1) Hook must be one line and a true pattern interrupt (bold claim, contrarian angle, or pain-first line). No cliches.
+2) Use human, concrete language. No corporate jargon.
+3) White-space formatting: max 2-3 sentences per paragraph; include short punch lines.
+4) Expert founder tone: write like someone building in the field.
+5) End with one low-friction A/B style question.
+6) Add exactly 3-5 relevant hashtags at the end.
+7) Do NOT mention: likes, comments, shares, engagement bait, algorithm, viral.
+
+TOPIC TO CONVERT: {{CURRENT_TOPIC}}
+
+Output only the final post text.`;
+  el.focus();
   updateAddBtn();
 }
 
@@ -567,6 +2014,8 @@ function updateAddBtn() {
   const name = document.getElementById('wf-name').value.trim();
   const desc = document.getElementById('step-desc').value.trim();
   const typeText = document.getElementById('type-text').value;
+  const aiPrompt = document.getElementById('ai-prompt').value;
+  const aiModel = document.getElementById('ai-model').value.trim();
   const stepUrl = document.getElementById('step-url').value.trim();
   const type = document.getElementById('action-type').value;
   const needsImg = type === 'click';
@@ -575,13 +2024,34 @@ function updateAddBtn() {
   let ready = false;
   if (type === 'type') {
     ready = !!(name && typeText.length > 0);
+  } else if (type === 'ai_type') {
+    ready = !!(name && aiPrompt.trim().length > 0);
   } else if (type === 'open_url') {
     ready = !!(name && stepUrl.length > 0);
+  } else if (type === 'open_tab') {
+    ready = !!name;
+  } else if (type === 'completion_link') {
+    ready = !!name;
+  } else if (type === 'type_project_name') {
+    ready = !!name;
+  } else if (type === 'type_image_text_caption') {
+    ready = !!name;
+  } else if (type === 'type_video_text_caption') {
+    ready = !!name;
   } else if (type === 'wait') {
     const ws = parseFloat(document.getElementById('wait-seconds').value);
     ready = !!(name && !Number.isNaN(ws) && ws >= 0);
   } else if (type === 'shell') {
     ready = !!(name && shellCmd.length > 0);
+  } else if (type === 'best_ai_copy_query_bundle' || type === 'best_ai_run_synthesizer') {
+    ready = !!name;
+  } else if (type === 'best_ai_capture_slot_from_clipboard') {
+    const slotEl = document.getElementById('best-ai-step-slot');
+    ready = !!(name && slotEl && slotEl.value);
+  } else if (type === 'press_home') {
+    ready = !!(name && desc);
+  } else if (type === 'close_chrome') {
+    ready = !!(name && desc);
   } else if (type === 'click') {
     ready = !!(name && desc && (liveAtRun || currentFile));
   } else {
@@ -597,10 +2067,38 @@ function updateAddBtn() {
     hint.style.display = 'block';
     hint.textContent =
       'Uses macOS Accessibility: focus the field first (often a Click step). Run does Cmd+A then Cmd+V. If nothing appears, enable Accessibility for Cursor (or Terminal) and close any password field / Secure Input. Prefer “Open URL” for links — no typing.';
+  } else if (type === 'ai_type') {
+    hint.style.display = 'block';
+    hint.textContent =
+      `OpenAI generates text from your instruction at run time, then types it into the current focused field. Requires OPENAI_API_KEY. Optional model override: ${aiModel || 'uses TRAINER_AI_TYPE_MODEL or gpt-4o-mini'}.`;
   } else if (type === 'open_url') {
     hint.style.display = 'block';
     hint.textContent =
       'Opens in your default browser via the OS — no simulated keystrokes. Use this instead of typing URLs when automation typing fails.';
+  } else if (type === 'open_tab') {
+    hint.style.display = 'block';
+    hint.textContent =
+      'Opens a new tab in the active browser (Ctrl/Cmd+T). Optional URL opens directly in the new tab.';
+  } else if (type === 'close_chrome') {
+    hint.style.display = 'block';
+    hint.textContent =
+      'Quits Google Chrome (macOS: AppleScript; Windows: taskkill chrome.exe; Linux: pkill). No error if Chrome is already closed.';
+  } else if (type === 'completion_link') {
+    hint.style.display = 'block';
+    hint.textContent =
+      'Generates WhatsApp completion text + URL from run logs (completed + failed steps). Use next step: Open URL with {{WHATSAPP_COMPLETION_URL}}.';
+  } else if (type === 'type_project_name') {
+    hint.style.display = 'block';
+    hint.textContent =
+      'At run time, pastes the current workflow (project) name. If you rename the project, the next run uses the new name.';
+  } else if (type === 'type_image_text_caption') {
+    hint.style.display = 'block';
+    hint.textContent =
+      'Types caption matched to the currently bound image item from AI Media queue. Use Upload step first so runtime binds image N with text N and sets {{CURRENT_CAPTION_PATH}}.';
+  } else if (type === 'type_video_text_caption') {
+    hint.style.display = 'block';
+    hint.textContent =
+      'Types caption matched to the currently bound video item from AI Media queue. Use Upload step first so runtime binds video N with text N and sets {{CURRENT_CAPTION_PATH}}.';
   } else if (type === 'copy') {
     hint.style.display = 'block';
     hint.textContent =
@@ -613,10 +2111,18 @@ function updateAddBtn() {
     hint.style.display = 'block';
     hint.textContent =
       'Inserts a real pause in the workflow. Put this after Press Enter / Open URL so the site finishes loading before a Click. Saved (x,y) clicks from an old screenshot often miss after navigation — use “Live screen at run” on the Sign-in click or add a longer wait.';
+  } else if (type === 'press_home') {
+    hint.style.display = 'block';
+    hint.textContent =
+      'Sends the Home key once. Useful to jump to the start of a field or row before arrow navigation.';
   } else if (type === 'shell') {
     hint.style.display = 'block';
     hint.textContent =
       'TRAINER_ALLOW_SHELL=1 required. Default CLIs: git/gh, cursor, openai (API CLI), npm/pnpm/yarn/node (builds), vercel, firebase, gcloud/gsutil, mongosh/mongo/atlas. For any other binary, add it to TRAINER_SHELL_ALLOWLIST or set TRAINER_SHELL_UNRESTRICTED=1 only on a trusted machine (disables allowlist). ChatGPT web has no official CLI — use OPENAI_API_KEY + API or openai CLI.';
+  } else if (type === 'upload') {
+    hint.style.display = 'block';
+    hint.textContent =
+      'Upload step now binds the next AI-media item in strict order (topic + caption + media path) to runtime tokens so posts do not cross-mix. Use {{CURRENT_CAPTION}} in Type/AI Type, inspect {{CURRENT_CAPTION_PATH}} if needed, and upload {{CURRENT_MEDIA_PATH}} (or {{CURRENT_IMAGE_PATH}}/{{CURRENT_VIDEO_PATH}}).';
   } else {
     hint.style.display = 'none';
     hint.textContent = '';
@@ -624,15 +2130,20 @@ function updateAddBtn() {
 }
 document.getElementById('step-desc').addEventListener('input', updateAddBtn);
 document.getElementById('type-text').addEventListener('input', updateAddBtn);
+document.getElementById('ai-prompt').addEventListener('input', updateAddBtn);
+document.getElementById('ai-model').addEventListener('input', updateAddBtn);
 document.getElementById('step-url').addEventListener('input', updateAddBtn);
 document.getElementById('wait-seconds').addEventListener('input', updateAddBtn);
 document.getElementById('shell-command').addEventListener('input', updateAddBtn);
+document.getElementById('join-source-select').addEventListener('change', updateJoinWorkflowControls);
 
 // ── Add Step ──────────────────────────────────────────────────────────────────
 async function addStep() {
   const name = document.getElementById('wf-name').value.trim();
   const desc = document.getElementById('step-desc').value.trim();
   const typeText = document.getElementById('type-text').value;
+  const aiPrompt = document.getElementById('ai-prompt').value;
+  const aiModel = document.getElementById('ai-model').value.trim();
   const stepUrl = document.getElementById('step-url').value.trim();
   const type = document.getElementById('action-type').value;
 
@@ -647,11 +2158,19 @@ async function addStep() {
     const form = new FormData();
     form.append('workflow_name', name);
     form.append('action_type', type);
-    form.append('description', (type === 'type' || type === 'open_url' || type === 'shell') ? '' : desc);
+    form.append('description', (type === 'type' || type === 'ai_type' || type === 'open_url' || type === 'open_tab' || type === 'completion_link' || type === 'type_project_name' || type === 'type_image_text_caption' || type === 'type_video_text_caption' || type === 'shell' || type === 'best_ai_copy_query_bundle' || type === 'best_ai_capture_slot_from_clipboard' || type === 'best_ai_run_synthesizer') ? '' : desc);
     if (type === 'type') form.append('type_text', typeText);
-    if (type === 'open_url') form.append('url', stepUrl);
+    if (type === 'ai_type') {
+      form.append('ai_prompt', aiPrompt);
+      if (aiModel) form.append('ai_model', aiModel);
+    }
+    if (type === 'open_url' || type === 'open_tab') form.append('url', stepUrl);
     if (type === 'wait') form.append('wait_seconds', document.getElementById('wait-seconds').value);
     if (type === 'shell') form.append('shell_command', document.getElementById('shell-command').value.trim());
+    if (type === 'best_ai_capture_slot_from_clipboard') {
+      const slotEl = document.getElementById('best-ai-step-slot');
+      form.append('best_ai_slot', slotEl ? slotEl.value : 'chatgpt');
+    }
     if (type === 'click' && currentFile) form.append('screenshot', currentFile);
     if (type === 'click') {
       form.append('live_vision', document.getElementById('live-vision-at-run').checked ? '1' : '0');
@@ -687,9 +2206,13 @@ function clearStep() {
   thumb.src = '';
   document.getElementById('thumb-wrap').style.display = 'none';
   document.getElementById('type-text').value = '';
+  document.getElementById('ai-prompt').value = '';
+  document.getElementById('ai-model').value = '';
   document.getElementById('step-url').value = '';
   document.getElementById('wait-seconds').value = '3';
   document.getElementById('shell-command').value = '';
+  const bss = document.getElementById('best-ai-step-slot');
+  if (bss) bss.value = 'chatgpt';
   // Keep the selected action type so you can add steps 2, 3, 4… (e.g. several minimizes) without resetting to click.
   onActionChange();
   updateAddBtn();
@@ -717,19 +2240,38 @@ function renderStepList() {
     return;
   }
 
-  const icons = {click:'🖱', minimize:'🗕', maximize:'🗖', open_chrome:'🌐', open_url:'🔗', press_enter:'⏎', wait:'⏳', shell:'🔧', copy:'📋', paste:'📥', type:'⌨'};
+  const icons = {click:'🖱', minimize:'🗕', maximize:'🗖', open_chrome:'🌐', close_chrome:'🛑', open_cursor:'🧩', open_url:'🔗', open_tab:'🗂', completion_link:'✅', press_enter:'⏎', press_home:'⌂', wait:'⏳', shell:'🔧', copy:'📋', paste:'📥', type:'⌨', type_project_name:'🏷', type_image_text_caption:'🖼', type_video_text_caption:'🎬', upload:'📤', ai_type:'🧠', best_ai_copy_query_bundle:'✨', best_ai_capture_slot_from_clipboard:'✨', best_ai_run_synthesizer:'✨'};
   list.innerHTML = currentSteps.map(s => {
     const icon = icons[s.action_type] || '▶';
     const coordText = s.action_type === 'click'
       ? `<div class="step-coords">x: ${s.x}, y: ${s.y} · ${s.status}${s.live_vision ? ' · <strong>live @ run</strong>' : ''}</div>` : '';
     const body = s.action_type === 'type'
       ? `<div class="step-desc" style="white-space:pre-wrap;word-break:break-word">${escapeHtml(s.type_text || s.description || '')}</div>`
+      : s.action_type === 'ai_type'
+      ? `<div class="step-desc" style="white-space:pre-wrap;word-break:break-word">${escapeHtml(s.ai_prompt || s.description || '')}</div>`
+        + ((s.ai_model || '').trim()
+          ? `<div class="step-coords">Model: ${escapeHtml(s.ai_model)}</div>`
+          : '')
       : s.action_type === 'open_url'
       ? `<div class="step-desc">${escapeHtml(s.url || s.description || '')}</div>`
+      : s.action_type === 'open_tab'
+      ? `<div class="step-desc">${escapeHtml(s.url ? `Open new tab: ${s.url}` : (s.description || 'Open new browser tab'))}</div>`
+      : s.action_type === 'completion_link'
+      ? `<div class="step-desc">${escapeHtml(s.description || 'Generate WhatsApp completion link')}</div>`
+      : s.action_type === 'type_project_name'
+      ? `<div class="step-desc">${escapeHtml(s.description || 'Typing project name')}</div>`
+      : s.action_type === 'type_image_text_caption'
+      ? `<div class="step-desc">${escapeHtml(s.description || 'Type image text caption')}</div>`
+      : s.action_type === 'type_video_text_caption'
+      ? `<div class="step-desc">${escapeHtml(s.description || 'Type video text caption')}</div>`
       : s.action_type === 'wait'
       ? `<div class="step-desc"><strong>${escapeHtml(String(s.wait_seconds ?? ''))}s</strong> · ${escapeHtml(s.description || '')}</div>`
       : s.action_type === 'shell'
       ? `<div class="step-desc" style="white-space:pre-wrap;word-break:break-all;font-family:ui-monospace,monospace;font-size:.78rem">${escapeHtml(s.shell_command || s.description || '')}</div>`
+      : s.action_type === 'best_ai_capture_slot_from_clipboard'
+      ? `<div class="step-desc">${escapeHtml(s.description || '')}</div><div class="step-coords">Slot: <strong>${escapeHtml(s.best_ai_slot || '')}</strong></div>`
+      : (s.action_type === 'best_ai_copy_query_bundle' || s.action_type === 'best_ai_run_synthesizer')
+      ? `<div class="step-desc">${escapeHtml(s.description || '')}</div>`
       : `<div class="step-desc">${escapeHtml(s.description || '')}</div>`;
     return `
       <div class="step-row">
@@ -775,6 +2317,7 @@ async function clearWorkflow() {
       }
     } catch (_) {}
     renderStepList();
+    await refreshJoinWorkflowOptions();
   } catch(e) { alert('Failed: ' + e.message); }
 }
 
@@ -783,44 +2326,116 @@ async function runFromBuilder() {
   const name = document.getElementById('wf-name').value.trim();
   const dryRun = document.getElementById('dry-build').checked;
   if (!name) return;
+  const modeLabel = dryRun ? 'DRY RUN (preview only, no real clicks)' : 'LIVE — mouse and keyboard will be used';
+  if (!confirm(`Run workflow “${name}” from the builder now?\n\n${modeLabel}\n\nYou can press ■ STOP in the header during the run to cancel between steps.`)) return;
   await executeRun(name, dryRun, 'build-log');
 }
 
 // ── START button (header) ─────────────────────────────────────────────────────
 let countdownTimer = null;
+let serverSideRunActive = false;
+let trainerRunStatusPollTimer = null;
+function setStartButtonIdle() {
+  const btn = document.getElementById('start-btn');
+  if (!btn) return;
+  btn.textContent = '▶ START';
+  btn.style.background = 'var(--gold)';
+}
+
+function setStartButtonCountdown() {
+  const btn = document.getElementById('start-btn');
+  if (!btn) return;
+  btn.textContent = '✕ Cancel';
+  btn.style.background = '#7f1d1d';
+}
+
+function setStartButtonRunning() {
+  const btn = document.getElementById('start-btn');
+  if (!btn) return;
+  btn.textContent = '■ STOP';
+  btn.style.background = '#7f1d1d';
+}
+
+function updateStartButtonDisabledState() {
+  const btn = document.getElementById('start-btn');
+  if (!btn) return;
+  if (runInProgress || countdownTimer || serverSideRunActive) {
+    btn.disabled = false;
+    return;
+  }
+  btn.disabled = !currentWfName;
+}
+
+function handleStartStopButton() {
+  if (runInProgress) {
+    requestStopRun();
+    return;
+  }
+  if (serverSideRunActive) {
+    requestStopRun();
+    return;
+  }
+  startRun();
+}
+
 function startRun() {
+  if (runInProgress) return;
   const name = currentWfName || document.getElementById('wf-name').value.trim();
   if (!name) return;
-  const btn = document.getElementById('start-btn');
   if (countdownTimer) {
     clearInterval(countdownTimer);
     countdownTimer = null;
-    btn.textContent = '▶ START';
+    setStartButtonIdle();
     document.getElementById('countdown').textContent = '';
-    btn.style.background = 'var(--gold)';
+    updateStartButtonDisabledState();
     return;
   }
+  const dryRun = document.getElementById('dry-run').checked;
+  const modeLine = dryRun ? 'dry run (preview only)' : 'live run — mouse and keyboard will be used';
+  function fmtCountdown(s) {
+    return `“${name}” — ${modeLine} — starts in ${s}s…`;
+  }
   let sec = 3;
-  document.getElementById('countdown').textContent = `Starting in ${sec}…`;
-  btn.textContent = '✕ Cancel';
-  btn.style.background = '#7f1d1d';
+  document.getElementById('countdown').textContent = fmtCountdown(sec);
+  setStartButtonCountdown();
   countdownTimer = setInterval(async () => {
     sec--;
     if (sec > 0) {
-      document.getElementById('countdown').textContent = `Starting in ${sec}…`;
+      document.getElementById('countdown').textContent = fmtCountdown(sec);
     } else {
       clearInterval(countdownTimer); countdownTimer = null;
-      btn.textContent = '▶ START'; btn.style.background = 'var(--gold)';
+      setStartButtonIdle();
       document.getElementById('countdown').textContent = '';
       // Switch to run tab log
-      switchTab('run', document.querySelectorAll('.tab')[1]);
+      switchTab('run', getTabEl('run'));
       await executeRun(name, document.getElementById('dry-run').checked, 'run-log');
     }
   }, 1000);
 }
 
+async function requestStopRun() {
+  try {
+    await fetch(`${API}/run/stop`, mergeTrainerFetchOpts({ method: 'POST' }));
+    addLog('run-log', 'err', 'Stop requested.');
+    addLog('build-log', 'err', 'Stop requested.');
+    showAlert('run-alert', 'Stop requested. Current run will abort within a step.', 'err');
+  } catch (_) {
+    showAlert('run-alert', 'Could not request stop.', 'err');
+  }
+}
+
 // ── Core run function ─────────────────────────────────────────────────────────
 async function executeRun(name, dryRun, logId) {
+  if (runInProgress) {
+    addLog(logId, 'info', 'A workflow run is already in progress.');
+    return;
+  }
+  runInProgress = true;
+  const startBtn = document.getElementById('start-btn');
+  if (startBtn) {
+    setStartButtonRunning();
+    startBtn.disabled = false;
+  }
   const logBox = document.getElementById(logId);
   logBox.style.display = 'block';
   const pw = document.getElementById('run-prog-wrap');
@@ -843,17 +2458,32 @@ async function executeRun(name, dryRun, logId) {
     if (!res.ok) throw new Error(apiErrMessage(data));
 
     if (pw) pb.style.width = '100%';
-    (data.steps || []).forEach(s => {
+    if (data.note) addLog(logId, 'info', data.note);
+    const steps = data.steps || [];
+    let failCount = 0;
+    steps.forEach(s => {
       const cls = s.status === 'error' ? 'err' : s.status === 'dry_run' ? 'info' : 'ok';
-      addLog(logId, cls, `Step ${s.step}: ${s.action} — ${s.status}`);
+      if (s.status === 'error') failCount += 1;
+      const detail = (s.status === 'error' && s.error) ? ` — ${s.error}` : '';
+      addLog(logId, cls, `Step ${s.step}: ${s.action} — ${s.status}${detail}`);
     });
-    addLog(logId, 'ok', `✓ Done — ${data.steps?.length || 0} steps`);
-    showAlert('run-alert', dryRun ? '✓ Dry run complete' : '✓ Workflow finished!', 'ok');
+    if (failCount > 0) {
+      addLog(logId, 'err', `Finished with ${failCount}/${steps.length} step(s) failed — see messages above. On macOS: System Settings → Privacy & Security → Accessibility → enable Terminal or Cursor (whichever runs python3).`);
+      showAlert('run-alert', `${failCount} step(s) failed — expand the log for the error text.`, 'err');
+      if (pb) pb.style.background = 'var(--err)';
+    } else {
+      addLog(logId, 'ok', `✓ Done — ${steps.length} steps`);
+      showAlert('run-alert', dryRun ? '✓ Dry run complete' : '✓ Workflow finished!', 'ok');
+    }
 
   } catch(e) {
     addLog(logId, 'err', `✗ ${e.message}`);
     showAlert('run-alert', e.message, 'err');
     if (pb) pb.style.background = 'var(--err)';
+  } finally {
+    runInProgress = false;
+    setStartButtonIdle();
+    updateStartButtonDisabledState();
   }
 }
 
@@ -864,7 +2494,7 @@ function setMode(el, mode) {
 }
 
 // ── Run panel ─────────────────────────────────────────────────────────────────
-async function loadRunDropdown() {
+async function loadRunDropdown(preferredWorkflowName) {
   try {
     const r = await fetch(`${API}/workflows`, mergeTrainerFetchOpts({ cache: 'no-store' }));
     const d = await r.json();
@@ -875,28 +2505,46 @@ async function loadRunDropdown() {
       opt.value = w.name; opt.textContent = `${w.name}  (${w.total_steps} steps)`;
       sel.appendChild(opt);
     });
-    // Pre-select current workflow if set
-    if (currentWfName) sel.value = currentWfName;
-    loadRunSteps();
+    const pick =
+      preferredWorkflowName !== undefined && preferredWorkflowName !== null && String(preferredWorkflowName).trim() !== ''
+        ? String(preferredWorkflowName).trim()
+        : (currentWfName || '');
+    if (pick && [...sel.options].some((o) => o.value === pick)) sel.value = pick;
+    await loadRunSteps();
   } catch {}
 }
 
 async function loadRunSteps() {
   const name = document.getElementById('run-wf-select').value;
   currentWfName = name;
-  document.getElementById('start-btn').disabled = !name;
+  updateStartButtonDisabledState();
   const preview = document.getElementById('run-steps-preview');
   if (!name) { preview.innerHTML = ''; return; }
   try {
     const r = await fetch(`${API}/workflow/${encodeURIComponent(name)}`, mergeTrainerFetchOpts({ cache: 'no-store' }));
     const d = await r.json();
     const steps = d.steps || [];
-    const icons = {click:'🖱', minimize:'🗕', maximize:'🗖', open_chrome:'🌐', open_url:'🔗', press_enter:'⏎', wait:'⏳', shell:'🔧', copy:'📋', paste:'📥', type:'⌨'};
+    const icons = {click:'🖱', minimize:'🗕', maximize:'🗖', open_chrome:'🌐', close_chrome:'🛑', open_cursor:'🧩', open_url:'🔗', open_tab:'🗂', completion_link:'✅', press_enter:'⏎', press_home:'⌂', wait:'⏳', shell:'🔧', copy:'📋', paste:'📥', type:'⌨', type_project_name:'🏷', type_image_text_caption:'🖼', type_video_text_caption:'🎬', upload:'📤', ai_type:'🧠', best_ai_copy_query_bundle:'✨', best_ai_capture_slot_from_clipboard:'✨', best_ai_run_synthesizer:'✨'};
     preview.innerHTML = steps.map(s => {
       const body = s.action_type === 'type'
         ? `<div class="step-desc" style="white-space:pre-wrap;word-break:break-word">${escapeHtml(s.type_text || s.description || '')}</div>`
+        : s.action_type === 'ai_type'
+        ? `<div class="step-desc" style="white-space:pre-wrap;word-break:break-word">${escapeHtml(s.ai_prompt || s.description || '')}</div>`
+          + ((s.ai_model || '').trim()
+            ? `<div class="step-coords">Model: ${escapeHtml(s.ai_model)}</div>`
+            : '')
         : s.action_type === 'open_url'
         ? `<div class="step-desc">${escapeHtml(s.url || s.description || '')}</div>`
+        : s.action_type === 'open_tab'
+        ? `<div class="step-desc">${escapeHtml(s.url ? `Open new tab: ${s.url}` : (s.description || 'Open new browser tab'))}</div>`
+        : s.action_type === 'completion_link'
+        ? `<div class="step-desc">${escapeHtml(s.description || 'Generate WhatsApp completion link')}</div>`
+        : s.action_type === 'type_project_name'
+        ? `<div class="step-desc">${escapeHtml(s.description || 'Typing project name')}</div>`
+        : s.action_type === 'type_image_text_caption'
+        ? `<div class="step-desc">${escapeHtml(s.description || 'Type image text caption')}</div>`
+        : s.action_type === 'type_video_text_caption'
+        ? `<div class="step-desc">${escapeHtml(s.description || 'Type video text caption')}</div>`
         : s.action_type === 'wait'
         ? `<div class="step-desc"><strong>${escapeHtml(String(s.wait_seconds ?? ''))}s</strong> · ${escapeHtml(s.description || '')}</div>`
         : s.action_type === 'shell'
@@ -922,37 +2570,158 @@ async function loadWorkflowsList() {
     const r = await fetch(`${API}/workflows`, mergeTrainerFetchOpts({ cache: 'no-store' }));
     const d = await r.json();
     const wfs = d.workflows || [];
+    cachedWorkflowNames = wfs
+      .map((w) => (typeof w === 'string' ? w : w && w.name))
+      .filter((name) => typeof name === 'string' && name.trim().length > 0);
+    renderJoinWorkflowOptions();
     if (!wfs.length) {
       el.innerHTML = '<p style="color:var(--muted);font-size:.84rem">No workflows yet. Use Step Builder to create one.</p>';
       return;
     }
-    el.innerHTML = wfs.map(w => `
+    el.innerHTML = wfs.map((w) => {
+      const nm = String(w.name || '');
+      const nmEnc = encodeURIComponent(nm);
+      return `
       <div class="wf-item">
         <div>
-          <div class="wf-name">${w.name}</div>
+          <div class="wf-name">${escapeHtml(nm)}</div>
           <div class="wf-meta">${w.total_steps} steps</div>
         </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-gold btn-sm" onclick="quickRunWf('${w.name}')">▶ Run</button>
-          <button class="btn btn-red btn-sm" onclick="deleteWf('${w.name}')">Delete</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          <button type="button" class="btn btn-outline btn-sm" data-wf-act="edit" data-wf-name="${nmEnc}" onclick="void handleSavedWfBtnClick(this)">✎ Edit</button>
+          <button type="button" class="btn btn-outline btn-sm" data-wf-act="rename" data-wf-name="${nmEnc}" onclick="void handleSavedWfBtnClick(this)">Rename</button>
+          <button type="button" class="btn btn-outline btn-sm" data-wf-act="clone" data-wf-name="${nmEnc}" onclick="void handleSavedWfBtnClick(this)">⎘ Clone</button>
+          <button type="button" class="btn btn-gold btn-sm" data-wf-act="run" data-wf-name="${nmEnc}" onclick="void handleSavedWfBtnClick(this)">▶ Run</button>
+          <button type="button" class="btn btn-red btn-sm" data-wf-act="delete" data-wf-name="${nmEnc}" onclick="void handleSavedWfBtnClick(this)">Delete</button>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } catch {
+    cachedWorkflowNames = [];
+    renderJoinWorkflowOptions();
     el.innerHTML = '<p style="color:var(--muted);font-size:.84rem">Could not load — is server running?</p>';
   }
 }
 
-function quickRunWf(name) {
+async function quickRunWf(name) {
   currentWfName = name;
   document.getElementById('wf-name').value = name;
-  switchTab('run', document.querySelectorAll('.tab')[1]);
-  setTimeout(() => { document.getElementById('run-wf-select').value = name; loadRunSteps(); }, 100);
+  const autoSel = document.getElementById('auto-wf-select');
+  if (autoSel && [...autoSel.options].some((o) => o.value === name)) autoSel.value = name;
+  switchTab('run', getTabEl('run'), { skipRunLoad: true });
+  await loadRunDropdown(name);
+}
+
+function editWf(name) {
+  currentWfName = name;
+  document.getElementById('wf-name').value = name;
+  const autoSel = document.getElementById('auto-wf-select');
+  if (autoSel && [...autoSel.options].some((o) => o.value === name)) autoSel.value = name;
+  switchTab('build', getTabEl('build') || document.querySelector('.tabs > .tab'));
+  void loadWorkflowSteps(name);
+  try { sessionStorage.setItem(TRAINER_WF_STORAGE_KEY, name); } catch (_) {}
+  clearStep();
 }
 
 async function deleteWf(name) {
   if (!confirm(`Delete workflow "${name}"?`)) return;
   await fetch(`${API}/workflow/${encodeURIComponent(name)}`, mergeTrainerFetchOpts({ method: 'DELETE' }));
   loadWorkflowsList();
+  refreshJoinWorkflowOptions();
+}
+
+/** Saved tab row actions — inline onclick on each button (reliable in pywebview/WKWebView). */
+function handleSavedWfBtnClick(btn) {
+  if (!btn || btn.nodeType !== 1) return;
+  const enc = btn.getAttribute('data-wf-name');
+  const act = btn.getAttribute('data-wf-act');
+  if (enc == null || enc === '' || !act) return;
+  let wfName;
+  try {
+    wfName = decodeURIComponent(enc);
+  } catch (_) {
+    return;
+  }
+  if (act === 'edit') editWf(wfName);
+  else if (act === 'rename') void renameWf(wfName);
+  else if (act === 'clone') void cloneWf(wfName);
+  else if (act === 'run') void quickRunWf(wfName);
+  else if (act === 'delete') void deleteWf(wfName);
+}
+
+
+function showWfListAlert(msg, type = 'ok') {
+  const el = document.getElementById('wf-list-alert');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = `alert alert-${type}`;
+  el.style.display = 'block';
+  setTimeout(() => {
+    el.style.display = 'none';
+  }, 5000);
+}
+
+async function renameWf(currentName) {
+  if (!currentName) return;
+  const raw = window.prompt(
+    `Rename workflow (steps and content stay the same — only the saved name on disk changes).\n\nCurrent name: "${currentName}"`,
+    currentName
+  );
+  if (raw == null) return;
+  const newName = String(raw).trim();
+  if (!newName) return;
+  if (newName === currentName) {
+    showWfListAlert('Name unchanged.', 'err');
+    return;
+  }
+  hideAlert('wf-list-alert');
+  try {
+    const r = await fetch(`${API}/workflow/${encodeURIComponent(currentName)}/rename`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_name: newName }),
+    }));
+    const d = await r.json();
+    if (!r.ok) throw new Error(apiErrMessage(d));
+    const final = d.workflow_name || newName;
+    showWfListAlert(`Renamed "${d.previous || currentName}" → "${final}"`, 'ok');
+    if (currentWfName === currentName) {
+      currentWfName = final;
+      const wn = document.getElementById('wf-name');
+      if (wn) wn.value = final;
+      try { sessionStorage.setItem(TRAINER_WF_STORAGE_KEY, final); } catch (_) {}
+    }
+    await loadWorkflowsList();
+    await loadRunDropdown();
+    await refreshJoinWorkflowOptions();
+    if (currentWfName === final) loadWorkflowSteps(final);
+  } catch (e) {
+    showWfListAlert(e.message || 'Rename failed', 'err');
+  }
+}
+
+async function cloneWf(sourceName) {
+  if (!sourceName) return;
+  const suggested = `${sourceName} copy`;
+  const raw = window.prompt(`Clone workflow — new name for the copy:\n\n(Source: "${sourceName}" stays unchanged.)`, suggested);
+  if (raw == null) return;
+  const newName = String(raw).trim();
+  if (!newName) return;
+  hideAlert('wf-list-alert');
+  try {
+    const r = await fetch(`${API}/workflow/${encodeURIComponent(sourceName)}/clone`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_name: newName }),
+    }));
+    const d = await r.json();
+    if (!r.ok) throw new Error(apiErrMessage(d));
+    showWfListAlert(`Cloned "${sourceName}" → "${d.workflow_name || newName}".`, 'ok');
+    await loadWorkflowsList();
+    await refreshJoinWorkflowOptions();
+  } catch (e) {
+    showWfListAlert(e.message || 'Clone failed', 'err');
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -973,6 +2742,12 @@ function showAlert(id, msg, type) {
 function hideAlert(id) {
   const el = document.getElementById(id);
   if (el) el.style.display = 'none';
+}
+
+if (document.getElementById('best-ai-query-save-btn')) {
+  restoreBestAiQueryUI();
+  initBestAiSlotAutoSynth();
+  startBestAiBridgePolling();
 }
 
 if (IS_CLOUD_TRAINER) {

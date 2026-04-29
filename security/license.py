@@ -1,5 +1,5 @@
 """
-License System — Autonomous Web Agency Platform
+License System — cusear™ Platform
 ================================================
 Protects the client app from running without a valid, paid, machine-bound license.
 
@@ -169,7 +169,7 @@ def generate_license(
     machine_id:     str,
     plan:           str = "free",          # free | premium
     valid_days:     int = 365,
-    issued_by:      str = "Autonomous Web Agency",
+    issued_by:      str = "cusear™",
 ) -> str:
     """
     Generate a license key for a specific client + machine.
@@ -289,10 +289,16 @@ def _server_check(payload: dict, server_url: str, license_path: Path) -> None:
         with urllib.request.urlopen(req, timeout=5) as resp:
             result = json.loads(resp.read().decode())
 
-        if result.get("status") == "revoked":
+        st = str(result.get("status") or "").strip().lower()
+        if st == "revoked":
             raise LicenseError(
                 "Your license has been revoked.\n"
                 "Please contact support@yourplatform.com."
+            )
+        if st == "expired":
+            raise LicenseError(
+                "Your subscription or license period has ended on the server.\n"
+                "Please renew at https://yourplatform.com/renew"
             )
 
         # Server confirmed valid — reset grace period timer

@@ -1,6 +1,6 @@
 """
 Admin Panel Routes — agency admin dashboard.
-Autonomous Web Agency Platform · White-label Layer
+cusear™ Platform · White-label Layer
 
 Mounted at /admin on every tenant subdomain.
 Protected by admin email + secret token (set at onboarding).

@@ -1,5 +1,13 @@
-# Autonomous Web Agency Agent v1.0
-# Install: pip install -r requirements.txt --break-system-packages
+# cusear™ Agent v1.0
+#
+# Install dependencies (the word "install" is required — do not run `pip -r` alone):
+#   python3 -m pip install -r requirements.txt
+#
+# If pip refuses to touch the system Python (macOS/Homebrew), use a venv instead:
+#   python3 -m venv .venv
+#   .venv/bin/python -m pip install -r requirements.txt
+#
+# Or from the repo root:  bash START.sh
 
 # ── Core GUI automation ───────────────────────────────────────
 pyautogui>=0.9.54
@@ -29,3 +37,9 @@ pytest-mock>=3.14.0
 
 # ── Utilities ─────────────────────────────────────────────────
 python-dotenv>=1.0.1
+pywebview>=5.1
+
+# ── Desktop app export (Trainer → Export for Mac / Windows) ──
+pyinstaller>=6.0
+
+# Best AI™ (optional): pip install -r best_ai/requirements-best-ai.txt && python3 -m playwright install chrome

@@ -1,6 +1,6 @@
 """
 Tenant Config — per-agency branding and settings.
-Autonomous Web Agency Platform · White-label Layer
+cusear™ Platform · White-label Layer
 
 Every white-label agency gets their own tenant document in MongoDB.
 One codebase, N tenants — branding injected at request time.
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # ─── Default branding (platform owner's own theme) ────────────────────────────
 DEFAULT_BRANDING = {
-    "agency_name":    "Autonomous Web Agency",
+    "agency_name":    "cusear™",
     "tagline":        "One command. Live website.",
     "logo_url":       "/static/logo.png",
     "favicon_url":    "/static/favicon.ico",
@@ -28,7 +28,7 @@ DEFAULT_BRANDING = {
     "support_email":  "support@yourplatform.com",
     "support_phone":  "",
     "website":        "https://yourplatform.com",
-    "footer_text":    "Powered by Autonomous Web Agency",
+    "footer_text":    "Powered by cusear™",
     "show_powered_by": True,
 }
 

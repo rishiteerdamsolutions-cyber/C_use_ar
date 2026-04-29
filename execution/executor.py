@@ -1,5 +1,5 @@
 """
-Execution Engine — Autonomous Web Agency Agent v1.0
+Execution Engine — cusear™ Agent v1.0
 Physically drives mouse, keyboard, clipboard, and windows.
 FAILSAFE always enabled: move mouse to top-left corner to abort.
 """

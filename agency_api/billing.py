@@ -1,6 +1,6 @@
 """
 Billing — Razorpay wallet top-up and webhook handler.
-Autonomous Web Agency Platform · API Layer
+cusear™ Platform · API Layer
 
 Flow:
   1. Developer calls POST /billing/create-order  → gets Razorpay order_id

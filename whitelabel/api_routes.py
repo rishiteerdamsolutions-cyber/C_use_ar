@@ -1,6 +1,6 @@
 """
 Whitelabel Public API Routes — onboarding & order creation.
-Autonomous Web Agency Platform · White-label Layer
+cusear™ Platform · White-label Layer
 
 Mounted at /whitelabel on the main API server.
 These endpoints are called by:

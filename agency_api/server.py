@@ -1,5 +1,5 @@
 """
-FastAPI Server — Autonomous Web Agency Platform v1.0
+FastAPI Server — cusear™ Platform v1.0
 Entry point for the public REST API.
 
 Run locally:
@@ -46,7 +46,7 @@ _API_BASE_URL = f"https://{_PLATFORM_DOMAIN}/api/v1"
 async def lifespan(app: FastAPI):
     # ── Startup ────────────────────────────────────────────────────────────────
     logger.info("━" * 55)
-    logger.info("  Autonomous Web Agency API  v%s  starting", VERSION)
+    logger.info("  cusear™ API  v%s  starting", VERSION)
     logger.info("━" * 55)
 
     # Verify MongoDB
@@ -77,7 +77,7 @@ async def lifespan(app: FastAPI):
 
 # ─── App ─────────────────────────────────────────────────────────────────────
 app = FastAPI(
-    title       = "Autonomous Web Agency API",
+    title       = "cusear™ API",
     description = (
         "Build and deploy full websites via API. "
         "Teach workflows from screenshots, run them in Fast or AI mode, "
@@ -93,7 +93,7 @@ app = FastAPI(
     docs_url    = "/docs",
     redoc_url   = "/redoc",
     contact     = {
-        "name":  "Autonomous Web Agency",
+        "name":  "cusear™",
         "email": f"support@{_PLATFORM_DOMAIN}",
         "url":   f"https://{_PLATFORM_DOMAIN}",
     },
@@ -159,7 +159,7 @@ async def root():
     if _PORTAL_DIR.is_dir():
         return RedirectResponse(url="/site/", status_code=302)
     return JSONResponse({
-        "service":  "Autonomous Web Agency API",
+        "service":  "cusear™ API",
         "version":  VERSION,
         "status":   "ok",
         "website":  "/site/",
@@ -171,7 +171,7 @@ async def root():
 @app.get("/api-meta", include_in_schema=False)
 async def api_meta():
     return JSONResponse({
-        "service":  "Autonomous Web Agency API",
+        "service":  "cusear™ API",
         "version":  VERSION,
         "status":   "ok",
         "website":  "/site/",

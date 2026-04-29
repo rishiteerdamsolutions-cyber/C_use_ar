@@ -116,6 +116,29 @@ async def trainer_delete_step(wf_name: str, step_num: int, owner_id: TrainerOwne
         return _mongo_error(exc)
 
 
+@router.post("/workflow/{wf_name}/join")
+async def trainer_join_workflow(wf_name: str, request: Request, owner_id: TrainerOwner) -> Any:
+    name = unquote(wf_name)
+    try:
+        payload = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "invalid JSON"})
+    source_name = str(payload.get("source_workflow") or "").strip()
+    if not source_name:
+        return JSONResponse(status_code=400, content={"error": "source_workflow required"})
+    if source_name == name:
+        return JSONResponse(status_code=400, content={"error": "source_workflow must be different from target workflow"})
+    try:
+        from agency_api.trainer_service import join_workflow
+
+        out = join_workflow(owner_id, name, source_name)
+        return {"success": True, **out}
+    except FileNotFoundError as exc:
+        return JSONResponse(status_code=404, content={"error": str(exc)})
+    except Exception as exc:
+        return _mongo_error(exc)
+
+
 @router.post("/teach/step")
 async def trainer_teach_step(request: Request, owner_id: TrainerOwner) -> Any:
     try:

@@ -1,5 +1,5 @@
 """
-Fallback Manager — Autonomous Web Agency Agent v1.0
+Fallback Manager — cusear™ Agent v1.0
 4-attempt cascade: direct → scroll_down → scroll_up → ai_recovery → human popup.
 Saves ~50% of failures automatically.
 """

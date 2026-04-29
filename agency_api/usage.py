@@ -1,6 +1,6 @@
 """
 Usage Tracker — log every API call, enforce credit deduction.
-Autonomous Web Agency Platform · API Layer
+cusear™ Platform · API Layer
 """
 
 from __future__ import annotations

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dashboard — Autonomous Web Agency</title>
+<title>Dashboard — cusear™</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -80,6 +80,9 @@ tr:last-child td{border-bottom:none}
 .profile-form input{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);
                      border-radius:8px;padding:10px 14px;font-size:.9rem;margin-bottom:14px;outline:none}
 .profile-form input:focus{border-color:var(--gold)}
+.fld{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);
+     border-radius:8px;padding:10px 14px;font-size:.88rem;outline:none}
+.fld:focus{border-color:var(--gold)}
 .save-btn{background:var(--gold);color:#000;border:none;border-radius:8px;padding:11px 28px;font-weight:700;cursor:pointer}
 /* EMPTY STATE */
 .empty{text-align:center;padding:60px 20px;color:var(--muted)}
@@ -98,7 +101,7 @@ tr:last-child td{border-bottom:none}
 <body>
 
 <header>
-  <div class="logo">⚡ Autonomous Web Agency</div>
+  <div class="logo">⚡ cusear™</div>
   <div class="user-info">
     <span class="user-email" id="hdr-email">—</span>
     <button class="logout-btn" onclick="logout()">Sign Out</button>
@@ -111,6 +114,7 @@ tr:last-child td{border-bottom:none}
   <nav class="sidebar">
     <div class="nav-item active" onclick="showPanel('overview')">📊 Overview</div>
     <div class="nav-item" onclick="showPanel('history')">📋 Call History</div>
+    <div class="nav-item" onclick="showPanel('ai-media')">🖼 AI Media Studio</div>
     <div class="nav-item" onclick="showPanel('apikey')">🔑 API Key</div>
     <div class="nav-item" onclick="showPanel('topup')">💳 Top Up</div>
     <div class="nav-item" onclick="showPanel('profile')">👤 Profile</div>
@@ -188,6 +192,50 @@ tr:last-child td{border-bottom:none}
     </div>
 
     <!-- ═════ API KEY PANEL ═════ -->
+    <div class="panel" id="panel-ai-media">
+      <div class="key-panel">
+        <h3 style="margin-bottom:8px">AI Media Studio</h3>
+        <p style="color:var(--muted);font-size:.84rem;line-height:1.45;margin-bottom:14px">
+          Generate topics, captions, and AI image/video assets one-by-one. Files are copied to Downloads.
+        </p>
+        <div id="ai-media-alert" style="display:none"></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:10px">
+          <label style="font-size:.75rem;color:var(--muted)">Main topic
+            <input class="fld" id="ai-media-main-topic" type="text" placeholder="e.g. AI marketing for fitness coaches" style="margin-top:4px">
+          </label>
+          <label style="font-size:.75rem;color:var(--muted)">Industry (optional)
+            <input class="fld" id="ai-media-industry" type="text" placeholder="e.g. fitness, salon, real estate" style="margin-top:4px">
+          </label>
+          <label style="font-size:.75rem;color:var(--muted)">Media type
+            <select class="fld" id="ai-media-type" style="margin-top:4px">
+              <option value="image">Images only</option>
+              <option value="video">Videos only</option>
+              <option value="both">Both (image then video per topic)</option>
+            </select>
+          </label>
+          <label style="font-size:.75rem;color:var(--muted)">Count (max 30)
+            <input class="fld" id="ai-media-count" type="number" min="1" max="30" value="10" style="margin-top:4px">
+          </label>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+          <label style="font-size:.8rem;color:var(--muted)"><input type="checkbox" id="ai-pf-instagram" checked> Instagram</label>
+          <label style="font-size:.8rem;color:var(--muted)"><input type="checkbox" id="ai-pf-facebook" checked> Facebook</label>
+          <label style="font-size:.8rem;color:var(--muted)"><input type="checkbox" id="ai-pf-linkedin" checked> LinkedIn</label>
+        </div>
+        <label style="font-size:.75rem;color:var(--muted)">Base prompt (optional)</label>
+        <textarea class="fld" id="ai-media-base-prompt" rows="4" style="margin-top:4px;resize:vertical;margin-bottom:10px"></textarea>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <button class="btn-load" onclick="startAiMediaJob()">Generate</button>
+          <button class="icon-btn" onclick="refreshAiMediaStatus()">Refresh</button>
+          <button class="icon-btn" onclick="stopAiMediaJob()">Stop</button>
+          <span class="badge badge-smart" id="ai-media-status">IDLE</span>
+          <span class="badge badge-fast" id="ai-media-progress">0/0</span>
+        </div>
+        <div id="ai-media-list" style="max-height:420px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--bg2);font-size:.84rem;color:var(--text)"></div>
+      </div>
+    </div>
+
+    <!-- ═════ API KEY PANEL ═════ -->
     <div class="panel" id="panel-apikey">
       <div class="key-panel">
         <h3 style="margin-bottom:18px">Your API Key</h3>
@@ -214,34 +262,17 @@ tr:last-child td{border-bottom:none}
     <!-- ═════ TOP UP PANEL ═════ -->
     <div class="panel" id="panel-topup">
       <div class="key-panel">
-        <h3 style="margin-bottom:8px">Top Up Credits</h3>
-        <p style="color:var(--muted);font-size:.88rem;margin-bottom:20px">Credits never expire. Use them at your own pace.</p>
-
+        <h3 style="margin-bottom:8px">Billing &amp; plans</h3>
+        <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px;line-height:1.55">
+          Subscription tiers (Cusear Core, Hybrid, AI) and INR / USD reference are on the public
+          <strong style="color:var(--text)">Pricing</strong> page. Legacy credit-pack amounts are retired from this dashboard UI.
+        </p>
         <div id="topup-alert" style="display:none"></div>
-
-        <div class="topup-grid">
-          <div class="topup-card" onclick="selectTopup(this,'starter',999,500)">
-            <div class="topup-price">₹999</div>
-            <div class="topup-credits">500 credits</div>
-            <div style="font-size:.7rem;color:var(--muted);margin-top:4px">₹2/credit</div>
-          </div>
-          <div class="topup-card selected" onclick="selectTopup(this,'professional',2999,2000)">
-            <div class="topup-price">₹2,999</div>
-            <div class="topup-credits">2,000 credits</div>
-            <div style="font-size:.7rem;color:var(--muted);margin-top:4px">₹1.5/credit</div>
-          </div>
-          <div class="topup-card" onclick="selectTopup(this,'agency',9999,10000)">
-            <div class="topup-price">₹9,999</div>
-            <div class="topup-credits">10,000 credits</div>
-            <div style="font-size:.7rem;color:var(--muted);margin-top:4px">₹1/credit</div>
-          </div>
-        </div>
-
-        <button class="save-btn" style="margin-top:24px;width:100%;padding:14px" onclick="topUpCredits()">
-          Pay via Razorpay →
+        <button type="button" class="save-btn" style="margin-top:8px;width:100%;padding:14px" onclick="location.href='pricing.html'">
+          Open pricing (Core · Hybrid · AI) →
         </button>
-        <p style="color:var(--muted);font-size:.75rem;text-align:center;margin-top:10px">
-          Secured by Razorpay · UPI / Card / NetBanking
+        <p style="color:var(--muted);font-size:.75rem;text-align:center;margin-top:14px">
+          API wallet top-ups, if enabled for your account, follow the billing API — amounts are not listed here.
         </p>
       </div>
     </div>
@@ -272,10 +303,21 @@ const API_BASE = (() => {
   }
   return location.origin.replace(/\/$/, '') + '/api/v1';
 })();
+const TRAINER_API_BASE = (() => {
+  if (location.protocol === 'file:' || !location.origin || location.origin === 'null') {
+    return 'http://localhost:7788';
+  }
+  if (location.port === '7788') {
+    return location.origin;
+  }
+  return location.origin.replace(/\/$/, '') + '/api/trainer';
+})();
 let apiKey = '';
 let usageData = null;
-let topupPack = { id: 'professional', amount: 2999 };
+let topupPack = { id: 'core-starter', amount: 400 };
 let usageChart, endpointChart;
+let aiMediaJobId = '';
+let aiMediaPollTimer = null;
 
 // ─── Key input ────────────────────────────────────────────────────────────────
 function onKeyInput() {
@@ -388,6 +430,7 @@ function showPanel(name) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
   event.currentTarget.classList.add('active');
+  if (name === 'ai-media') refreshAiMediaStatus();
 }
 
 // ─── Alerts ───────────────────────────────────────────────────────────────────
@@ -398,6 +441,156 @@ function showDashAlert(msg, type) {
   el.style.display = 'block';
 }
 function hideDashAlert() { document.getElementById('dash-alert').style.display = 'none'; }
+
+function showAiMediaAlert(msg, type = 'ok') {
+  const el = document.getElementById('ai-media-alert');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'alert ' + (type === 'error' ? 'alert-error' : 'alert-ok');
+  el.style.display = 'block';
+}
+
+function escapeHtmlMini(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function aiMediaSelectedPlatforms() {
+  const out = [];
+  if (document.getElementById('ai-pf-instagram')?.checked) out.push('instagram');
+  if (document.getElementById('ai-pf-facebook')?.checked) out.push('facebook');
+  if (document.getElementById('ai-pf-linkedin')?.checked) out.push('linkedin');
+  return out;
+}
+
+function renderAiMediaJob(job) {
+  const st = document.getElementById('ai-media-status');
+  const pg = document.getElementById('ai-media-progress');
+  const list = document.getElementById('ai-media-list');
+  if (!st || !pg || !list) return;
+  if (!job) {
+    st.textContent = 'IDLE';
+    pg.textContent = '0/0';
+    list.innerHTML = '<div style="color:var(--muted)">No active job.</div>';
+    return;
+  }
+  const p = job.progress || {};
+  st.textContent = String(job.status || 'unknown').toUpperCase();
+  pg.textContent = `${Number(p.completed_items || 0)}/${Number(p.total_topics || 0)}`;
+  const items = Array.isArray(job.items) ? job.items : [];
+  list.innerHTML = items.map((it) => {
+    const status = String(it.status || '').toLowerCase();
+    const color = status === 'done' ? 'var(--ok)' : (status === 'error' ? 'var(--err)' : 'var(--muted)');
+    const caption = escapeHtmlMini(it.caption || '');
+    const capPath = escapeHtmlMini(it.caption_download_path || '');
+    const capImgPath = escapeHtmlMini(it.caption_image_download_path || '');
+    const capVidPath = escapeHtmlMini(it.caption_video_download_path || '');
+    return `
+      <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:.74rem;color:${color};font-weight:700">${escapeHtmlMini(status || 'pending')} · #${Number(it.index || 0)}</div>
+        <div style="font-weight:700">${escapeHtmlMini(it.topic || '')}</div>
+        <div style="white-space:pre-wrap;color:var(--muted);margin-top:4px">${caption || ''}</div>
+        ${capPath ? `<div style="font-size:.74rem;color:var(--ok)">Caption file: ${capPath}</div>` : ''}
+        ${capImgPath ? `<div style="font-size:.74rem;color:var(--ok)">Image caption file: ${capImgPath}</div>` : ''}
+        ${capVidPath ? `<div style="font-size:.74rem;color:var(--ok)">Video caption file: ${capVidPath}</div>` : ''}
+        ${it.image_download_path ? `<div style="font-size:.74rem;color:var(--ok)">Image: ${escapeHtmlMini(it.image_download_path)}</div>` : ''}
+        ${it.video_download_path ? `<div style="font-size:.74rem;color:var(--ok)">Video: ${escapeHtmlMini(it.video_download_path)}</div>` : ''}
+        ${it.error ? `<div style="font-size:.74rem;color:var(--err)">Error: ${escapeHtmlMini(it.error)}</div>` : ''}
+      </div>`;
+  }).join('') || '<div style="color:var(--muted)">Queue is empty.</div>';
+}
+
+async function refreshAiMediaStatus() {
+  try {
+    const q = aiMediaJobId ? `?job_id=${encodeURIComponent(aiMediaJobId)}` : '';
+    const r = await fetch(`${TRAINER_API_BASE}/ai-media/status${q}`);
+    if (!r.ok) {
+      if (!aiMediaJobId) {
+        renderAiMediaJob(null);
+        return;
+      }
+      throw new Error('Could not fetch AI media job status');
+    }
+    const d = await r.json();
+    const job = d.job || null;
+    if (!job) {
+      renderAiMediaJob(null);
+      return;
+    }
+    aiMediaJobId = String(job.job_id || aiMediaJobId || '');
+    renderAiMediaJob(job);
+    const status = String(job.status || '').toLowerCase();
+    if (status === 'running' || status === 'queued') {
+      if (!aiMediaPollTimer) {
+        aiMediaPollTimer = setInterval(() => { refreshAiMediaStatus().catch(() => {}); }, 2500);
+      }
+    } else if (aiMediaPollTimer) {
+      clearInterval(aiMediaPollTimer);
+      aiMediaPollTimer = null;
+    }
+  } catch (e) {
+    showAiMediaAlert(e.message || 'Failed to refresh AI media status', 'error');
+  }
+}
+
+async function startAiMediaJob() {
+  const mainTopic = (document.getElementById('ai-media-main-topic')?.value || '').trim();
+  const industry = (document.getElementById('ai-media-industry')?.value || '').trim();
+  const mediaType = (document.getElementById('ai-media-type')?.value || 'image').trim();
+  const countRaw = parseInt((document.getElementById('ai-media-count')?.value || '1'), 10);
+  const count = Math.max(1, Math.min(30, Number.isFinite(countRaw) ? countRaw : 1));
+  const platforms = aiMediaSelectedPlatforms();
+  const basePrompt = (document.getElementById('ai-media-base-prompt')?.value || '').trim();
+  if (!mainTopic) {
+    showAiMediaAlert('Main topic is required.', 'error');
+    return;
+  }
+  if (!platforms.length) {
+    showAiMediaAlert('Select at least one platform.', 'error');
+    return;
+  }
+  try {
+    const r = await fetch(`${TRAINER_API_BASE}/ai-media/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        main_topic: mainTopic,
+        industry,
+        media_type: mediaType,
+        count,
+        platforms,
+        base_prompt: basePrompt,
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Failed to start generation');
+    aiMediaJobId = String((d.job || {}).job_id || '');
+    renderAiMediaJob(d.job || null);
+    showAiMediaAlert('AI media generation started.', 'ok');
+    await refreshAiMediaStatus();
+  } catch (e) {
+    showAiMediaAlert(e.message || 'Failed to start generation', 'error');
+  }
+}
+
+async function stopAiMediaJob() {
+  try {
+    const r = await fetch(`${TRAINER_API_BASE}/ai-media/stop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: aiMediaJobId || '' }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Failed to stop');
+    showAiMediaAlert('Stop requested.', 'ok');
+    await refreshAiMediaStatus();
+  } catch (e) {
+    showAiMediaAlert(e.message || 'Failed to stop generation', 'error');
+  }
+}
 
 // ─── Copy key ─────────────────────────────────────────────────────────────────
 function copyApiKey() {
@@ -425,7 +618,7 @@ async function topUpCredits() {
     const rzp = new (window.Razorpay || function(){})({
       key: order.key_id || 'rzp_live_REPLACE',
       amount: order.amount_paise, currency: 'INR', order_id: order.order_id,
-      name: 'Autonomous Web Agency', description: 'Credit top-up',
+      name: 'cusear™', description: 'Credit top-up',
       theme: { color: '#c9a96e' },
       handler: (r) => { alert('Top-up successful! Credits will appear shortly.'); loadDashboard(); },
     });

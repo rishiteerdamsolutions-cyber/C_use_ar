@@ -1,6 +1,6 @@
 """
 Pydantic Models — request bodies and response shapes.
-Autonomous Web Agency Platform · API Layer
+cusear™ Platform · API Layer
 """
 
 from __future__ import annotations
@@ -171,6 +171,22 @@ class CreateOrderResponse(BaseModel):
     pack:        str
     credits:     int
     key_id:      str        # Razorpay key_id (public) for frontend
+
+
+class MoneySettingsResponse(BaseModel):
+    base_currency: str
+    fx_inr_per_usd: float
+    updated_at: Optional[str] = None
+    updated_by: Optional[str] = None
+
+
+class UpdateMoneySettingsRequest(BaseModel):
+    fx_inr_per_usd: float = Field(..., gt=0, description="INR per 1 USD (manual admin rate)")
+
+
+class PlanMarginValidateRequest(BaseModel):
+    plan_price_inr: float = Field(..., gt=0)
+    expected_ai_runs_per_month: int = Field(600, ge=0)
 
 
 # ─── Generic responses ────────────────────────────────────────────────────────

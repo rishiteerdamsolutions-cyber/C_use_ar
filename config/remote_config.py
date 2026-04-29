@@ -1,5 +1,5 @@
 """
-Remote Config Module — Autonomous Web Agency Agent v1.0
+Remote Config Module — cusear™ Agent v1.0
 Fetches JSON config from Firebase on startup, caches locally, falls back to cache on failure.
 """
 

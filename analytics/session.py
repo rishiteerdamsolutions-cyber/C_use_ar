@@ -1,5 +1,5 @@
 """
-Session Recorder — Autonomous Web Agency Agent v1.0
+Session Recorder — cusear™ Agent v1.0
 Logs every step, method, duration, success rate.
 Proof of delivery + analytics for identifying failure-prone steps.
 """

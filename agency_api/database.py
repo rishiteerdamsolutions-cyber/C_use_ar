@@ -1,6 +1,6 @@
 """
 Database — MongoDB Atlas singleton connection.
-Autonomous Web Agency Platform · API Layer
+cusear™ Platform · API Layer
 """
 
 from __future__ import annotations
@@ -57,3 +57,4 @@ class Collections:
     TENANTS   = "tenants"        # white-label agency configs
     TEMPLATES = "templates"      # website template metadata
     TRAINER   = "trainer_workflows"  # Web UI trainer: { name, data: workflow JSON }
+    PLATFORM_SETTINGS = "platform_settings"  # fx_inr_per_usd, plan defaults, etc.

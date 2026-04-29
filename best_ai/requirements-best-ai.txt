@@ -1,0 +1,4 @@
+# Optional: install for Best AI™ Playwright flows
+#   python3 -m pip install -r best_ai/requirements-best-ai.txt
+#   python3 -m playwright install chrome
+playwright>=1.40.0

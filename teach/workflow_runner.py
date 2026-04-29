@@ -1,5 +1,5 @@
 """
-Workflow Runner — Autonomous Web Agency Agent v1.0
+Workflow Runner — cusear™ Agent v1.0
 
 Replays a saved workflow JSON step by step.
 For every step it:
@@ -22,13 +22,15 @@ from __future__ import annotations
 import json
 import logging
 import time
+import warnings
 from pathlib import Path
 from typing import Any
 
+from config.local_paths import agency_root
+
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).parent.parent
-WORKFLOWS_DIR = BASE_DIR / "workflows"
+WORKFLOWS_DIR = agency_root() / "workflows"
 
 
 class WorkflowRunner:
@@ -44,6 +46,10 @@ class WorkflowRunner:
         self.workflow_name = workflow_name
         self.dry_run = dry_run
         self._workflow: dict[str, Any] = self._load(workflow_name)
+        self._type_project_text = (
+            str(self._workflow.get("workflow_name") or "").strip()
+            or (self.workflow_name or "").strip()
+        )
 
         if not dry_run:
             from execution.executor import ExecutionEngine
@@ -86,6 +92,23 @@ class WorkflowRunner:
         Returns:
             True if all steps succeeded (or recovered), False if any failed hard.
         """
+        warnings.warn(
+            "teach.workflow_runner is deprecated; delegating to dashboard.run_workflow()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        from dashboard import run_workflow as _run_workflow  # local import to avoid circular startup
+
+        step_results = _run_workflow(
+            self.workflow_name,
+            dry_run=bool(self.dry_run),
+            runtime_vars_seed=variables or {},
+            run_mode="smart",
+            run_source="legacy_workflow_runner",
+        )
+        return not any(str(s.get("status") or "") == "error" for s in step_results)
+
+        # Legacy path retained below for reference.
         from analytics.session import SessionRecorder
         from execution.fallback import execute_with_fallback
 
@@ -108,8 +131,12 @@ class WorkflowRunner:
 
         for step_def in steps:
             step_num  = step_def.get("step", "?")
-            instr     = step_def.get("instruction", "")
-            action    = step_def.get("action", {})
+            instr     = step_def.get("instruction", "") or step_def.get("description", "")
+            action    = step_def.get("action", {}) if isinstance(step_def.get("action"), dict) else {}
+            if not action.get("action_type") and step_def.get("action_type"):
+                action = {**action, "action_type": step_def.get("action_type")}
+            if not action.get("hotkey_keys") and step_def.get("hotkey_keys"):
+                action = {**action, "hotkey_keys": step_def.get("hotkey_keys")}
             act_type  = action.get("action_type", "click")
 
             print(f"  Step {step_num}/{total}: {instr}")
@@ -212,6 +239,13 @@ class WorkflowRunner:
                 if type_text:
                     self._executor.type_text(type_text, clear_first=clear_first)
                     return True, "type"
+                return False, "type_empty"
+
+            elif act_type == "type_project_name":
+                wn = self._substitute(self._type_project_text, variables).strip()
+                if wn:
+                    self._executor.type_text(wn, clear_first=clear_first)
+                    return True, "type_project_name"
                 return False, "type_empty"
 
             # ── click (primary action) ────────────────────────────────────────

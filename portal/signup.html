@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sign Up — Autonomous Web Agency</title>
+<title>Sign Up — cusear™</title>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -87,40 +87,47 @@ input.error-field{border-color:var(--error)}
 <body>
 
 <nav>
-  <a href="index.html" class="nav-logo">⚡ Autonomous Web Agency</a>
+  <a href="index.html" class="nav-logo">⚡ cusear™</a>
   <a href="index.html" style="color:var(--muted);font-size:.85rem">← Back to home</a>
 </nav>
 
 <div class="page">
   <h1>Get Started</h1>
-  <p class="sub">Choose a plan and start building websites on autopilot.</p>
+  <p class="sub">Choose a subscription plan, then complete checkout.</p>
 
   <!-- TAB SWITCH -->
   <div class="tabs" style="margin-bottom:32px">
-    <div class="tab active" onclick="switchTab('api')">API Key</div>
-    <div class="tab" onclick="switchTab('whitelabel')">White-label</div>
+    <div class="tab active" onclick="switchTab('api')">Plans</div>
+    <div class="tab" onclick="switchTab('whitelabel')">Agency</div>
   </div>
 
-  <!-- ═══════════ API KEY SIGNUP ═══════════ -->
+  <!-- ═══════════ PLAN SIGNUP ═══════════ -->
   <div id="tab-api">
-    <!-- PLANS -->
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:20px 18px;margin-bottom:24px;font-size:.88rem;color:var(--muted);line-height:1.65">
+      <strong style="color:var(--text)">Current list (INR)</strong><br>
+      Core: ₹400 · ₹700 · ₹900 · Hybrid: ₹900 · ₹1,500 · ₹1,800 · AI Budget: ₹6,600 · AI Starter/Pro/Presence: ₹6,600 · ₹13,200 · ₹16,500<br>
+      USD reference on <a href="pricing.html">Pricing</a> at 1 USD = ₹95.
+    </div>
     <div class="plans">
-      <div class="plan selected" onclick="selectPlan(this,'starter',999,500)">
-        <div class="plan-name">Starter</div>
-        <div class="plan-price">₹999</div>
-        <div class="plan-credits">500 credits</div>
+      <div class="plan selected" onclick="selectPlan(this,'core-starter',400,0)">
+        <div class="plan-name">Core Starter</div>
+        <div class="plan-price">₹400</div>
+        <div class="plan-credits">2 platforms / mo</div>
       </div>
-      <div class="plan" onclick="selectPlan(this,'professional',2999,2000)">
-        <div class="plan-name">Pro</div>
-        <div class="plan-price">₹2,999</div>
-        <div class="plan-credits">2,000 credits</div>
+      <div class="plan" onclick="selectPlan(this,'hybrid-presence',1800,0)">
+        <div class="plan-name">Hybrid Presence</div>
+        <div class="plan-price">₹1,800</div>
+        <div class="plan-credits">4 + Status · Most Popular</div>
       </div>
-      <div class="plan" onclick="selectPlan(this,'agency',9999,10000)">
-        <div class="plan-name">Agency</div>
-        <div class="plan-price">₹9,999</div>
-        <div class="plan-credits">10,000 credits</div>
+      <div class="plan" onclick="selectPlan(this,'ai-budget',6600,0)">
+        <div class="plan-name">AI Budget</div>
+        <div class="plan-price">₹6,600</div>
+        <div class="plan-credits">Unified · Cost Saver</div>
       </div>
     </div>
+    <p style="text-align:center;font-size:.82rem;color:var(--muted);margin:12px 0 0">
+      <a href="pricing.html">Open full pricing page →</a> for every tier.
+    </p>
 
     <div class="alert alert-error" id="api-alert"></div>
     <div class="alert alert-ok" id="api-ok"></div>
@@ -148,9 +155,9 @@ input.error-field{border-color:var(--error)}
          padding:10px 24px;border-radius:8px;font-weight:700;font-size:.9rem">Open Dashboard →</a>
     </div>
 
-    <button class="btn" id="api-pay-btn" onclick="payForAPIKey()">Pay with Razorpay →</button>
+    <button class="btn" id="api-pay-btn" onclick="payForAPIKey()">Continue to pay →</button>
     <p style="text-align:center;color:var(--muted);font-size:.78rem;margin-top:12px">
-      Secured by Razorpay · UPI / Card / NetBanking accepted
+      UPI, cards &amp; net banking (Cashfree when keys are live on the server)
     </p>
   </div>
 
@@ -159,9 +166,8 @@ input.error-field{border-color:var(--error)}
     <ul class="wl-features">
       <li>Your own branded subdomain (yourname.yourplatform.com)</li>
       <li>Custom domain (app.youragency.in)</li>
-      <li>10,000 AI credits included per month</li>
-      <li>Full Admin dashboard with branding controls</li>
-      <li>Priority support · ₹9,999/month</li>
+      <li>Branding controls in admin</li>
+      <li>Priority support — quote on <a href="pricing.html">Pricing</a> / contact sales</li>
     </ul>
 
     <!-- STEPS INDICATOR -->
@@ -221,13 +227,13 @@ input.error-field{border-color:var(--error)}
     <!-- STEP 2: Payment -->
     <div id="wl-step2" style="display:none;text-align:center">
       <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:24px">
-        <div style="font-size:2rem;font-weight:800;color:var(--gold);margin-bottom:4px">₹9,999</div>
-        <div style="color:var(--muted);font-size:.88rem">White-label Agency Plan · Monthly</div>
-        <div style="color:var(--muted);font-size:.78rem;margin-top:8px">Includes 10,000 credits · Cancel anytime</div>
+        <div style="font-size:1.25rem;font-weight:800;color:var(--gold);margin-bottom:4px">Agency · Custom</div>
+        <div style="color:var(--muted);font-size:.88rem">Enterprise white-label is quoted per scope.</div>
+        <div style="color:var(--muted);font-size:.78rem;margin-top:8px">See <a href="pricing.html">public plans</a> for Core / Hybrid / AI INR · USD.</div>
       </div>
-      <button class="btn" onclick="payForWhitelabel()">Pay ₹9,999 via Razorpay →</button>
+      <button class="btn" onclick="payForWhitelabel()">Request checkout link →</button>
       <p style="color:var(--muted);font-size:.78rem;margin-top:12px">
-        Secured by Razorpay · UPI / Card / NetBanking
+        UPI, cards &amp; net banking — Cashfree in production
       </p>
       <button onclick="wlBack()" style="margin-top:16px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem">← Go back</button>
     </div>
@@ -265,7 +271,7 @@ const API_BASE = (() => {
 })();
 const RZP_KEY  = 'rzp_live_REPLACE_WITH_YOUR_KEY'; // Replace at deployment
 
-let selectedPlan = { id: 'starter', amount: 999, credits: 500 };
+let selectedPlan = { id: 'core-starter', amount: 400, credits: 0 };
 
 // ─── Tab switch ───────────────────────────────────────────────────────────────
 function switchTab(tab) {
@@ -367,12 +373,12 @@ async function payForAPIKey() {
       },
       onFailure: () => {
         showAlert('api-alert', 'Payment cancelled or failed. Please try again.');
-        btn.disabled = false; btn.textContent = 'Pay with Razorpay →';
+        btn.disabled = false; btn.textContent = 'Pay securely →';
       },
     });
   } catch (err) {
     showAlert('api-alert', err.message);
-    btn.disabled = false; btn.textContent = 'Pay with Razorpay →';
+    btn.disabled = false; btn.textContent = 'Pay securely →';
   }
 }
 
@@ -469,7 +475,7 @@ function openRazorpay({ key, amount, currency, order_id, name, email, onSuccess,
     amount,
     currency,
     order_id,
-    name:  'Autonomous Web Agency',
+    name:  'cusear™',
     description: 'Platform subscription',
     prefill: { name, email },
     theme: { color: '#c9a96e' },

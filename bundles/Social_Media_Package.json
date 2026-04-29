@@ -1,0 +1,86 @@
+{
+  "slug": "Social_Media_Package",
+  "display_name": "Social_Media_Package",
+  "children": [
+    "Facebook_Post",
+    "Instagram_Post",
+    "Linkedin_Post",
+    "Status_Whatsapp_Media",
+    "Status_Whatsapp_Text",
+    "X_post"
+  ],
+  "notify_mode": "per_flow",
+  "notify_same_for_all_flows": false,
+  "notify_number": "",
+  "notify_numbers_by_flow": {
+    "Facebook_Post": "919505009699",
+    "Instagram_Post": "919966691663",
+    "Linkedin_Post": "919505009699",
+    "Status_Whatsapp_Media": "919966691663",
+    "Status_Whatsapp_Text": "919966691663",
+    "X_post": "919505009699"
+  },
+  "schedule": {
+    "enabled": true,
+    "mode": "daily",
+    "interval_minutes": 5,
+    "interval_hours": 24,
+    "daily_time": "21:00",
+    "weekly_times": {
+      "mon": "",
+      "tue": "",
+      "wed": "",
+      "thu": "",
+      "fri": "",
+      "sat": "",
+      "sun": ""
+    }
+  },
+  "scheduler_run_count": 0,
+  "last_run_at": "2026-04-24T10:14:42.128413Z",
+  "next_run_at": "2026-04-29T21:00:00",
+  "last_run_results": [
+    {
+      "child": "Facebook_Post",
+      "status": "ok",
+      "started_at": "2026-04-24T09:57:40.788974Z",
+      "finished_at": "2026-04-24T10:00:51.606354Z",
+      "error": ""
+    },
+    {
+      "child": "Instagram_Post",
+      "status": "ok",
+      "started_at": "2026-04-24T10:00:51.606374Z",
+      "finished_at": "2026-04-24T10:03:32.783439Z",
+      "error": ""
+    },
+    {
+      "child": "Linkedin_Post",
+      "status": "ok",
+      "started_at": "2026-04-24T10:03:32.783478Z",
+      "finished_at": "2026-04-24T10:06:01.423311Z",
+      "error": ""
+    },
+    {
+      "child": "Status_Whatsapp_Media",
+      "status": "ok",
+      "started_at": "2026-04-24T10:06:01.423343Z",
+      "finished_at": "2026-04-24T10:09:02.014834Z",
+      "error": ""
+    },
+    {
+      "child": "Status_Whatsapp_Text",
+      "status": "ok",
+      "started_at": "2026-04-24T10:09:02.014860Z",
+      "finished_at": "2026-04-24T10:11:58.460971Z",
+      "error": ""
+    },
+    {
+      "child": "X_post",
+      "status": "ok",
+      "started_at": "2026-04-24T10:11:58.460993Z",
+      "finished_at": "2026-04-24T10:14:42.127996Z",
+      "error": ""
+    }
+  ]
+}

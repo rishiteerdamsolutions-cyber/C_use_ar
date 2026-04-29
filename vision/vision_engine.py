@@ -1,5 +1,5 @@
 """
-Vision Engine — Autonomous Web Agency Agent v1.0
+Vision Engine — cusear™ Agent v1.0
 Screenshot capture + AI-powered element finder.
 Uses Claude Vision (primary) and GPT-4o Vision (fallback).
 """

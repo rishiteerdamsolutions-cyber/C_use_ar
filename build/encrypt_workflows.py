@@ -60,7 +60,7 @@ def encrypt_for_client(
 
     if verbose:
         print(f"\n{'═'*55}")
-        print(f"  Autonomous Web Agency — Client Build")
+        print(f"  cusear™ — Client Build")
         print(f"{'═'*55}")
         print(f"  Client:     {client_email}")
         print(f"  Plan:       {plan}")

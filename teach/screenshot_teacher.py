@@ -1,5 +1,5 @@
 """
-Screenshot Teacher — Autonomous Web Agency Agent v1.0
+Screenshot Teacher — cusear™ Agent v1.0
 
 You give it numbered screenshots (1.png, 2.png, ...) + a plain-English
 instruction for each step.  Claude Vision analyses every screenshot,
@@ -28,12 +28,14 @@ import time
 from pathlib import Path
 from typing import Any
 
+from config.local_paths import agency_root
+
 logger = logging.getLogger(__name__)
 
 # ─── Paths ─────────────────────────────────────────────────────────────────────
-BASE_DIR = Path(__file__).parent.parent
-SCREENSHOTS_INPUT_DIR = BASE_DIR / "teach" / "screenshots_input"
-WORKFLOWS_DIR = BASE_DIR / "workflows"
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+SCREENSHOTS_INPUT_DIR = _REPO_ROOT / "teach" / "screenshots_input"
+WORKFLOWS_DIR = agency_root() / "workflows"
 
 # ─── Claude model ──────────────────────────────────────────────────────────────
 CLAUDE_MODEL = "claude-sonnet-4-6"

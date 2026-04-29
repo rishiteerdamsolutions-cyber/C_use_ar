@@ -1,0 +1,79 @@
+{
+  "slug": "Presence",
+  "display_name": "Presence",
+  "children": [
+    "Facebook_Post",
+    "Instagram_Post",
+    "Linkedin_Post",
+    "Status_Whatsapp_Imageplustext",
+    "Status_Whatsapp_Text",
+    "X_post"
+  ],
+  "notify_mode": "one",
+  "notify_same_for_all_flows": true,
+  "notify_number": "919505009699",
+  "notify_numbers_by_flow": {},
+  "schedule": {
+    "enabled": true,
+    "mode": "daily",
+    "interval_minutes": 5,
+    "interval_hours": 24,
+    "daily_time": "02:05",
+    "weekly_times": {
+      "mon": "",
+      "tue": "",
+      "wed": "",
+      "thu": "",
+      "fri": "",
+      "sat": "",
+      "sun": ""
+    }
+  },
+  "scheduler_run_count": 2,
+  "last_run_at": "2026-04-27T20:52:40.124481Z",
+  "next_run_at": "2026-04-29T02:05:00",
+  "last_run_results": [
+    {
+      "child": "Facebook_Post",
+      "status": "ok",
+      "started_at": "2026-04-27T20:35:00.496990Z",
+      "finished_at": "2026-04-27T20:38:12.724889Z",
+      "error": ""
+    },
+    {
+      "child": "Instagram_Post",
+      "status": "ok",
+      "started_at": "2026-04-27T20:38:12.724905Z",
+      "finished_at": "2026-04-27T20:41:15.448301Z",
+      "error": ""
+    },
+    {
+      "child": "Linkedin_Post",
+      "status": "ok",
+      "started_at": "2026-04-27T20:41:15.448329Z",
+      "finished_at": "2026-04-27T20:43:43.391949Z",
+      "error": ""
+    },
+    {
+      "child": "Status_Whatsapp_Imageplustext",
+      "status": "ok",
+      "started_at": "2026-04-27T20:43:43.391972Z",
+      "finished_at": "2026-04-27T20:46:59.279299Z",
+      "error": ""
+    },
+    {
+      "child": "Status_Whatsapp_Text",
+      "status": "ok",
+      "started_at": "2026-04-27T20:46:59.279315Z",
+      "finished_at": "2026-04-27T20:49:56.598207Z",
+      "error": ""
+    },
+    {
+      "child": "X_post",
+      "status": "ok",
+      "started_at": "2026-04-27T20:49:56.598223Z",
+      "finished_at": "2026-04-27T20:52:40.124116Z",
+      "error": ""
+    }
+  ]
+}

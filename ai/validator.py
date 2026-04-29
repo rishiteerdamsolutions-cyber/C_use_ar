@@ -1,5 +1,5 @@
 """
-GPT ↔ Gemini Validation Loop — Autonomous Web Agency Agent v1.0
+GPT ↔ Gemini Validation Loop — cusear™ Agent v1.0
 GPT-4o refines the prompt; Gemini validates and approves.
 Max 3 iterations → best version returned with status.
 """

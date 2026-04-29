@@ -1,6 +1,6 @@
 """
 Rate Limiter — Redis-based per-key request throttling.
-Autonomous Web Agency Platform · API Layer
+cusear™ Platform · API Layer
 
 Limits:
   - 60 requests / minute  per key  (burst protection)

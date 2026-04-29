@@ -1,5 +1,5 @@
 """
-Security Layer — Autonomous Web Agency Agent v1.0
+Security Layer — cusear™ Agent v1.0
 Stores all credentials in the OS system keychain (keyring).
 AES-256 encryption for any local credential cache.
 Zero credential logging — enforced by custom log filter.
@@ -244,7 +244,7 @@ def interactive_setup() -> None:
     and store them in the keychain.
     """
     print("\n" + "═" * 60)
-    print("  Autonomous Web Agency Agent — Credential Setup")
+    print("  cusear™ Agent — Credential Setup")
     print("═" * 60)
     print("Credentials are stored securely in your OS keychain.")
     print("They are NEVER logged or written in plain text.\n")

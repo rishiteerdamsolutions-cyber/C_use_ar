@@ -1,5 +1,5 @@
 """
-Teach CLI — Autonomous Web Agency Agent v1.0
+Teach CLI — cusear™ Agent v1.0
 
 Interactive command-line interface for teaching the agent new workflows
 via numbered screenshots.
@@ -16,10 +16,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-BASE_DIR = Path(__file__).parent.parent
-sys.path.insert(0, str(BASE_DIR))
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_REPO_ROOT))
 
-SCREENSHOTS_INPUT = BASE_DIR / "teach" / "screenshots_input"
+from config.local_paths import agency_root
+
+SCREENSHOTS_INPUT = _REPO_ROOT / "teach" / "screenshots_input"
 
 
 # ─── Colours (cross-platform ANSI) ────────────────────────────────────────────
@@ -91,7 +93,7 @@ def run_teach_cli() -> None:
         print(RED("  Please enter a name."))
 
     # Check if already exists
-    wf_file = BASE_DIR / "workflows" / f"{name}.json"
+    wf_file = agency_root() / "workflows" / f"{name}.json"
     if wf_file.exists():
         if not _confirm(f"\n  Workflow '{name}' already exists. Overwrite?"):
             print("Cancelled.")

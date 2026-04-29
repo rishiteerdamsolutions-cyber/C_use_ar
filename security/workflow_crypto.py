@@ -1,5 +1,5 @@
 """
-Workflow Encryption — Autonomous Web Agency Platform
+Workflow Encryption — cusear™ Platform
 =====================================================
 Encrypts trained workflow JSON files before distributing to clients.
 
@@ -17,7 +17,7 @@ Key design decisions
    Decrypted JSON is never written back to disk.
 
 4. File format: [4-byte magic] [1-byte version] [nonce] [ciphertext+tag]
-   Magic = b'AWAF'  (Autonomous Web Agency Flow)
+   Magic = b'AWAF'  (cusear™ Flow)
 
 Usage
 ─────
@@ -54,7 +54,7 @@ except ImportError:
         _LIB = "none"
 
 # ─── File format constants ────────────────────────────────────────────────────
-MAGIC         = b"AWAF"          # Autonomous Web Agency Flow
+MAGIC         = b"AWAF"          # cusear™ Flow
 FORMAT_VER    = 1
 NONCE_SIZE    = 12               # AES-GCM nonce
 HEADER_SIZE   = len(MAGIC) + 1  # 5 bytes: magic + version

@@ -6,14 +6,30 @@ Razorpay order creation and webhook.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
 
-from agency_api.models import CREDIT_PACKS, CreateOrderRequest, CreateOrderResponse
+from agency_api.models import (
+    CREDIT_PACKS,
+    CreateOrderRequest,
+    CreateOrderResponse,
+    MoneySettingsResponse,
+    PlanMarginValidateRequest,
+    UpdateMoneySettingsRequest,
+)
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
 logger = logging.getLogger(__name__)
+
+
+def _require_platform_admin(x_admin_token: str | None) -> None:
+    expected = (os.environ.get("PLATFORM_ADMIN_TOKEN") or "").strip()
+    if not expected:
+        raise HTTPException(status_code=503, detail="PLATFORM_ADMIN_TOKEN not configured")
+    if (x_admin_token or "").strip() != expected:
+        raise HTTPException(status_code=401, detail="Invalid admin token")
 
 
 @router.post("/create-order", response_model=CreateOrderResponse,
@@ -110,3 +126,46 @@ async def list_packs() -> dict[str, Any]:
             for k, v in CREDIT_PACKS.items()
         ],
     }
+
+
+@router.get(
+    "/money-settings",
+    response_model=MoneySettingsResponse,
+    summary="INR base + USD FX (manual rate)",
+)
+async def get_money_settings() -> dict[str, Any]:
+    from agency_api.money_settings import get_money_settings as _gs
+
+    return _gs()
+
+
+@router.post(
+    "/money-settings",
+    response_model=MoneySettingsResponse,
+    summary="Update USD FX rate (platform admin)",
+)
+async def post_money_settings(
+    req: UpdateMoneySettingsRequest,
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+) -> dict[str, Any]:
+    _require_platform_admin(x_admin_token)
+    from agency_api.money_settings import set_money_settings as _ss
+
+    return _ss(fx_inr_per_usd=req.fx_inr_per_usd, updated_by="platform_admin")
+
+
+@router.post(
+    "/validate-plan-margin",
+    summary="Validate projected gross margin vs variable costs (admin)",
+)
+async def post_validate_plan_margin(
+    req: PlanMarginValidateRequest,
+    x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
+) -> dict[str, Any]:
+    _require_platform_admin(x_admin_token)
+    from agency_api.pricing_policy import validate_plan_margin as _vm
+
+    return _vm(
+        plan_price_inr=req.plan_price_inr,
+        expected_ai_runs_per_month=req.expected_ai_runs_per_month,
+    )

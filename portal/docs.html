@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>API Docs — Autonomous Web Agency</title>
+<title>API Docs — cusear™</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -90,12 +90,12 @@ p.doc-p{color:var(--muted);font-size:.9rem;line-height:1.8;margin-bottom:14px}
 <body>
 
 <topnav>
-  <div class="logo">⚡ Autonomous Web Agency — API Docs</div>
+  <a href="index.html" class="logo" style="text-decoration:none;color:inherit">cusear™ — API</a>
   <div class="nav-links">
-    <a href="index.html">Home</a>
+    <a href="index.html">Platform</a>
+    <a href="products.html">Products</a>
     <a href="pricing.html">Pricing</a>
-    <a href="dashboard.html">Dashboard</a>
-    <a href="signup.html" class="nav-cta">Get API Key →</a>
+    <a href="signup.html" class="nav-cta">Get API key</a>
   </div>
 </topnav>
 
@@ -131,9 +131,10 @@ p.doc-p{color:var(--muted);font-size:.9rem;line-height:1.8;margin-bottom:14px}
     <div class="doc-section active" id="sec-quickstart">
       <h1 class="doc-h1">Quick Start</h1>
       <p class="doc-p">Get from zero to a live website URL in under 5 minutes.</p>
+      <p class="doc-p" style="border-left:3px solid var(--gold);padding-left:16px;margin-bottom:20px;opacity:0.95">Billing is moving to <strong>Cashfree</strong> for India (UPI, cards, net banking). Some request fields and code paths may still use the legacy <code>razorpay_*</code> names until the server is fully migrated—treat them as the payment reference from your hosted checkout.</p>
 
       <h2 class="doc-h2">1. Get your API key</h2>
-      <p class="doc-p">Sign up at <a href="signup.html">signup.html</a>, choose a credit pack, and pay via Razorpay. Your API key is shown immediately — save it, it won't be shown again.</p>
+      <p class="doc-p">Sign up at <a href="signup.html">signup.html</a>, pick a plan from the <a href="pricing.html">pricing</a> list, and complete secure checkout. Your API key is shown once—save it.</p>
 
       <h2 class="doc-h2">2. Make your first call</h2>
       <p class="doc-p">Build a complete salon website with one API call:</p>
@@ -429,7 +430,7 @@ curl -X POST https://api.yourplatform.com/api/v1/templates/build \<br>
         <span class="endpoint-path">/api/v1/whitelabel/create-order</span>
         <span class="endpoint-tag">No auth</span>
       </div>
-      <p class="doc-p">Creates a ₹9,999/mo Razorpay order for the white-label plan. Call this first, then open Razorpay checkout.</p>
+      <p class="doc-p">Creates a hosted checkout order for agency / white-label when enabled. Amount is agreed off-list — public plan amounts are on <code>pricing.html</code> (Core, Hybrid, AI).</p>
 
       <h2 class="doc-h2">Complete Onboarding</h2>
       <div class="endpoint">

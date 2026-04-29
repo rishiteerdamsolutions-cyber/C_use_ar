@@ -31,10 +31,13 @@ dist/
 # Logs and sessions
 logs/
 sessions/*.json
+sessions/best_ai/*
+!sessions/best_ai/.gitkeep
 
 # Local trainer captures / saved workflows (keep out of git by default)
 screenshots/
 workflows/
+trainer_exports/
 
 # OS
 .DS_Store

@@ -7,6 +7,7 @@ Live mouse/keyboard runs only on localhost dashboard.py; this service supports t
 from __future__ import annotations
 
 import datetime
+import copy
 import logging
 import os
 import re
@@ -121,6 +122,38 @@ def delete_step(owner_id: str, wf_name: str, step_num: int) -> tuple[bool, int]:
     return True, len(steps)
 
 
+def join_workflow(owner_id: str, target_name: str, source_name: str) -> dict[str, int]:
+    """
+    Append all steps from source workflow to target workflow and re-number sequentially.
+    """
+    src = get_workflow(owner_id, source_name)
+    if not src:
+        raise FileNotFoundError(f"Workflow '{source_name}' not found")
+    src_steps = src.get("steps", [])
+    if not isinstance(src_steps, list):
+        src_steps = []
+
+    target = get_workflow(owner_id, target_name)
+    if not target:
+        target = {
+            "workflow_name": target_name,
+            "steps": [],
+            "taught_at": datetime.datetime.utcnow().isoformat(),
+        }
+    if not isinstance(target.get("steps"), list):
+        target["steps"] = []
+
+    start = len(target["steps"])
+    for idx, raw in enumerate(src_steps, start=1):
+        cloned = copy.deepcopy(raw) if isinstance(raw, dict) else {}
+        cloned["step"] = start + idx
+        target["steps"].append(cloned)
+
+    target["total_steps"] = len(target["steps"])
+    _save_workflow_doc(target, owner_id)
+    return {"joined_steps": len(src_steps), "total_steps": target["total_steps"]}
+
+
 def process_teach_step(owner_id: str, raw_body: bytes, content_type: str) -> dict[str, Any]:
     bnd = re.search(r"boundary=([^\s;]+)", content_type)
     if not bnd:
@@ -148,6 +181,14 @@ def process_teach_step(owner_id: str, raw_body: bytes, content_type: str) -> dic
     shell_cmd = shell_cmd_f.strip() if isinstance(shell_cmd_f, str) else ""
     if action_type == "shell" and not shell_cmd:
         raise ValueError("shell_command required for shell action")
+    best_ai_slot_v = (
+        str(fields.get("best_ai_slot", "")).strip().lower()
+        if isinstance(fields.get("best_ai_slot", ""), str)
+        else ""
+    )
+    if action_type == "best_ai_capture_slot_from_clipboard":
+        if best_ai_slot_v not in ("chatgpt", "gemini", "claude"):
+            raise ValueError("best_ai_slot must be chatgpt, gemini, or claude")
     if action_type == "wait":
         try:
             _w = float(str(fields.get("wait_seconds", "2") or "2").strip())
@@ -184,9 +225,25 @@ def process_teach_step(owner_id: str, raw_body: bytes, content_type: str) -> dic
         step["type_text"] = type_text
         preview = type_text.replace("\n", " ").strip()
         step["description"] = (preview[:97] + "...") if len(preview) > 100 else (preview or "Type text")
+    elif action_type == "upload":
+        note = description.strip()
+        step["description"] = (note or "Upload (manual)")[:220]
     elif action_type == "open_url":
         step["url"] = open_url
         step["description"] = open_url if len(open_url) <= 120 else open_url[:117] + "..."
+    elif action_type == "open_whatsapp":
+        step["url"] = "https://web.whatsapp.com/"
+        step["description"] = "Open WhatsApp Web — https://web.whatsapp.com/"
+    elif action_type == "completion_link":
+        step["description"] = "Generate WhatsApp completion link from this run"
+    elif action_type == "completion_message":
+        step["description"] = "Output completion text (same as link body); copy message; no browser"
+    elif action_type == "type_project_name":
+        step["description"] = "Typing project name"
+    elif action_type == "type_whatsapp_number":
+        step["description"] = "Type WhatsApp number saved for this workflow"
+    elif action_type == "type_completion_message":
+        step["description"] = "Type WhatsApp completion body from prior completion step"
     elif action_type == "wait":
         ws_save = float(str(fields.get("wait_seconds", "2") or "2").strip())
         step["wait_seconds"] = ws_save
@@ -197,6 +254,24 @@ def process_teach_step(owner_id: str, raw_body: bytes, content_type: str) -> dic
     elif action_type == "shell":
         step["shell_command"] = shell_cmd
         step["description"] = (shell_cmd[:117] + "...") if len(shell_cmd) > 120 else shell_cmd
+    elif action_type == "best_ai_copy_query_bundle":
+        step["description"] = "Best AI: copy saved topic + platform instructions → clipboard"
+    elif action_type == "best_ai_capture_slot_from_clipboard":
+        step["best_ai_slot"] = best_ai_slot_v
+        step["description"] = f"Best AI: clipboard → Trainer slot ({best_ai_slot_v})"
+    elif action_type == "best_ai_run_synthesizer":
+        step["description"] = "Best AI: run OpenAI synthesizer (bridge slots → result)"
+    elif action_type == "hotkey":
+        from dashboard import _trainer_parse_hotkey_keys_json
+
+        raw_hk = fields.get("hotkey_keys_json", "")
+        hk_list, hk_err = _trainer_parse_hotkey_keys_json(raw_hk if isinstance(raw_hk, str) else "")
+        if hk_err:
+            raise ValueError(hk_err)
+        step["hotkey_keys"] = hk_list
+        note = description.strip()
+        combo = "+".join(hk_list)
+        step["description"] = (f"{note[:120]} — {combo}")[:220] if note else f"Hotkey {combo}"
 
     if action_type == "click":
         step["live_vision"] = live_vis

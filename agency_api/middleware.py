@@ -1,6 +1,6 @@
 """
 Middleware — API key auth, rate limiting, structured request logging.
-Autonomous Web Agency Platform · API Layer
+cusear™ Platform · API Layer
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-#  Client Build Pipeline — Autonomous Web Agency Platform
+#  Client Build Pipeline — cusear™ Platform
 #  Produces a tamper-proof, locked binary for distribution to clients.
 #
 #  What this does:
@@ -59,7 +59,7 @@ done
 
 # ─── Validate inputs ─────────────────────────────────────────────────────────
 echo ""
-echo -e "${BOLD}  Autonomous Web Agency — Client Build Pipeline${NC}"
+echo -e "${BOLD}  cusear™ — Client Build Pipeline${NC}"
 divider
 
 [[ -z "$MACHINE_ID" ]]   && error "--machine-id is required"

@@ -1,6 +1,6 @@
 """
 Agency Onboarding — new white-label agency signup flow.
-Autonomous Web Agency Platform · White-label Layer
+cusear™ Platform · White-label Layer
 
 Flow:
   1. Agency fills signup form → POST /whitelabel/onboard

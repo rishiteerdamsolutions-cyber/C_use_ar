@@ -1,5 +1,5 @@
 """
-Auto-Update System — Autonomous Web Agency Agent v1.0
+Auto-Update System — cusear™ Agent v1.0
 Checks Firebase for a newer version, downloads delta, relaunches.
 Previous version is kept for 7 days for one-click rollback.
 """

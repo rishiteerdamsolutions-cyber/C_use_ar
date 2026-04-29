@@ -1,5 +1,5 @@
 """
-Main Orchestrator — Autonomous Web Agency Agent v1.0
+Main Orchestrator — cusear™ Agent v1.0
 Entry point: startup checks → accept command → execute workflow → deliver URL.
 
 Usage:
@@ -12,6 +12,7 @@ Usage:
     python main.py --run-workflow <name> --var K=V      # replay with variable substitution
     python main.py --list-workflows                     # list all saved workflows
     python main.py --show-workflow <name>               # print workflow steps
+    python main.py --trainer                            # local Trainer UI (desktop; same as python desktop.py)
 """
 
 from __future__ import annotations
@@ -93,7 +94,7 @@ def _check_license() -> dict | None:
 # ─── Startup banner ───────────────────────────────────────────────────────────
 BANNER = """
 ╔══════════════════════════════════════════════════════════════╗
-║    Autonomous Web Agency Agent  v1.0  · Karimnagar, TG       ║
+║    cusear™ Agent  v1.0  · Karimnagar, TG       ║
 ║    One command → complete website delivered to client         ║
 ╚══════════════════════════════════════════════════════════════╝
 """
@@ -188,7 +189,7 @@ def _send_delivery_notification(
         f"🎉 Hi {client_name}! Your website is LIVE!\n\n"
         f"URL: {live_url}\n\n"
         "Please review and let us know your feedback.\n"
-        "— Autonomous Web Agency"
+        "— cusear™"
     )
 
     logger.info("Sending delivery notification to %s", client_name)
@@ -513,7 +514,7 @@ def health_check() -> None:
 # ─── Main entry point ─────────────────────────────────────────────────────────
 def main() -> None:
     """Application entry point."""
-    parser = argparse.ArgumentParser(description="Autonomous Web Agency Agent")
+    parser = argparse.ArgumentParser(description="cusear™ Agent")
     parser.add_argument("--setup",          action="store_true", help="Run credential setup wizard")
     parser.add_argument("--check",          action="store_true", help="Run system health check")
     parser.add_argument("--dry-run",        action="store_true", help="Test workflow without GUI automation")
@@ -521,11 +522,24 @@ def main() -> None:
     parser.add_argument("--run-workflow",   metavar="NAME",       help="Replay a taught workflow by name")
     parser.add_argument("--list-workflows", action="store_true", help="List all saved workflows")
     parser.add_argument("--show-workflow",  metavar="NAME",       help="Print steps of a saved workflow")
+    parser.add_argument(
+        "--trainer",
+        action="store_true",
+        help="Start local Trainer UI (file-backed workflows; no Mongo/cloud API required)",
+    )
     parser.add_argument("--var",            action="append",      metavar="KEY=VALUE",
                         help="Variable substitution for workflow replay (repeatable)")
     parser.add_argument("--mode",           choices=["fast","smart"], default="smart",
                         help="fast=Training-Only (V1, no API), smart=Training+AI (V2, Claude Vision)")
     args = parser.parse_args()
+
+    if args.trainer:
+        os.environ.setdefault("DESKTOP_APP", "1")
+        os.environ.setdefault("AGENCY_HOME", str(BASE_DIR))
+        from dashboard import run_trainer_server
+
+        run_trainer_server()
+        return
 
     print(BANNER)
 

@@ -1,6 +1,6 @@
 """
 Tenant Router — subdomain / custom-domain → tenant lookup middleware.
-Autonomous Web Agency Platform · White-label Layer
+cusear™ Platform · White-label Layer
 
 Attaches `request.state.tenant` and `request.state.branding`
 to every incoming request so any route can read the active tenant.

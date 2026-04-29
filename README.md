@@ -1,4 +1,4 @@
-# Autonomous Web Agency Agent v1.0
+# cusear™ Agent v1.0
 ### Karimnagar, Telangana — Enterprise-Grade Desktop Automation
 
 > One command → complete website delivered to client  
@@ -60,7 +60,79 @@ export FIREBASE_UPDATE_URL="https://your-project.firebaseio.com/updates.json"
 python main.py --check
 ```
 
-### 6. Run the agent
+### 6. Desktop app (local Trainer — no Mongo / hosted API)
+
+The automation engine is **meant to run on your machine**. The Trainer saves workflows under `workflows/`; you do **not** need MongoDB or the cloud API to record or edit them.
+
+```bash
+python desktop.py
+# or equivalently:
+python main.py --trainer
+# (legacy)
+python dashboard.py
+```
+
+`python desktop.py` now opens a native desktop window (no browser URL bar) on macOS/Windows when `pywebview` is installed. If webview is unavailable, it falls back to the browser.
+
+Open **http://127.0.0.1:7788** if needed. In another terminal, replay with:
+
+```bash
+python main.py --list-workflows
+python main.py --run-workflow YOUR_WORKFLOW --mode fast
+```
+
+Optional: build a **PyInstaller** one-folder app (ships Python + deps; users still need API keys in `.env.local` as usual):
+
+```bash
+chmod +x scripts/build_desktop.sh
+./scripts/build_desktop.sh
+```
+
+Artifacts land in `dist/AutonomousWebAgencyDesktop/`. The build bundles `TRAINER.html`; `workflows/` and `.env.local` live **next to the executable** inside that folder.
+
+To replay those workflows with a normal Python checkout of this repo, point both at the same data directory:
+
+```bash
+export AGENCY_HOME="/absolute/path/to/dist/AutonomousWebAgencyDesktop"
+python main.py --list-workflows
+python main.py --run-workflow YOUR_WORKFLOW --mode fast
+```
+
+Also ship the user’s `license.key` beside the bundle when you require production licensing.
+
+#### Export **one** bundle only (Windows desktop) — Presence
+
+This repo supports exporting a **single ar™ bundle** as a standalone Windows desktop app (one-folder PyInstaller build + zip; optional installer).
+
+- **On Windows**, from repo root:
+
+```bat
+scripts\build_presence_win.bat
+```
+
+- **Outputs**
+  - `dist\Presence_cusear_win.zip` (share this folder zip)
+  - `dist\Presence-setup.exe` (only if Inno Setup 6 is installed)
+
+This export bundles **only**:
+- `bundles/Presence.json`
+- `workflows/` for its children (`Facebook_Post`, `Instagram_Post`, `Linkedin_Post`, `Status_Whatsapp_Imageplustext`, `Status_Whatsapp_Text`, `X_post`)
+
+#### iOS usage
+
+iOS cannot run the desktop automation engine natively (no unrestricted mouse/keyboard automation APIs). The supported setup is:
+
+1. Run the Trainer on a Mac/Windows host machine.
+2. (Optional) expose the Trainer UI to your LAN:
+   ```bash
+   export TRAINER_HOST=0.0.0.0
+   python dashboard.py
+   ```
+3. Open the printed `http://<lan-ip>:7788` from iPhone/iPad on the same Wi-Fi.
+
+This gives iOS access to the Trainer UI as a companion client while automation still executes on the desktop host.
+
+### 7. Run the agent
 ```bash
 python main.py
 ```
@@ -78,6 +150,8 @@ Agency Agent ▶  Build salon website for Priya Beauty Parlour
 autonomous-web-agency/
 │
 ├── main.py                    ← Entry point & orchestrator
+├── desktop.py               ← Desktop app: local Trainer (sets DESKTOP_APP=1)
+├── dashboard.py             ← Local Trainer HTTP server (same engine as desktop.py)
 ├── VERSION                    ← Current version (1.0.0)
 ├── requirements.txt
 ├── pytest.ini
@@ -220,4 +294,4 @@ Session saved to sessions/<id>.json (proof of delivery)
 
 ---
 
-*Built with ♥ in Karimnagar, Telangana · Autonomous Web Agency Agent v1.0*
+*Built with ♥ in Karimnagar, Telangana · cusear™ Agent v1.0*
