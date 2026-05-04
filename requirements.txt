@@ -46,3 +46,7 @@ pyinstaller>=6.0
 
 # Rekky enrichment / recording (optional): pip install -r requirements-rekky.txt
 # Or: bash scripts/setup_rekky_env.sh   (Windows: scripts\setup_rekky_env.bat)
+
+# ── REST API + Vercel (FastAPI / Mangum)
+fastapi>=0.111.0
+-r requirements-vercel.txt

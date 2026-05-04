@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "rm -rf public && mkdir -p public && cp -R 'CUSEAR WEBSITE  UX UI/cusear-website/.' public/ && mkdir -p public/downloads && (cp -f downloads/cusear-desktop-windows-setup.exe public/downloads/ 2>/dev/null || true) && (cp -f downloads/cusear-desktop-macos.dmg public/downloads/ 2>/dev/null || true)",
+  "buildCommand": "bash scripts/vercel_build.sh",
   "installCommand": "pip install -r requirements-vercel.txt",
   "rewrites": [
     { "source": "/api", "destination": "/api/index" },

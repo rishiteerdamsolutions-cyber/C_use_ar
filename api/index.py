@@ -13,7 +13,8 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from mangum import Mangum
-from agency_api.server import app
+from agency_api.server import app as _fastapi_app
 
-# "off" = skip FastAPI lifespan on cold start (Mongo/Redis are optional for many routes)
-handler = Mangum(app, lifespan="off")
+# Vercel Python expects a top-level ASGI ``app`` in ``api/*.py`` (see Vercel Python runtime docs).
+# "off" = skip FastAPI lifespan on cold start (Mongo/Redis are optional for many routes).
+app = Mangum(_fastapi_app, lifespan="off")
