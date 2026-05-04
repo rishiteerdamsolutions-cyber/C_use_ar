@@ -10,11 +10,16 @@ build/.pyinstaller_dist/
 build/.pyinstaller_work/
 build/.pyarmor_obfuscated/
 *.spec
+!packaging/*.spec
 
 # Virtual environments
 .venv/
+.venv-rekky/
 venv/
 env/
+
+# Local entitlement cache
+.cusear_entitlements_usage.json
 
 # Secrets — NEVER commit these
 .env
@@ -55,3 +60,10 @@ htmlcov/
 
 # Vercel build output (copied from portal/ on deploy)
 /public/
+
+# Production installers (copy into downloads/ on the server; keep manifest + README in git)
+downloads/*.exe
+downloads/*.dmg
+downloads/*.msi
+downloads/*.zip
+

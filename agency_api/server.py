@@ -135,8 +135,10 @@ app.include_router(whitelabel_router,   prefix=PREFIX)   # /api/v1/whitelabel/..
 app.include_router(admin_router)                         # /admin/...  (tenant-aware)
 app.include_router(trainer.router)                       # /api/trainer/... (Mongo, no live run)
 
-# ─── Marketing site (portal/*.html) — local + Vercel ───────────────────────────
-_PORTAL_DIR = Path(__file__).resolve().parent.parent / "portal"
+# ─── Marketing: only ``CUSEAR WEBSITE  UX UI`` (same tree as Vercel ``public/``) + portal ───
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_MARKETING_UX_DIR = _REPO_ROOT / "CUSEAR WEBSITE  UX UI"
+_PORTAL_DIR = _REPO_ROOT / "portal"
 if _PORTAL_DIR.is_dir():
     app.mount(
         "/site",
@@ -145,14 +147,25 @@ if _PORTAL_DIR.is_dir():
     )
 
 
+def _marketing_homepage() -> Path | None:
+    for rel in ("index.html", "cusear_prototype.html"):
+        p = _MARKETING_UX_DIR / rel
+        if p.is_file():
+            return p
+    nested = _MARKETING_UX_DIR / "cusear-website" / "index.html"
+    return nested if nested.is_file() else None
+
+
 # ─── Root endpoints ────────────────────────────────────────────────────────────
 @app.get("/", include_in_schema=False)
 async def root():
     """
-    Serve the marketing homepage as HTML (Vercel sends all traffic here via rewrite).
-    Redirect-only broke when `portal/` was missing from the serverless bundle; inline
-    FileResponse works when `includeFiles: portal/**` is set in vercel.json.
+    Prefer ``CUSEAR WEBSITE  UX UI`` home page (same tree Vercel copies to ``public/``).
+    Fallback: ``portal/index.html`` or redirect to ``/site/`` (legacy).
     """
+    mh = _marketing_homepage()
+    if mh is not None:
+        return FileResponse(str(mh), media_type="text/html; charset=utf-8")
     index = _PORTAL_DIR / "index.html"
     if index.is_file():
         return FileResponse(str(index), media_type="text/html; charset=utf-8")
@@ -170,11 +183,12 @@ async def root():
 
 @app.get("/api-meta", include_in_schema=False)
 async def api_meta():
+    web = "/" if _marketing_homepage() is not None else "/site/"
     return JSONResponse({
         "service":  "cusear™ API",
         "version":  VERSION,
         "status":   "ok",
-        "website":  "/site/",
+        "website":  web,
         "trainer_api": "/api/trainer",
         "docs":     "/docs",
         "base_url": "/api/v1",

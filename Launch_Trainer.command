@@ -22,16 +22,23 @@ fi
 
 echo "Starting cusear™ Trainer using: $PY_BIN"
 echo ""
-echo "  This runs desktop.py: local server on port 7788, then opens the Trainer in an app window (pywebview)."
-echo "  That window is still a web view (like Safari) — not a separate native UI toolkit."
-echo "  If anything feels stuck: click the Trainer window once (focus), or run with  export DESKTOP_WEBVIEW_DEBUG=1"
-echo "  then right-click → Inspect Element to see console errors."
-echo "  Prefer the system browser instead:  export DESKTOP_FORCE_BROWSER=1  before this script."
-echo "  Wait for a green dot and “Server online” (or tap ↻ Retry in the header)."
-echo "  If nothing loads: run  bash START.sh  in this folder (same server, your browser)."
+echo "  Launching the Trainer Control Center (desktop window at /trainer)."
+echo "  Public marketing site is separate: CUSEAR WEBSITE  UX UI → served at http://127.0.0.1:7788/ when dashboard runs."
 echo ""
-echo "  Use the top bar → 📦 Export app  (or ar™ tab → Desktop app export) to build Mac/Windows packages."
+
+# Force desktop window mode unless user explicitly overrides.
+export DESKTOP_FORCE_BROWSER=0
+export TRAINER_NO_OPEN_BROWSER=1
 export AGENCY_USER_MODE=trainer
+
+# Ensure the desktop shell dependency exists (pywebview).
+if ! "$PY_BIN" -c "import webview" >/dev/null 2>&1; then
+  echo "  pywebview is missing — installing it now..."
+  "$PY_BIN" -m pip install --user pywebview >/dev/null 2>&1 || true
+fi
+
+echo "  Starting… if the window doesn't appear in ~10s, check this terminal for errors."
+echo ""
 "$PY_BIN" desktop.py
 
 echo

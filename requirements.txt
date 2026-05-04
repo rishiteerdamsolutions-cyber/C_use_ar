@@ -43,3 +43,6 @@ pywebview>=5.1
 pyinstaller>=6.0
 
 # Best AI™ (optional): pip install -r best_ai/requirements-best-ai.txt && python3 -m playwright install chrome
+
+# Rekky enrichment / recording (optional): pip install -r requirements-rekky.txt
+# Or: bash scripts/setup_rekky_env.sh   (Windows: scripts\setup_rekky_env.bat)

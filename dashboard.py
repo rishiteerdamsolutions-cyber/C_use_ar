@@ -1,8 +1,11 @@
 """
 Training Engine Server — cusear™
 Run: python3 dashboard.py
-Open: http://localhost:7788
+Open: http://localhost:7788  (public marketing site **only** from ``CUSEAR WEBSITE  UX UI`` when it has a home page; else ``portal/`` + API)
+Control Center: http://localhost:7788/trainer
 """
+from __future__ import annotations
+
 import errno, json, os, platform, re, shlex, shutil, signal, socket, sys, tempfile, threading, webbrowser, datetime, time, mimetypes, secrets, subprocess
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
@@ -15,6 +18,23 @@ except ImportError:
     load_dotenv = None  # type: ignore[assignment]
 
 from config.local_paths import agency_root
+from cusear.media_folders import (
+    apply_calendar_runtime_tokens,
+    bootstrap_cusear_content_folders,
+    calendar_total_days_env,
+    select_calendar_asset_for_upload,
+    write_calendar_slot_media,
+)
+from cusear.storage_vault import (
+    PLATFORM_DIR,
+    PLAN_DIR,
+    bootstrap_storage_vault,
+    cleanup_cusear_legacy_top_level,
+    ensure_plan_vault,
+    list_cusear_legacy_top_level,
+    slot_path,
+    vault_root,
+)
 
 # Last web.whatsapp.com/send URL opened in the current workflow (used to skip a second Chrome navigation
 # when notify would open the same chat again).
@@ -92,6 +112,437 @@ _load_env_file_literal(BASE_DIR / ".env", override=False)
 if (os.environ.get("CUSEAR_DEFAULT_AR_SLUG") or "").strip():
     os.environ["AGENCY_USER_MODE"] = "consumer"
 PORT = 7788
+
+PORTAL_ROOT = (BASE_DIR / "portal").resolve()
+# Public marketing site — **only** this folder (see ``vercel.json``). Not repo-root ``cusear-website/``.
+MARKETING_UX_ROOT = (BASE_DIR / "CUSEAR WEBSITE  UX UI").resolve()
+DOWNLOADS_ROOT = (BASE_DIR / "downloads").resolve()
+DOWNLOADS_ROOT.mkdir(parents=True, exist_ok=True)
+
+
+def _trainer_html_path() -> Path:
+    th = _STATIC_DIR / "TRAINER.html"
+    return th if th.is_file() else (BASE_DIR / "TRAINER.html")
+
+
+def _safe_leaf_file_under(root: Path, leaf: str) -> Optional[Path]:
+    """Serve only single-segment names (e.g. pricing.html) under root — no traversal."""
+    leaf = (leaf or "").strip().replace("\\", "/")
+    if not leaf or "/" in leaf or leaf.startswith("."):
+        return None
+    if ".." in leaf:
+        return None
+    try:
+        rr = root.resolve()
+        cand = (rr / leaf).resolve()
+        cand.relative_to(rr)
+    except ValueError:
+        return None
+    return cand if cand.is_file() else None
+
+
+def _marketing_home_file(ms: Path) -> Optional[Path]:
+    """
+    Default document for a marketing root: root ``index.html`` if present,
+    else ``cusear_prototype.html``, else ``cusear-website/index.html`` (nested layout).
+    """
+    for rel in ("index.html", "cusear_prototype.html"):
+        p = ms / rel
+        if p.is_file():
+            return p
+    nested = ms / "cusear-website" / "index.html"
+    return nested if nested.is_file() else None
+
+
+def _marketing_site_root() -> Optional[Path]:
+    """Product marketing pages live only under ``CUSEAR WEBSITE  UX UI`` (nested or root ``index.html``)."""
+    r = MARKETING_UX_ROOT
+    return r if r.is_dir() and _marketing_home_file(r) is not None else None
+
+
+def _marketing_content_root(ms: Path) -> Path:
+    """Directory that holds ``index.html`` and sibling assets (e.g. ``…/cusear-website`` when nested)."""
+    h = _marketing_home_file(ms)
+    return h.parent if h is not None else ms
+
+
+def _safe_site_file_under(root: Path, rel: str) -> Optional[Path]:
+    """
+    Serve a file under ``root`` using a relative URL path (may include subdirs).
+    Rejects traversal and hidden path segments.
+    """
+    rel_u = unquote((rel or "").strip().replace("\\", "/").lstrip("/"))
+    if not rel_u:
+        return None
+    parts = [x for x in rel_u.split("/") if x]
+    for part in parts:
+        if part in (".", "..") or part.startswith("."):
+            return None
+    try:
+        rr = root.resolve()
+        cand = rr.joinpath(*parts).resolve()
+        cand.relative_to(rr)
+    except (ValueError, OSError):
+        return None
+    return cand if cand.is_file() else None
+
+
+def _send_local_file(handler: BaseHTTPRequestHandler, path: Path) -> None:
+    try:
+        body = path.read_bytes()
+    except OSError:
+        handler.send_response(404)
+        handler.send_header("Content-Type", "text/plain; charset=utf-8")
+        handler.send_header("Access-Control-Allow-Origin", "*")
+        handler.end_headers()
+        handler.wfile.write(b"not found")
+        return
+    ctype, _enc = mimetypes.guess_type(str(path))
+    if not ctype:
+        ctype = "application/octet-stream"
+    handler.send_response(200)
+    handler.send_header("Content-Type", ctype)
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("Access-Control-Allow-Origin", "*")
+    if path.suffix.lower() in (".html", ".htm"):
+        handler.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        handler.send_header("Pragma", "no-cache")
+    else:
+        handler.send_header("Cache-Control", "public, max-age=120")
+    handler.end_headers()
+    handler.wfile.write(body)
+
+# ── WRA Rekky (v2) background recorder ─────────────────────────────────────────
+_WRA_REKKY_LOCK = threading.Lock()
+_WRA_REKKY_THREAD: Optional[threading.Thread] = None
+_WRA_REKKY_STOP = threading.Event()
+_WRA_REKKY_STATUS: dict[str, Any] = {
+    "running": False,
+    "mode": "",
+    "workflow_name": "",
+    "error": "",
+    "saved_path": "",
+    "enrich_path": "",
+    "enrich_report": {},
+}
+
+# ── Control Center (desktop shell): status, engine log, WRA™ run monitor ─────
+_CONTROL_DIR = BASE_DIR / "config"
+_CONTROL_SETTINGS_PATH = _CONTROL_DIR / "control_center.json"
+_CONTROL_ENGINE_LOG = BASE_DIR / "logs" / "control_engine.log"
+_WRA_MONITOR_LOCK = threading.Lock()
+_WRA_MONITOR: dict[str, Any] = {
+    "running": False,
+    "workflow_name": "",
+    "lucky": "NOT RUN",
+    "agami": "IDLE",
+    "aha": "IDLE",
+    "signals": [],
+    "last_result": None,
+    "last_error": "",
+}
+_LAST_LUCKY_REPORT: dict[str, Any] | None = None
+_LUCKY_JOB_LOCK = threading.Lock()
+_LUCKY_JOB_STATUS: dict[str, Any] = {"running": False, "error": "", "report": None}
+_LUCKY_CANCEL = threading.Event()
+_CONTROL_ENGINE_STOP_REQUESTED = False
+
+_PLATFORM_REACHABILITY_HOSTS = (
+    ("facebook.com", "https://www.facebook.com/"),
+    ("instagram.com", "https://www.instagram.com/"),
+    ("linkedin.com", "https://www.linkedin.com/"),
+    ("x.com", "https://x.com/"),
+    ("whatsapp", "https://web.whatsapp.com/"),
+)
+
+
+def _control_default_settings() -> dict[str, Any]:
+    return {
+        "auto_start_engine": True,
+        "check_updates_on_launch": True,
+        "lucky_tab_interval_ms": 80,
+        "agami_tab_interval_ms": 60,
+        "aha_tab_interval_ms": 50,
+        "max_seek_forward": 20,
+        "max_seek_backward": 5,
+        "move_timeout_sec": 15,
+        "done_timeout_sec": 30,
+        "chrome_path_override": "",
+        "platform_facebook_enabled": True,
+        "platform_instagram_enabled": True,
+        "platform_linkedin_enabled": True,
+        "workflows_path": str(WORKFLOWS_DIR.expanduser()),
+        "media_path": str((BASE_DIR / "media_library").resolve()),
+        "logs_path": str((BASE_DIR / "logs").resolve()),
+        "content_path": str((BASE_DIR / "content").resolve()),
+        "whatsapp_notify_number": "",
+        "company_endpoint": "",
+        "license_key": "",
+    }
+
+
+def _load_control_settings() -> dict[str, Any]:
+    base = _control_default_settings()
+    try:
+        _CONTROL_DIR.mkdir(parents=True, exist_ok=True)
+        if _CONTROL_SETTINGS_PATH.is_file():
+            raw = json.loads(_CONTROL_SETTINGS_PATH.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                base.update({k: raw[k] for k in base if k in raw})
+                for k, v in raw.items():
+                    if k not in base:
+                        base[k] = v
+    except Exception:
+        pass
+    return base
+
+
+def _save_control_settings(data: dict[str, Any]) -> None:
+    _CONTROL_DIR.mkdir(parents=True, exist_ok=True)
+    merged = _control_default_settings()
+    merged.update(data)
+    _CONTROL_SETTINGS_PATH.write_text(json.dumps(merged, indent=2), encoding="utf-8")
+
+
+def _apply_control_center_paths() -> None:
+    """Apply workflows/media/logs paths from control_center.json (Settings → Paths)."""
+    global WORKFLOWS_DIR, MEDIA_LIBRARY_DIR, MEDIA_IMAGES_DIR, MEDIA_VIDEOS_DIR, MEDIA_INDEX_FILE, RUN_AUDIT_DIR
+    try:
+        s = _load_control_settings()
+        wf = str(s.get("workflows_path") or "").strip()
+        if wf:
+            WORKFLOWS_DIR = Path(wf).expanduser().resolve()
+            WORKFLOWS_DIR.mkdir(parents=True, exist_ok=True)
+        md = str(s.get("media_path") or "").strip()
+        if md:
+            MEDIA_LIBRARY_DIR = Path(md).expanduser().resolve()
+            MEDIA_IMAGES_DIR = MEDIA_LIBRARY_DIR / "images"
+            MEDIA_VIDEOS_DIR = MEDIA_LIBRARY_DIR / "videos"
+            MEDIA_INDEX_FILE = MEDIA_LIBRARY_DIR / "index.json"
+            MEDIA_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+            MEDIA_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
+        lg = str(s.get("logs_path") or "").strip()
+        if lg:
+            logs_root = Path(lg).expanduser().resolve()
+            logs_root.mkdir(parents=True, exist_ok=True)
+            RUN_AUDIT_DIR = logs_root / "workflow_runs"
+            RUN_AUDIT_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+
+_apply_control_center_paths()
+
+
+def _read_app_version() -> str:
+    try:
+        vf = BASE_DIR / "VERSION"
+        if vf.is_file():
+            return vf.read_text(encoding="utf-8").strip() or "0.0.0"
+    except Exception:
+        pass
+    return "0.0.0"
+
+
+def _control_append_engine_log(line: str) -> None:
+    try:
+        _CONTROL_ENGINE_LOG.parent.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        with open(_CONTROL_ENGINE_LOG, "a", encoding="utf-8") as f:
+            f.write(f"[{stamp}] {line}\n")
+    except Exception:
+        pass
+
+
+def _control_engine_log_tail(n: int = 20) -> list[str]:
+    try:
+        if not _CONTROL_ENGINE_LOG.is_file():
+            return []
+        lines = _CONTROL_ENGINE_LOG.read_text(encoding="utf-8", errors="replace").splitlines()
+        return lines[-max(1, min(200, n)) :]
+    except Exception:
+        return []
+
+
+def _control_chrome_ok() -> bool:
+    try:
+        from cusear.engine.preflight import check_chrome
+
+        return bool(check_chrome())
+    except Exception:
+        return False
+
+
+def _control_disk_free_gb() -> float:
+    try:
+        usage = shutil.disk_usage(str(BASE_DIR.resolve()))
+        return round(usage.free / (1024**3), 2)
+    except Exception:
+        return -1.0
+
+
+def _control_platform_reachability() -> tuple[int, int]:
+    """Return (ok_count, total) for quick HTTPS reachability checks."""
+    import urllib.request
+
+    ok = 0
+    total = len(_PLATFORM_REACHABILITY_HOSTS)
+    for _, url in _PLATFORM_REACHABILITY_HOSTS:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "cusear-control-center/1.0"})
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                code = getattr(resp, "status", 200) or 200
+                if 200 <= int(code) < 500:
+                    ok += 1
+        except Exception:
+            pass
+    return ok, total
+
+
+def _control_permissions_summary() -> str:
+    """Coarse hint for Trainer automation (full OS checks are user-driven)."""
+    if platform.system() == "Darwin":
+        return "Accessibility + Screen Recording"
+    return "Accessibility / UI automation"
+
+
+def _wra_monitor_reset() -> None:
+    with _WRA_MONITOR_LOCK:
+        _WRA_MONITOR.update(
+            {
+                "running": False,
+                "workflow_name": "",
+                "lucky": "NOT RUN",
+                "agami": "IDLE",
+                "aha": "IDLE",
+                "signals": [],
+                "last_result": None,
+                "last_error": "",
+            }
+        )
+
+
+def _wra_monitor_update(**kwargs: Any) -> None:
+    with _WRA_MONITOR_LOCK:
+        _WRA_MONITOR.update(kwargs)
+
+
+def _control_recent_runs(limit: int = 10) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    try:
+        files = [p for p in RUN_AUDIT_DIR.glob("*.json") if p.name != "latest.json"]
+        files.sort(key=lambda x: x.name, reverse=True)
+        for p in files[:limit]:
+            try:
+                d = json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            wf = str(d.get("workflow_name") or "")
+            err = (d.get("error_steps") or 0) > 0 or bool(d.get("error"))
+            out.append(
+                {
+                    "workflow_name": wf,
+                    "ok": not err,
+                    "audited_at": str(d.get("audited_at") or ""),
+                    "path": str(p),
+                }
+            )
+    except Exception:
+        pass
+    return out
+
+
+def _infer_workflow_engine(d: dict[str, Any]) -> str:
+    ex = str(d.get("engine") or "").strip().lower()
+    if ex in ("wra_v2", "trainer_v1"):
+        return ex
+    steps = d.get("steps") or []
+    if not isinstance(steps, list):
+        return "trainer_v1"
+
+    def _at(s: dict[str, Any]) -> str:
+        return str(s.get("action_type") or "")
+
+    # WRA™ v2 tab-navigation / URL flows (Rekky/Lucky/Agami path).
+    _WRA_ACTIONS = frozenset(
+        ("press_tab", "press_enter", "press_arrow", "open_url")
+    )
+    # Legacy trainer-only steps (no Rekky enrich button unless hybrid below resolves to WRA).
+    _LEGACY_TRAINER = frozenset(
+        ("click", "ai_type", "minimize", "open_cursor", "best_ai_capture_slot_from_clipboard")
+    )
+
+    has_wra_nav = any(isinstance(s, dict) and _at(s) in _WRA_ACTIONS for s in steps)
+    has_legacy = any(isinstance(s, dict) and _at(s) in _LEGACY_TRAINER for s in steps)
+
+    # Hybrid workflows often start with open_chrome + typing the URL, then press_tab / enter.
+    # Old logic treated open_chrome as always trainer_v1 on first hit, hiding Enrich Rekky.
+    if has_wra_nav:
+        return "wra_v2"
+    if has_legacy:
+        return "trainer_v1"
+
+    has_anchor = any(isinstance(s, dict) and "focus_target" in s for s in steps)
+    has_wra_actions = any(
+        isinstance(s, dict) and _at(s) in ("press_tab", "press_enter", "press_arrow")
+        for s in steps
+    )
+    if has_anchor and has_wra_actions:
+        return "wra_v2"
+    return "trainer_v1"
+
+
+def _workflow_last_run_meta(wf_name: str) -> dict[str, Any]:
+    try:
+        for f in sorted(RUN_AUDIT_DIR.glob("*.json"), reverse=True):
+            if f.name == "latest.json":
+                continue
+            try:
+                d = json.loads(f.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if str(d.get("workflow_name") or "") != wf_name:
+                continue
+            err_steps = int(d.get("error_steps") or 0)
+            top_err = str(d.get("error") or "").strip()
+            ok = err_steps <= 0 and not top_err
+            return {
+                "last_run": str(d.get("audited_at") or ""),
+                "last_result": "success" if ok else "failed",
+                "last_ok": ok,
+            }
+    except Exception:
+        pass
+    return {"last_run": "", "last_result": "never", "last_ok": False}
+
+
+def _control_upcoming_scheduled() -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    try:
+        for bfp in sorted(AR_BUNDLES_DIR.glob("*.json")):
+            try:
+                b = _normalize_bundle(json.loads(bfp.read_text(encoding="utf-8")))
+            except Exception:
+                continue
+            sch = b.get("schedule") or {}
+            if not sch.get("enabled"):
+                continue
+            nxt = str(b.get("next_run_at") or "").strip()
+            name = str(b.get("display_name") or b.get("slug") or bfp.stem)
+            kids = b.get("children") or []
+            plat = str(kids[0]) if kids else ""
+            rows.append(
+                {
+                    "bundle_slug": str(b.get("slug") or bfp.stem),
+                    "name": name,
+                    "platform_workflow": plat,
+                    "scheduled_at": nxt or "—",
+                }
+            )
+    except Exception:
+        pass
+    return rows[:20]
+
 
 # Tab + arrow steps repeat using `tab_count` (1–200). Arrow steps may use `tab_press_increment`
 # with `repeat_scale_campaign_day` for scheduled runs.
@@ -573,6 +1024,9 @@ def _resolve_runtime_tokens(text: str, workflow_name: str, runtime_vars: dict) -
       {{CURRENT_VIDEO_PATH}}
       {{CURRENT_CAMPAIGN_DAY}}  (media-campaign day index when applicable)
       {{CURRENT_AUTOMATION_RUN}}  (1st, 2nd, … scheduled automation run for this workflow)
+      {{CURRENT_CALENDAR_DAY}}  (1–N 30-day slot: maps from automation run # or campaign day)
+      {{CALENDAR_CORE_IMAGE_PATH}} / {{CALENDAR_HYBRID_IMAGE_PATH}} / {{CALENDAR_AI_IMAGE_PATH}}
+      (and _VIDEO_PATH / _TEXT_PATH / _STEM — see cusear/media_folders.apply_calendar_runtime_tokens)
     """
     if not isinstance(text, str) or not text:
         return ""
@@ -1194,6 +1648,7 @@ def save_workflow(name, steps):
     import datetime
     wf = {
         "workflow_name": name,
+        "engine": "trainer_v1",
         "total_steps": len(steps),
         "taught_at": datetime.datetime.utcnow().isoformat(),
         "steps": steps,
@@ -1515,12 +1970,19 @@ def _register_media_asset(
     return asset
 
 
-def _generate_ai_image_asset(topic: str, industry: str = "") -> dict:
+def _generate_ai_image_asset(topic: str, industry: str = "", *, main_topic: str = "") -> dict:
+    theme = (main_topic or topic or "industry insight").strip()
+    angle = (topic or theme).strip()
     prompt = (
-        "Create a professional social media infographic with persuasive, expert-level marketing copy. "
-        "Write like a top digital marketer with deep internet-native knowledge and strategic clarity. "
-        f"Industry: {industry or 'general'}. Topic: {topic or 'daily industry insight'}. "
-        "Style: clean, high contrast, no watermark, suitable for Instagram and LinkedIn."
+        "Create ONE vertical **social infographic** image (not a generic stock photo, not a scenic wallpaper, "
+        "not a single vague logo on empty space). It must read as an **information graphic** about the subject below.\n"
+        f"- Campaign / umbrella theme: {theme}\n"
+        f"- This slide’s specific angle or headline: {angle}\n"
+        f"- Industry context: {industry or 'general'}\n"
+        "Content: persuasive, expert-level on-image copy (short headline + 3–7 tight bullets or numbered steps, "
+        "optional tiny stat callouts or simple icons). Write like a sharp digital marketer with internet-native clarity.\n"
+        "Visuals: clear hierarchy, simple diagrams or iconography where helpful, high contrast, readable on a phone.\n"
+        "Platforms: suitable for LinkedIn and Instagram feed in portrait."
     )
     return _generate_ai_image_asset_from_prompt(prompt=prompt, topic=topic, industry=industry)
 
@@ -1551,11 +2013,11 @@ def _generate_ai_image_asset_from_prompt(prompt: str, topic: str = "", industry:
         raise ValueError("AI image prompt is empty")
     prompt = (
         f"{prompt}\n\n"
-        "Output requirements:\n"
-        "- Generate a clean infographic layout for social media.\n"
+        "Output requirements (image — **infographic only**):\n"
+        "- Must be a **single infographic composition** (headline + structured facts/steps), not a photo-only poster.\n"
         "- Final export target: 1080x1350 px portrait (4:5 aspect ratio).\n"
-        "- Keep text readable with high contrast.\n"
-        "- Use a professional digital-marketer tone for all on-image copy.\n"
+        "- Keep text readable with high contrast; hierarchy obvious in one glance.\n"
+        "- Professional digital-marketer tone for all on-image copy.\n"
         "- Keep all text/content away from corners and edges.\n"
         "- Enforce safe margins: 20% left/right and 30% top/bottom.\n"
         "- Keep critical content inside the central safe area (60% width x 40% height).\n"
@@ -1590,6 +2052,25 @@ def _ai_media_common_prompt_requirements() -> str:
         "- Maintain 30% empty margin on top/bottom edges.\n"
         "- Never place key text near corners or outer edges.\n"
         "- Use professional, internet-savvy digital marketer tone.\n"
+    )
+
+
+def _ai_media_video_prompt_requirements() -> str:
+    """
+    Creative guardrails for short feed video — lively, hook-first, character-driven (not a static infographic clip).
+    """
+    return (
+        "Video creative brief (must follow):\n"
+        "- **Portrait 4:5** (1080x1350) framing for LinkedIn / Instagram feed.\n"
+        "- The piece must feel **alive and watchable**: include **people** OR **stylized / cartoon characters** "
+        "(pick one coherent look) who are **doing or explaining something concrete** tied to the topic — e.g. "
+        "talking to camera, whiteboard sketch, screen demo, reaction, problem→fix vignette, mentor explaining to a peer.\n"
+        "- **Hook in the first 1–2 seconds**: pattern interrupt, bold motion, or punchy on-screen line so a scroller "
+        "**stops** — think curiosity gap + energy, not a slow fade-in on a title card.\n"
+        "- Tone: **professional but lively**, LinkedIn-credible; avoid stiff corporate b-roll only.\n"
+        "- Use **motion, expression, and staging**; not a slideshow of static infographic panels or Ken-burns on one poster.\n"
+        "- Any on-screen copy: short, legible, centered safe zone; no tiny wall-of-text.\n"
+        "- Do **not** describe the video as “an infographic video” or “animated chart only” — characters and story beat come first.\n"
     )
 
 
@@ -1791,10 +2272,9 @@ def _generate_ai_video_asset_from_prompt(prompt: str, topic: str = "", industry:
         raise ValueError("AI video prompt is empty")
     full_prompt = (
         f"{prompt}\n\n"
-        f"{_ai_media_common_prompt_requirements()}\n"
-        "Video requirements:\n"
-        "- 4:5 portrait framing for feed publishing.\n"
-        "- Keep on-screen text inside safe center area only.\n"
+        f"{_ai_media_video_prompt_requirements()}\n"
+        "Technical:\n"
+        "- Keep important visuals and any text inside the center safe area.\n"
     )
     client = OpenAI(api_key=key)
     model = (os.environ.get("TRAINER_MEDIA_VIDEO_MODEL") or "sora-2").strip()
@@ -1834,14 +2314,20 @@ def _generate_ai_video_asset_from_prompt(prompt: str, topic: str = "", industry:
         # Fall through to ffmpeg fallback.
         pass
 
-    # Fallback: make a topic image and convert to short MP4.
+    # Fallback: make a topic **infographic** still and convert to short MP4 (not the full motion brief).
     if not _ffmpeg_available():
         raise RuntimeError(
             "AI video API unavailable and ffmpeg not installed. Install ffmpeg on macOS/Windows "
             "or configure a video-capable model in TRAINER_MEDIA_VIDEO_MODEL."
         )
+    still_prompt = (
+        f"Create one bold **infographic** key visual (single static frame) that teases this video topic — "
+        f"headline + 3–5 bullets, high contrast, portrait 4:5. Topic: {topic or 'social insight'}. "
+        f"Industry: {industry or 'general'}. This image will be used only as a short slideshow clip fallback, "
+        "not as the primary creative direction for motion."
+    )
     image_asset = _generate_ai_image_asset_from_prompt(
-        prompt=full_prompt,
+        prompt=still_prompt,
         topic=topic,
         industry=industry,
     )
@@ -1872,6 +2358,118 @@ def _build_ai_media_topics(main_topic: str, count: int) -> list[str]:
         return _generate_topics_from_seed(seed, completed=[], count=count)
     except Exception:
         return [f"{seed} — angle {i}" for i in range(1, count + 1)]
+
+
+def _openai_api_key_configured() -> bool:
+    return bool((os.environ.get("OPENAI_API_KEY") or "").strip())
+
+
+def _cusear_storage_norm_plan(x: str) -> str:
+    t = (x or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if t in ("core",):
+        return "core"
+    if t in ("hybrid",):
+        return "hybrid"
+    if t in ("ai_budget", "aibudget", "budget", "ai"):
+        return "ai_budget"
+    if t in ("ai_pro", "aipro", "pro"):
+        return "ai_pro"
+    return ""
+
+
+def _cusear_storage_norm_media(x: str) -> str:
+    t = (x or "").strip().lower()
+    if t in ("text", "texts", "caption", "captions"):
+        return "text"
+    if t in ("image", "images", "img"):
+        return "image"
+    if t in ("video", "videos", "vid"):
+        return "video"
+    return ""
+
+
+def _rel_under_downloads(dl: Path, dest: Path) -> str:
+    try:
+        return str(dest.resolve().relative_to(dl.resolve()))
+    except ValueError:
+        return str(dest.resolve())
+
+
+def _cusear_ensure_storage_plan(dl: Path, plan: str, platform_raw: str) -> None:
+    """Create only this plan’s folders under Downloads/cusear (lazy vault)."""
+    if plan not in ("core", "hybrid", "ai_budget", "ai_pro"):
+        return
+    if plan == "ai_pro":
+        plat = (platform_raw or "").strip().lower()
+        if plat not in PLATFORM_DIR:
+            return
+        ensure_plan_vault(dl, "ai_pro", platform=plat)  # type: ignore[arg-type]
+        return
+    ensure_plan_vault(dl, plan)  # type: ignore[arg-type]
+
+
+def _cusear_storage_generate_one(
+    dl: Path,
+    *,
+    plan: str,
+    media: str,
+    day: int,
+    platform: str,
+    industry: str,
+    main_topic: str,
+    topic: str,
+) -> dict[str, Any]:
+    """
+    AI-fill one vault slot (text / image / video). Inner helpers enforce OPENAI_API_KEY.
+    """
+    from cusear.storage_vault import atomic_write_bytes as _awb, atomic_write_text as _awt
+
+    _cusear_ensure_storage_plan(dl, plan, platform)
+    dest = slot_path(dl, plan=plan, media=media, day=day, platform=(platform or None))
+    base: dict[str, Any] = {
+        "path": str(dest.resolve()),
+        "relative_to_downloads": _rel_under_downloads(dl, dest),
+        "plan": plan,
+        "media": media,
+        "day": day,
+    }
+    if media == "text":
+        plats = [platform] if (plan == "ai_pro" and platform) else ["instagram"]
+        txt = _generate_ai_post_text_for_topic(topic=topic, main_topic=main_topic, platforms=plats)
+        _awt(dest, txt.strip() + "\n")
+        base["size_bytes"] = int(dest.stat().st_size) if dest.exists() else 0
+        return base
+    if media == "image":
+        asset = _generate_ai_image_asset(topic=topic, industry=industry, main_topic=main_topic)
+        rel = str(asset.get("relative_path") or "").strip()
+        src = (BASE_DIR / rel).resolve() if rel else None
+        if not src or not src.exists():
+            raise RuntimeError("generated image file missing")
+        _awb(dest, src.read_bytes())
+        base["size_bytes"] = int(dest.stat().st_size) if dest.exists() else 0
+        return base
+    if media == "video":
+        theme = (main_topic or topic or "").strip()
+        angle = (topic or theme).strip()
+        ind = (industry or "general").strip()
+        prompt = (
+            f"Produce a short, **scroll-stopping** vertical social video for LinkedIn/Instagram.\n"
+            f"- Umbrella theme: {theme}\n"
+            f"- This episode’s focus: {angle}\n"
+            f"- Industry: {ind}\n"
+            "Narrative: open with a **strong hook** (visual + idea), then show characters **demonstrating or explaining** "
+            "one clear takeaway tied to the focus — energetic, human (or cartoon) led, not a dry chart tour.\n"
+            "Goal: someone mid-feed **stops scrolling** and watches."
+        )
+        asset = _generate_ai_video_asset_from_prompt(prompt=prompt, topic=topic, industry=industry)
+        rel = str(asset.get("relative_path") or "").strip()
+        src = (BASE_DIR / rel).resolve() if rel else None
+        if not src or not src.exists():
+            raise RuntimeError("generated video file missing")
+        _awb(dest, src.read_bytes())
+        base["size_bytes"] = int(dest.stat().st_size) if dest.exists() else 0
+        return base
+    raise RuntimeError("unsupported media")
 
 
 def _ai_media_public_job(job: dict[str, Any]) -> dict[str, Any]:
@@ -1922,41 +2520,13 @@ def _save_ai_media_job_manifest_to_downloads(job: dict[str, Any]) -> str:
     return str(out.resolve())
 
 
-_CUSEAR_PLATFORM_DIR_NAMES: dict[str, str] = {
-    "instagram": "Instagram",
-    "facebook": "Facebook",
-    "linkedin": "Linkedin",
-    "x": "X.com",
-    "whatsapp": "Whatsapp",
-}
-
-
 def _cusear_platform_keys() -> list[str]:
-    return list(_CUSEAR_PLATFORM_DIR_NAMES.keys())
+    return list(PLATFORM_DIR.keys())
 
 
 def _cusear_media_root(*, runtime_vars: dict[str, str], workflow_name: str, workflow_label: str = "") -> Path:
-    dl = _downloads_dir()
-    flow_label = (
-        str(runtime_vars.get("CURRENT_AR_FLOW_NAME") or "").strip()
-        or str(runtime_vars.get("CURRENT_AR_BUNDLE_NAME") or "").strip()
-        or str(runtime_vars.get("CURRENT_AR_BUNDLE_SLUG") or "").strip()
-        or str(workflow_label or "").strip()
-        or str(workflow_name or "").strip()
-        or "default_flow"
-    )
-    wf_label = (
-        str(workflow_label or "").strip()
-        or str(runtime_vars.get("CURRENT_WORKFLOW_NAME") or "").strip()
-        or str(workflow_name or "").strip()
-        or "default_workflow"
-    )
-    return (
-        dl
-        / "cusear"
-        / _safe_slug(flow_label, "default_flow")
-        / _safe_slug(wf_label, "default_workflow")
-    )
+    _ = runtime_vars, workflow_name, workflow_label
+    return vault_root(_downloads_dir())
 
 
 def _write_text_in_dir(dest_dir: Path, filename: str, text: str) -> str:
@@ -1983,21 +2553,6 @@ def _copy_caption_into_dir(src_caption_path: str, caption_text: str, dest_dir: P
     if not str(caption_text or "").strip():
         return ""
     return _write_text_in_dir(dest_dir, filename, caption_text)
-
-
-def _ensure_cusear_platform_tree(base_dir: Path) -> dict[str, dict[str, Path]]:
-    out: dict[str, dict[str, Path]] = {}
-    for key, folder_name in _CUSEAR_PLATFORM_DIR_NAMES.items():
-        platform_root = base_dir / folder_name
-        tree = {
-            "text": platform_root / "Text",
-            "image": platform_root / "Image",
-            "video": platform_root / "Video",
-        }
-        for p in tree.values():
-            p.mkdir(parents=True, exist_ok=True)
-        out[key] = tree
-    return out
 
 
 def _ai_media_export_item_to_cusear(
@@ -2027,16 +2582,22 @@ def _ai_media_export_item_to_cusear(
     if not (image_src or video_src or caption or cap_image_src or cap_video_src or cap_generic_src):
         return item
 
-    base_dir = _cusear_media_root(
-        runtime_vars=runtime_vars,
-        workflow_name=workflow_name,
-        workflow_label=workflow_label,
-    )
-    platform_tree = _ensure_cusear_platform_tree(base_dir)
-    detected = [p for p in _detect_workflow_platforms(workflow_name) if p in platform_tree]
+    dl = _downloads_dir()
+    base_dir = vault_root(dl)
+    detected = [p for p in _detect_workflow_platforms(workflow_name) if p in PLATFORM_DIR]
     primary_key = detected[0] if detected else "instagram"
-    if primary_key not in platform_tree:
-        primary_key = next(iter(platform_tree.keys()), "instagram")
+    if primary_key not in PLATFORM_DIR:
+        primary_key = "instagram"
+    ensure_plan_vault(dl, "ai_pro", platform=primary_key, create_stubs=False)  # type: ignore[arg-type]
+    plat_label = PLATFORM_DIR[primary_key]  # type: ignore[index]
+    ai_base = vault_root(dl) / PLAN_DIR["ai_pro"] / plat_label
+    platform_tree: dict[str, dict[str, Path]] = {
+        primary_key: {
+            "text": ai_base / "Texts",
+            "image": ai_base / "Images",
+            "video": ai_base / "Videos",
+        }
+    }
 
     img_ext = (Path(image_src).suffix or ".png").lower() if image_src else ".png"
     vid_ext = (Path(video_src).suffix or ".mp4").lower() if video_src else ".mp4"
@@ -2084,82 +2645,58 @@ def _ai_media_export_item_to_cusear(
     return merged
 
 
-def _workflow_label_for_key(workflow_key: str) -> str:
-    key = str(workflow_key or "").strip()
-    if not key:
-        return ""
-    try:
-        p = WORKFLOWS_DIR / f"{key}.json"
-        if p.exists():
-            d = json.loads(p.read_text())
-            label = str(d.get("workflow_name") or "").strip()
-            if label:
-                return label
-    except Exception:
-        pass
-    return key
-
-
 def bootstrap_cusear_folders_on_desktop_launch() -> dict[str, Any]:
+    """Pre-create cusear platform folders under Downloads (see ``cusear.media_folders``)."""
+    return bootstrap_cusear_content_folders(
+        workflows_dir=WORKFLOWS_DIR,
+        bundles_dir=AR_BUNDLES_DIR,
+        base_downloads=_downloads_dir(),
+    )
+
+
+def _trainer_resolve_calendar_flow_workflow(workflow_key: str, bundle_slug: str = "") -> tuple[str, str, str]:
     """
-    Pre-create cusear platform/media folders on desktop app launch so users
-    can post without waiting for the first upload-marker binding.
+    Map ``workflow_key`` + optional ar™ ``bundle_slug`` to (flow_folder_label, workflow_display_label, bundle_slug_out).
+
+    If ``bundle_slug`` is set, workflow must appear in that bundle's children.
+
+    If not set, the first bundle containing this workflow wins; otherwise flow folder matches the standalone
+    workflow label (same as folder bootstrap).
     """
-    created_roots: set[str] = set()
-    pair_set: set[tuple[str, str]] = set()
-    try:
-        bundle_files = sorted(AR_BUNDLES_DIR.glob("*.json"))
-    except Exception:
-        bundle_files = []
-    for bfp in bundle_files:
-        try:
-            raw = json.loads(bfp.read_text())
-            bundle = _normalize_bundle(raw)
-        except Exception:
-            continue
-        flow_name = (
-            str(bundle.get("display_name") or "").strip()
-            or str(bundle.get("slug") or "").strip()
-            or bfp.stem
-        )
-        for child in (bundle.get("children") or []):
-            wf_key = str(child or "").strip()
-            if not wf_key:
+    wk = str(workflow_key or "").strip()
+    if not wk:
+        raise ValueError("workflow_name required")
+    if not (WORKFLOWS_DIR / f"{wk}.json").is_file():
+        raise ValueError(f"workflow '{wk}' was not found")
+    # Legacy: prior builds used a per-workflow folder label; the STORAGE vault is global now.
+    # Keep a human-friendly label for UI messages.
+    wf_disp = wk
+    bs_in = str(bundle_slug or "").strip()
+    if bs_in:
+        fp = _bundle_path(bs_in)
+        if not fp.is_file():
+            raise ValueError("ar™ routine not found")
+        with _BUNDLE_IO_LOCK:
+            bundle = _normalize_bundle(json.loads(fp.read_text()))
+        children = [str(x or "").strip() for x in (bundle.get("children") or []) if str(x or "").strip()]
+        if wk not in children:
+            raise ValueError("this workflow is not in that ar™")
+        slug_out = str(bundle.get("slug") or bs_in).strip()
+        flow = str(bundle.get("display_name") or bundle.get("slug") or bs_in).strip() or wf_disp
+        return flow, wf_disp, slug_out
+    with _BUNDLE_IO_LOCK:
+        for bfp in sorted(AR_BUNDLES_DIR.glob("*.json")):
+            try:
+                raw = _normalize_bundle(json.loads(bfp.read_text()))
+            except Exception:
                 continue
-            wf_label = _workflow_label_for_key(wf_key) or wf_key
-            pair_set.add((flow_name, wf_label))
-
-    try:
-        workflow_files = sorted(WORKFLOWS_DIR.glob("*.json"))
-    except Exception:
-        workflow_files = []
-    for wfp in workflow_files:
-        wf_key = wfp.stem
-        wf_label = _workflow_label_for_key(wf_key) or wf_key
-        # Manual runs without an AR bundle use workflow as flow fallback.
-        pair_set.add((wf_label, wf_label))
-
-    if not pair_set:
-        pair_set.add(("default_flow", "default_workflow"))
-
-    for flow_name, wf_label in sorted(pair_set):
-        rv = {
-            "CURRENT_AR_FLOW_NAME": str(flow_name or "").strip(),
-            "CURRENT_WORKFLOW_NAME": str(wf_label or "").strip(),
-        }
-        base = _cusear_media_root(
-            runtime_vars=rv,
-            workflow_name=str(wf_label or "").strip(),
-            workflow_label=str(wf_label or "").strip(),
-        )
-        _ensure_cusear_platform_tree(base)
-        created_roots.add(str(base.resolve()))
-
-    return {
-        "ok": True,
-        "roots_created": len(created_roots),
-        "sample_root": sorted(created_roots)[0] if created_roots else "",
-    }
+            children = [str(x or "").strip() for x in (raw.get("children") or []) if str(x or "").strip()]
+            if wk not in children:
+                continue
+            slug_out = str(raw.get("slug") or bfp.stem or "").strip()
+            flow = str(raw.get("display_name") or slug_out).strip() or wf_disp
+            return flow, wf_disp, slug_out
+    return wf_disp, wf_disp, ""
 
 
 def _preferred_media_kind_for_upload(step_desc: str, runtime_vars: dict[str, str]) -> str:
@@ -2383,6 +2920,7 @@ def _run_ai_media_job(job_id: str) -> None:
                 if media_type in ("image", "both"):
                     img_prompt = (
                         f"{base_prompt}\n\nTopic: {topic}\nCaption summary:\n{caption}\n\n"
+                        "Deliver as one **infographic** layout (hierarchy + bullets/steps), not a generic stock photo.\n"
                         f"{_ai_media_common_prompt_requirements()}"
                     ).strip()
                     img_asset = _generate_ai_image_asset_from_prompt(
@@ -2411,8 +2949,9 @@ def _run_ai_media_job(job_id: str) -> None:
                     try:
                         vid_prompt = (
                             f"{base_prompt}\n\nTopic: {topic}\nCaption summary:\n{caption}\n\n"
-                            f"{_ai_media_common_prompt_requirements()}\n"
-                            "Create a short vertical social video concept that matches this topic."
+                            "Create a **short vertical social video** (not an infographic slideshow or static chart tour). "
+                            "**People or stylized/cartoon characters** should clearly **do or explain** something tied to the topic; "
+                            "**hook hard in the first 1–2 seconds** so a LinkedIn scroller stops; lively, professional energy."
                         ).strip()
                         vid_asset = _generate_ai_video_asset_from_prompt(
                             prompt=vid_prompt,
@@ -2822,7 +3361,11 @@ def _run_media_preflight(auto: dict, *, topic_seed: str = "", industry: str = ""
         d["source_meta"]["video"] = "uploaded"
         if not str(d.get("image_asset_id") or "").strip():
             try:
-                asset = _generate_ai_image_asset(str(d.get("topic") or "").strip(), industry=str(plan.get("industry") or ""))
+                asset = _generate_ai_image_asset(
+                    str(d.get("topic") or "").strip(),
+                    industry=str(plan.get("industry") or ""),
+                    main_topic=seed,
+                )
                 d["image_asset_id"] = str(asset.get("id") or "")
                 d["source_meta"]["image"] = "ai"
             except Exception:
@@ -2858,7 +3401,7 @@ def _generate_campaign_day_content(auto: dict, day: dict, *, topic_seed: str = "
     if media_type in ("image", "mixed") and plan.get("image_source") == "ai":
         if _campaign_ai_images_enabled():
             try:
-                image_asset = _generate_ai_image_asset(topic, industry=industry)
+                image_asset = _generate_ai_image_asset(topic, industry=industry, main_topic=seed)
                 day["image_asset_id"] = str(image_asset.get("id") or "")
                 day["source_meta"]["image"] = "ai"
             except Exception:
@@ -5360,6 +5903,15 @@ def run_workflow(
             or "default_flow"
         ).strip(),
     )
+    try:
+        apply_calendar_runtime_tokens(
+            runtime_vars,
+            downloads_base=_downloads_dir(),
+            workflow_stem=str(name or "").strip(),
+            workflow_label=str(type_project_text or name or "").strip(),
+        )
+    except Exception as cal_err:
+        print(f"  ⚠ Could not resolve 30-day calendar paths: {cal_err}")
     runtime_vars.setdefault("RUN_SOURCE", (run_source or "manual_run"))
     _ar_seed_phone = _normalize_whatsapp_phone(str(runtime_vars.get("WHATSAPP_NOTIFY_PHONE") or ""))
     whatsapp_number_digits = (
@@ -5605,6 +6157,26 @@ def run_workflow(
                     f"  [DRY RUN] Step {step.get('step')}: best_ai_run_synthesizer — "
                     "OpenAI on bridge slots → synthesis in ui_bridge.json"
                 )
+            elif action == "upload":
+                cal_l = str(step.get("calendar_upload_layer") or "").strip().lower()
+                cal_p = str(step.get("calendar_asset_pick") or "auto").strip().lower()
+                day = str(runtime_vars.get("CURRENT_CALENDAR_DAY") or "").strip()
+                if cal_l in ("core", "hybrid", "ai"):
+                    mp, mk, cap_dr, _cp = select_calendar_asset_for_upload(
+                        runtime_vars,
+                        layer=cal_l,
+                        pick=cal_p,
+                    )
+                    clip = mp or ((cap_dr or "").strip())
+                    prev = (clip.replace("\n", " ").strip()[:120] + "…") if len(clip) > 120 else clip.replace("\n", " ").strip()
+                    print(
+                        f"  [DRY RUN] Step {step.get('step')}: upload — calendar {cal_l}/{cal_p} "
+                        f"day={day} → {mk or '?'} path/preview: {prev or '(nothing resolved)'}"
+                    )
+                else:
+                    print(
+                        f"  [DRY RUN] Step {step.get('step')}: upload — AI-media queue bind — day={day} — {desc}"
+                    )
             elif action == "press_space":
                 print(f"  [DRY RUN] Step {step.get('step')}: press_space — {desc}")
             else:
@@ -5736,6 +6308,12 @@ def run_workflow(
 
             if action == "upload":
                 # Upload marker: bind the next AI media pair so text/media don't cross-post.
+                cal_layer_u = str(step.get("calendar_upload_layer") or "").strip().lower()
+                cal_pick_u = str(step.get("calendar_asset_pick") or "auto").strip().lower()
+                if cal_pick_u not in ("auto", "image", "video", "text"):
+                    cal_pick_u = "auto"
+                use_calendar_bind = cal_layer_u in ("core", "hybrid", "ai")
+
                 bound_note = ""
                 wf_key = str(name or "").strip()
                 use_latest_downloads = False
@@ -5749,7 +6327,12 @@ def run_workflow(
                     )
                     # Production consumer build: always generate caption from user's per-workflow prompt.
                     consumer_prompt = ""
-                    if bool(_cusear_default_ar_slug()) and _is_consumer_mode() and bool(getattr(sys, "frozen", False)):
+                    if (
+                        bool(_cusear_default_ar_slug())
+                        and _is_consumer_mode()
+                        and bool(getattr(sys, "frozen", False))
+                        and not use_calendar_bind
+                    ):
                         consumer_prompt = _workflow_prompt_seed(wf_key)
                         if consumer_prompt:
                             try:
@@ -5778,6 +6361,112 @@ def run_workflow(
                         video_caption_path = ""
                         pref_kind = "image"
                         bound_note = f"Downloads→bound latest image: {image_path}"
+                    elif use_calendar_bind:
+                        media_path_c, media_kind_c, caption_c, caption_path_c = select_calendar_asset_for_upload(
+                            runtime_vars,
+                            layer=cal_layer_u,
+                            pick=cal_pick_u,
+                        )
+                        stem_key_map = {
+                            "core": "CALENDAR_CORE_STEM",
+                            "hybrid": "CALENDAR_HYBRID_STEM",
+                            "ai": "CALENDAR_AI_STEM",
+                        }
+                        stem_v = str(runtime_vars.get(stem_key_map.get(cal_layer_u, "")) or "").strip()
+
+                        if cal_pick_u == "image" and media_kind_c != "image":
+                            raise RuntimeError(
+                                f"Calendar upload: expected image for {stem_v} ({cal_layer_u}); "
+                                "add a .png/.jpg under Core|Hybrid|AI in your cusear Downloads folder."
+                            )
+                        if cal_pick_u == "video" and media_kind_c != "video":
+                            raise RuntimeError(
+                                f"Calendar upload: expected video for {stem_v} ({cal_layer_u}); "
+                                "add a .mp4 (or .mov) under the mode folder."
+                            )
+                        if cal_pick_u == "text" and not (caption_c or "").strip():
+                            raise RuntimeError(
+                                f"Calendar upload: expected caption .txt for {stem_v} ({cal_layer_u}); "
+                                "create the matching .txt stub with your copy."
+                            )
+
+                        if not media_path_c and media_kind_c != "text":
+                            raise RuntimeError(
+                                f"Calendar upload: no media for {cal_layer_u} "
+                                f"day {runtime_vars.get('CURRENT_CALENDAR_DAY', '?')} stem {stem_v!r} "
+                                f"(pick={cal_pick_u}). Fill Core/Hybrid/AI under Downloads/cusear/…"
+                            )
+                        if not media_path_c and media_kind_c == "text" and not (caption_c or "").strip():
+                            raise RuntimeError(
+                                f"Calendar upload: missing .txt for stem {stem_v!r} ({cal_layer_u})."
+                            )
+
+                        topic = (runtime_vars.get("CURRENT_TOPIC") or "").strip() or f"cusear {stem_v}"
+                        caption = (caption_c or "").strip()
+
+                        if media_kind_c == "text":
+                            media_kind = "text"
+                            media_path = ""
+                            image_path = ""
+                            video_path = ""
+                            caption_path = caption_path_c or ""
+                        elif media_kind_c == "video":
+                            video_path = media_path_c
+                            image_path = ""
+                            media_path = video_path
+                            media_kind = "video"
+                            caption_path = caption_path_c or ""
+                        else:
+                            image_path = media_path_c
+                            video_path = ""
+                            media_path = image_path
+                            media_kind = "image"
+                            caption_path = caption_path_c or ""
+
+                        runtime_vars["CURRENT_TOPIC"] = topic
+                        runtime_vars["CURRENT_CAPTION"] = caption
+                        runtime_vars["CURRENT_CAPTION_PATH"] = caption_path
+                        runtime_vars["CURRENT_IMAGE_PATH"] = image_path
+                        runtime_vars["CURRENT_VIDEO_PATH"] = video_path
+                        runtime_vars["CURRENT_MEDIA_PATH"] = media_path
+                        runtime_vars["CURRENT_MEDIA_KIND"] = media_kind
+                        runtime_vars["LAST_AI_MEDIA_TOPIC"] = topic
+                        runtime_vars["LAST_AI_MEDIA_CAPTION"] = caption
+
+                        if media_path:
+                            try:
+                                _copy_text_to_clipboard(media_path)
+                                runtime_vars["CURRENT_MEDIA_PATH_COPIED"] = "1"
+                            except Exception:
+                                runtime_vars["CURRENT_MEDIA_PATH_COPIED"] = "0"
+                        elif caption.strip():
+                            try:
+                                _copy_text_to_clipboard(caption.strip())
+                                runtime_vars["CURRENT_MEDIA_PATH_COPIED"] = "1"
+                            except Exception:
+                                runtime_vars["CURRENT_MEDIA_PATH_COPIED"] = "0"
+                        else:
+                            runtime_vars["CURRENT_MEDIA_PATH_COPIED"] = "0"
+
+                        mode_dir = {"core": "Core", "hybrid": "Hybrid", "ai": "AI"}.get(cal_layer_u, cal_layer_u)
+                        bound_note = (
+                            f"30-day calendar [{mode_dir}] pick={cal_pick_u} day="
+                            f"{runtime_vars.get('CURRENT_CALENDAR_DAY', '?')} stem={stem_v} "
+                            f"media={media_path or '(caption only)'} caption_file={caption_path or '(n/a)'}"
+                        )
+                        print(
+                            f"  ◆ Step {step.get('step')}: Upload — {desc} "
+                            f"(marker; {bound_note}. Use {{CURRENT_CAPTION}} / {{CURRENT_MEDIA_PATH}}.)"
+                        )
+                        results.append(
+                            _make_step_result(
+                                step_num=step.get("step"),
+                                action=action,
+                                status="ok",
+                                started_at_z=started_at_z,
+                            )
+                        )
+                        continue
                     else:
                         pref_kind = _preferred_media_kind_for_upload(desc, runtime_vars)
                         item = _ai_media_select_next_item(runtime_vars, preferred_kind=pref_kind)
@@ -6689,6 +7378,125 @@ def run_workflow(
     return results
 
 
+def run_wra_workflow(name: str, *, dry_run: bool, run_source: str) -> list[dict[str, Any]]:
+    """
+    WRA Engine v2 runner (Lucky → Agami → AHA™) wired into Trainer.
+
+    - dry_run=True  : run Lucky only (validation)
+    - dry_run=False : run full orchestrator (Lucky then Agami/AHA)
+    """
+    path = WORKFLOWS_DIR / f"{name}.json"
+    if not path.exists():
+        raise FileNotFoundError(f"Workflow '{name}' not found")
+    wf = json.loads(path.read_text())
+    try:
+        from agency_api.entitlements import assert_run_allowed_local
+
+        assert_run_allowed_local(workflow_name=name, run_mode="wra", wf=wf)
+    except PermissionError:
+        raise
+
+    started_at = _utc_now_z()
+    _wra_monitor_update(
+        running=True,
+        workflow_name=name,
+        lucky="NOT RUN",
+        agami="IDLE",
+        aha="IDLE",
+        signals=[{"t": started_at, "msg": "MOVE", "detail": "run started"}],
+        last_error="",
+        last_result=None,
+    )
+    try:
+        if dry_run:
+            from cusear.engine.lucky import Lucky as _Lucky
+            from cusear.engine.paths import WraPaths as _WraPaths
+
+            _wra_monitor_update(lucky="NOT RUN", agami="VALIDATING")
+            p = _WraPaths(root=str(BASE_DIR))
+            lucky = _Lucky(logs_dir=str(p.lucky_logs_dir))
+            rep = lucky.run(wf).to_dict()
+            status = "ok" if rep.get("signal") == "GREEN" else "error"
+            finished_at = _utc_now_z()
+            _wra_monitor_update(
+                running=False,
+                lucky="PASSED" if rep.get("signal") == "GREEN" else "FAILED",
+                agami="IDLE",
+                aha="IDLE",
+                last_result=rep,
+                signals=[
+                    {"t": finished_at, "msg": "DONE", "detail": f"Lucky signal={rep.get('signal')}"}
+                ],
+            )
+            return [
+                _audit_step(
+                    1,
+                    "wra_lucky",
+                    status,
+                    started_at,
+                    finished_at,
+                    error=rep.get("abort_reason", "") if status == "error" else "",
+                    detail=f"signal={rep.get('signal')} drift_entries={len(rep.get('drift_map') or [])}",
+                )
+            ]
+
+        # Live run: full orchestrator
+        from cusear.engine.wra_engine import run_wra as _run_wra
+
+        _wra_monitor_update(lucky="PASSED", agami="HEALING", aha="WAITING")
+        out = _run_wra(
+            repo_root=str(BASE_DIR),
+            workflow_path=str(path),
+            content_map={},
+            company_endpoint=(os.environ.get("COMPANY_ENDPOINT") or "").strip() or None,
+            enable_mouse_guard=True,
+            enable_focus_mode=True,
+        )
+        finished_at = _utc_now_z()
+        ok = bool(out.get("ok"))
+        session_path = str(out.get("session_path") or "")
+        reason = str(out.get("reason") or "")
+        _wra_monitor_update(
+            running=False,
+            lucky="PASSED" if (out.get("lucky_report") or {}).get("signal") == "GREEN" else "FAILED",
+            agami="IDLE" if ok else "ABORT",
+            aha="DONE" if ok else "TIMEOUT",
+            last_result=out,
+            last_error=reason if not ok else "",
+            signals=[{"t": finished_at, "msg": "DONE", "detail": "LANDED" if ok else reason}],
+        )
+        return [
+            _audit_step(
+                1,
+                "wra_lucky",
+                "ok" if (out.get("lucky_report") or {}).get("signal") == "GREEN" else "error",
+                started_at,
+                finished_at,
+                error=str((out.get("lucky_report") or {}).get("abort_reason") or ""),
+                detail="Lucky dry-run completed",
+            ),
+            _audit_step(
+                2,
+                "wra_runtime",
+                "ok" if ok else "error",
+                started_at,
+                finished_at,
+                error=reason,
+                detail=f"session_clone={session_path}" if session_path else "",
+            ),
+        ]
+    except Exception as exc:
+        finished_at = _utc_now_z()
+        _wra_monitor_update(
+            running=False,
+            agami="ABORT",
+            aha="TIMEOUT",
+            last_error=str(exc),
+            signals=[{"t": finished_at, "msg": "DONE", "detail": str(exc)}],
+        )
+        raise
+
+
 _CLICK_VISION_PROMPT = (
     "Return JSON only: {\"x\": <pixel_x>, \"y\": <pixel_y>, \"action\": \"click\", \"confidence\": <0-1>}\n"
     "x,y = center of the element to click. No markdown, no extra text."
@@ -6880,20 +7688,75 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         p = parsed.path
         qs = parse_qs(parsed.query or "")
-        if p in ("/", "/index.html"):
-            html = _STATIC_DIR / "TRAINER.html"
-            if not html.is_file():
-                html = BASE_DIR / "TRAINER.html"
-            body = html.read_bytes()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("Access-Control-Allow-Origin", "*")
-            # Always pick up latest TRAINER.html after git pull / edits (avoid stale disk cache).
-            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
-            self.send_header("Pragma", "no-cache")
-            self.end_headers()
-            self.wfile.write(body)
+        if p in ("/trainer", "/trainer/") or p == "/trainer.html":
+            tp = _trainer_html_path()
+            if not tp.is_file():
+                self._json({"error": "TRAINER.html not found"}, 404, no_cache=True)
+                return
+            _send_local_file(self, tp)
+            return
+        if p.startswith("/downloads/"):
+            rel = unquote(p[len("/downloads/") :].strip("/"))
+            if not rel or "/" in rel or "\\" in rel:
+                self.send_response(404)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(b"not found")
+                return
+            dl = _safe_leaf_file_under(DOWNLOADS_ROOT, rel)
+            if dl is None:
+                self.send_response(404)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(b"not found")
+                return
+            _send_local_file(self, dl)
+            return
+        ms = _marketing_site_root()
+        portal_leaf = unquote(p.lstrip("/"))
+        if ms is not None:
+            home = _marketing_home_file(ms)
+            content_root = _marketing_content_root(ms)
+            if p in ("/", "/index.html"):
+                if home is not None:
+                    _send_local_file(self, home)
+                    return
+                self.send_response(404)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(b"not found")
+                return
+            if portal_leaf:
+                mf = _safe_site_file_under(content_root, portal_leaf)
+                if mf is not None:
+                    _send_local_file(self, mf)
+                    return
+            # Marketing UX is active: never fall back to ``portal/`` or TRAINER for unknown paths.
+        pf: Optional[Path] = None
+        if ms is None and portal_leaf and "/" not in portal_leaf:
+            pf = _safe_leaf_file_under(PORTAL_ROOT, portal_leaf)
+        if ms is None and p in ("/", "/index.html"):
+            pix = PORTAL_ROOT / "index.html"
+            if pix.is_file():
+                _send_local_file(self, pix)
+                return
+            tp = _trainer_html_path()
+            if tp.is_file():
+                _send_local_file(self, tp)
+                return
+            self._json({"error": "no portal index and no trainer"}, 404, no_cache=True)
+            return
+        if pf is not None:
+            _send_local_file(self, pf)
+            return
+        elif p == "/app/version":
+            self._json(
+                {"version": _read_app_version(), "brand": "cusear™", "product": "Control Center"},
+                no_cache=True,
+            )
         elif p == "/health":
             try:
                 from agency_api.entitlements import enforcement_enabled
@@ -6936,6 +7799,51 @@ class Handler(BaseHTTPRequestHandler):
                 },
                 no_cache=True,
             )
+        elif p == "/wra/rekky/status":
+            with _WRA_REKKY_LOCK:
+                self._json(dict(_WRA_REKKY_STATUS), no_cache=True)
+        elif p == "/control/status":
+            ok_chrome = _control_chrome_ok()
+            ok_net, tot_net = _control_platform_reachability()
+            free_gb = _control_disk_free_gb()
+            perm = "Granted" if ok_chrome else "Required"
+            self._json(
+                {
+                    "chrome_connected": ok_chrome,
+                    "permissions": perm,
+                    "permissions_sub": _control_permissions_summary(),
+                    "network_online": ok_net > 0,
+                    "platform_reachability": f"{ok_net}/{tot_net} platforms",
+                    "disk_free_gb": free_gb,
+                    "engine_ready": not _CONTROL_ENGINE_STOP_REQUESTED,
+                },
+                no_cache=True,
+            )
+        elif p == "/control/engine/log":
+            try:
+                n = int((qs.get("lines") or ["20"])[0] or 20)
+            except ValueError:
+                n = 20
+            self._json({"lines": _control_engine_log_tail(n)}, no_cache=True)
+        elif p == "/control/activity/recent":
+            self._json({"items": _control_recent_runs(10)}, no_cache=True)
+        elif p == "/control/schedule/upcoming":
+            self._json({"items": _control_upcoming_scheduled()}, no_cache=True)
+        elif p == "/control/settings":
+            self._json({"settings": _load_control_settings()}, no_cache=True)
+        elif p == "/control/open-logs-folder":
+            # Desktop clients: returns path only (reveal in shell is OS-specific).
+            self._json({"path": str((BASE_DIR / "logs").resolve())}, no_cache=True)
+        elif p == "/wra/monitor":
+            with _WRA_MONITOR_LOCK:
+                mon = dict(_WRA_MONITOR)
+            mon["run_lock_busy"] = bool(_RUN_WORKFLOW_LOCK.locked())
+            self._json(mon, no_cache=True)
+        elif p == "/wra/last-lucky-report":
+            self._json({"report": dict(_LAST_LUCKY_REPORT) if _LAST_LUCKY_REPORT else None}, no_cache=True)
+        elif p == "/wra/lucky/job":
+            with _LUCKY_JOB_LOCK:
+                self._json(dict(_LUCKY_JOB_STATUS), no_cache=True)
         elif p == "/trainer/automation-summary":
             self._json(_trainer_automation_auto_run_summary(), no_cache=True)
         elif p == "/best-ai/job":
@@ -7035,10 +7943,164 @@ class Handler(BaseHTTPRequestHandler):
                     continue
                 try:
                     d = json.loads(f.read_text())
-                    wfs.append({"name": f.stem, "total_steps": d.get("total_steps", 0)})
+                    steps = d.get("steps") or []
+                    n = len(steps) if isinstance(steps, list) else int(d.get("total_steps") or 0)
+                    eng = _infer_workflow_engine(d)
+                    plat = str(d.get("platform") or "").strip()
+                    meta = _workflow_last_run_meta(f.stem)
+                    wfs.append(
+                        {
+                            "name": f.stem,
+                            "total_steps": n,
+                            "platform": plat,
+                            "engine": eng,
+                            "last_run": meta.get("last_run", ""),
+                            "last_result": meta.get("last_result", "never"),
+                            "last_ok": bool(meta.get("last_ok", False)),
+                            "rekky_enriched_at": str(d.get("rekky_enriched_at") or ""),
+                        }
+                    )
                 except Exception:
                     pass
             self._json({"workflows": wfs}, no_cache=True)
+        elif p == "/cusear/calendar-upload-info":
+            max_d = calendar_total_days_env()
+            plan_raw = str((qs.get("plan") or [""])[0] or "").strip().lower()
+            media_raw = str((qs.get("media") or [""])[0] or "").strip().lower()
+            platform_raw = str((qs.get("platform") or [""])[0] or "").strip().lower()
+            dl = _downloads_dir()
+            root = vault_root(dl).resolve()
+
+            def norm_plan(x: str) -> str:
+                t = (x or "").strip().lower().replace("-", "_").replace(" ", "_")
+                if t in ("core",):
+                    return "core"
+                if t in ("hybrid",):
+                    return "hybrid"
+                if t in ("ai_budget", "aibudget", "budget", "ai"):
+                    return "ai_budget"
+                if t in ("ai_pro", "aipro", "pro"):
+                    return "ai_pro"
+                return ""
+
+            def norm_media(x: str) -> str:
+                t = (x or "").strip().lower()
+                if t in ("text", "texts", "caption", "captions"):
+                    return "text"
+                if t in ("image", "images", "img"):
+                    return "image"
+                if t in ("video", "videos", "vid"):
+                    return "video"
+                return ""
+
+            plan_key = norm_plan(plan_raw)
+            media_key = norm_media(media_raw)
+            rel = ""
+            folder = root
+            if plan_key and media_key:
+                try:
+                    dest = slot_path(dl, plan=plan_key, media=media_key, day=1, platform=platform_raw or None)
+                    folder = dest.parent.resolve()
+                except Exception:
+                    folder = root
+            try:
+                rel = str(folder.relative_to(dl.resolve()))
+            except ValueError:
+                rel = str(folder)
+            self._json(
+                {
+                    "ok": True,
+                    "calendar_max_days": max_d,
+                    "downloads_root": str(dl),
+                    "vault_root": str(root),
+                    "relative_to_downloads": rel,
+                },
+                no_cache=True,
+            )
+        elif p == "/cusear/storage/slot-info":
+            plan_raw = str((qs.get("plan") or [""])[0] or "").strip().lower()
+            media_raw = str((qs.get("media") or [""])[0] or "").strip().lower()
+            platform_raw = str((qs.get("platform") or [""])[0] or "").strip().lower()
+            day_raw = str((qs.get("day") or [""])[0] or "1").strip()
+            try:
+                day = int(day_raw)
+            except ValueError:
+                day = 1
+
+            def norm_plan(x: str) -> str:
+                t = (x or "").strip().lower().replace("-", "_").replace(" ", "_")
+                if t in ("core",):
+                    return "core"
+                if t in ("hybrid",):
+                    return "hybrid"
+                if t in ("ai_budget", "aibudget", "budget", "ai"):
+                    return "ai_budget"
+                if t in ("ai_pro", "aipro", "pro"):
+                    return "ai_pro"
+                return ""
+
+            def norm_media(x: str) -> str:
+                t = (x or "").strip().lower()
+                if t in ("text", "texts"):
+                    return "text"
+                if t in ("image", "images"):
+                    return "image"
+                if t in ("video", "videos"):
+                    return "video"
+                return ""
+
+            plan = norm_plan(plan_raw)
+            media = norm_media(media_raw)
+            if plan not in ("core", "hybrid", "ai_budget", "ai_pro") or media not in ("text", "image", "video"):
+                self._json({"error": "plan + media required"}, 400, no_cache=True)
+                return
+            if day < 1 or day > calendar_total_days_env():
+                self._json({"error": f"day must be 1..{calendar_total_days_env()}"}, 400, no_cache=True)
+                return
+            if plan == "ai_pro" and platform_raw not in PLATFORM_DIR:
+                self._json({"error": "platform required for AI Pro"}, 400, no_cache=True)
+                return
+            dl = _downloads_dir()
+            _cusear_ensure_storage_plan(dl, plan, platform_raw)
+            dest = slot_path(dl, plan=plan, media=media, day=day, platform=(platform_raw or None))
+            exists = dest.exists() and dest.is_file()
+            size = dest.stat().st_size if exists else 0
+            preview = ""
+            if exists and media == "text":
+                try:
+                    preview = dest.read_text(encoding="utf-8", errors="replace")[:4000]
+                except Exception:
+                    preview = ""
+            try:
+                rel = str(dest.resolve().relative_to(dl.resolve()))
+            except ValueError:
+                rel = str(dest.resolve())
+            self._json(
+                {
+                    "ok": True,
+                    "plan": plan,
+                    "media": media,
+                    "platform": platform_raw,
+                    "day": day,
+                    "path": str(dest.resolve()),
+                    "relative_to_downloads": rel,
+                    "exists": bool(exists),
+                    "size_bytes": int(size),
+                    "preview": preview,
+                },
+                no_cache=True,
+            )
+        elif p == "/cusear/storage/ai-ready":
+            self._json(
+                {
+                    "ok": True,
+                    "openai_configured": _openai_api_key_configured(),
+                },
+                no_cache=True,
+            )
+        elif p == "/cusear/storage/legacy-list":
+            dl = _downloads_dir()
+            self._json(list_cusear_legacy_top_level(dl), no_cache=True)
         elif p == "/consumer/prompts":
             slug = _cusear_default_ar_slug() if _is_consumer_mode() else ""
             if not slug:
@@ -7240,6 +8302,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         import traceback
+
+        global _CONTROL_ENGINE_STOP_REQUESTED
         p       = self.path.split("?")[0]
         length  = int(self.headers.get("Content-Length", 0))
         body    = self.rfile.read(length)
@@ -7249,7 +8313,25 @@ class Handler(BaseHTTPRequestHandler):
         locked_consumer_ui = bool(locked_slug)
         if locked_consumer_ui:
             # Single-AR consumer exports: allow schedule time + STOP + prompt editing (no steps exposed).
-            allowed = {"/bundle", "/run/stop", "/permissions/trial", "/consumer/prompts", "/consumer/topics/regenerate"}
+            allowed = {
+                "/bundle",
+                "/run/stop",
+                "/permissions/trial",
+                "/consumer/prompts",
+                "/consumer/topics/regenerate",
+                "/cusear/save-calendar-media",
+                "/cusear/storage/init",
+                "/cusear/storage/ensure-plan",
+                "/cusear/storage/legacy-list",
+                "/cusear/storage/cleanup-legacy",
+                "/cusear/storage/upload-slot",
+                "/cusear/storage/set-text",
+                "/cusear/storage/ai-ready",
+                "/cusear/storage/topics",
+                "/cusear/storage/generate-seq",
+                "/cusear/storage/generate-slot",
+                "/cusear/storage/hybrid/generate-texts",
+            }
             if p not in allowed:
                 self._json({"error": "locked consumer build: editing is disabled"}, 403, no_cache=True)
                 return
@@ -7376,6 +8458,17 @@ class Handler(BaseHTTPRequestHandler):
                 if action_type == "shell" and not shell_cmd:
                     self._json({"error": "shell_command required for shell action"}, 400); return
 
+                cal_layer_raw = fields.get("calendar_upload_layer", "")
+                calendar_upload_layer = (
+                    str(cal_layer_raw or "").strip().lower() if isinstance(cal_layer_raw, str) else ""
+                )
+                cal_pick_raw = fields.get("calendar_asset_pick", "auto")
+                calendar_asset_pick = (
+                    str(cal_pick_raw or "").strip().lower() if isinstance(cal_pick_raw, str) else "auto"
+                )
+                if calendar_asset_pick not in ("auto", "image", "video", "text"):
+                    calendar_asset_pick = "auto"
+
                 hk_list_for_step: Optional[list[str]] = None
                 if action_type == "hotkey":
                     raw_hk = fields.get("hotkey_keys_json", "")
@@ -7461,6 +8554,12 @@ class Handler(BaseHTTPRequestHandler):
                     elif action_type == "upload":
                         note = description.strip()
                         step["description"] = (note or "Upload (manual)")[:220]
+                        if calendar_upload_layer in ("core", "hybrid", "ai"):
+                            step["calendar_upload_layer"] = calendar_upload_layer
+                            step["calendar_asset_pick"] = calendar_asset_pick
+                        else:
+                            step.pop("calendar_upload_layer", None)
+                            step.pop("calendar_asset_pick", None)
                     elif action_type in ("ai_type", "ai_image"):
                         step["ai_prompt"] = ai_prompt
                         if ai_model:
@@ -7801,6 +8900,21 @@ class Handler(BaseHTTPRequestHandler):
                     if action_type == "shell" and not shell_cmd:
                         self._json({"error": "shell_command required for shell action"}, 400); return
 
+                    cal_layer_raw_u = fields.get("calendar_upload_layer", old.get("calendar_upload_layer", ""))
+                    calendar_upload_layer_u = (
+                        str(cal_layer_raw_u or "").strip().lower()
+                        if isinstance(cal_layer_raw_u, str)
+                        else ""
+                    )
+                    cal_pick_raw_u = fields.get("calendar_asset_pick", old.get("calendar_asset_pick", "auto"))
+                    calendar_asset_pick_u = (
+                        str(cal_pick_raw_u or "").strip().lower()
+                        if isinstance(cal_pick_raw_u, str)
+                        else "auto"
+                    )
+                    if calendar_asset_pick_u not in ("auto", "image", "video", "text"):
+                        calendar_asset_pick_u = "auto"
+
                     hk_list_for_step: Optional[list[str]] = None
                     if action_type == "hotkey":
                         raw_hk = fields.get("hotkey_keys_json", "")
@@ -7841,6 +8955,12 @@ class Handler(BaseHTTPRequestHandler):
                     elif action_type == "upload":
                         note = description.strip()
                         step["description"] = (note or "Upload (manual)")[:220]
+                        if calendar_upload_layer_u in ("core", "hybrid", "ai"):
+                            step["calendar_upload_layer"] = calendar_upload_layer_u
+                            step["calendar_asset_pick"] = calendar_asset_pick_u
+                        else:
+                            step.pop("calendar_upload_layer", None)
+                            step.pop("calendar_asset_pick", None)
                     elif action_type in ("ai_type", "ai_image"):
                         step["ai_prompt"] = ai_prompt
                         if ai_model:
@@ -8739,6 +9859,68 @@ class Handler(BaseHTTPRequestHandler):
                 traceback.print_exc()
                 self._json({"error": str(e)}, 500)
 
+        # ── REORDER STEPS (Step Builder drag-and-drop; renumbers step field 1..n) ─
+        elif p.startswith("/workflow/") and p.endswith("/reorder"):
+            try:
+                wf_name = unquote(p[len("/workflow/") : -len("/reorder")]).strip("/")
+                if not wf_name:
+                    self._json({"error": "workflow name required in URL"}, 400)
+                    return
+                payload = json.loads(body.decode("utf-8") or "{}")
+                order = payload.get("order") if isinstance(payload, dict) else None
+                if not isinstance(order, list) or not order:
+                    self._json({"error": "order must be a non-empty list of step numbers"}, 400)
+                    return
+                fp = WORKFLOWS_DIR / f"{wf_name}.json"
+                if not fp.is_file():
+                    self._json({"error": "workflow not found"}, 404)
+                    return
+                with _WORKFLOW_IO_LOCK:
+                    wf = json.loads(fp.read_text(encoding="utf-8"))
+                    steps = wf.get("steps")
+                    if not isinstance(steps, list):
+                        self._json({"error": "invalid workflow steps"}, 400)
+                        return
+                    by_num: dict[int, dict[str, Any]] = {}
+                    for s in steps:
+                        if not isinstance(s, dict):
+                            continue
+                        try:
+                            sn = int(s.get("step"))
+                        except (TypeError, ValueError):
+                            continue
+                        by_num[sn] = s
+                    new_steps: list[dict[str, Any]] = []
+                    seen: set[int] = set()
+                    for raw_n in order:
+                        try:
+                            n = int(raw_n)
+                        except (TypeError, ValueError):
+                            self._json({"error": f"invalid step number in order: {raw_n!r}"}, 400)
+                            return
+                        if n in seen:
+                            self._json({"error": f"duplicate step {n} in order"}, 400)
+                            return
+                        seen.add(n)
+                        if n not in by_num:
+                            self._json({"error": f"step {n} not in workflow"}, 400)
+                            return
+                        new_steps.append(by_num[n])
+                    if len(new_steps) != len(by_num):
+                        self._json({"error": "order must include every step exactly once"}, 400)
+                        return
+                    for i, st in enumerate(new_steps, 1):
+                        st["step"] = i
+                    wf["steps"] = new_steps
+                    wf["total_steps"] = len(new_steps)
+                    fp.write_text(json.dumps(wf, indent=2), encoding="utf-8")
+                self._json({"success": True, "total_steps": len(new_steps)})
+            except json.JSONDecodeError:
+                self._json({"error": "invalid JSON"}, 400)
+            except Exception as e:
+                traceback.print_exc()
+                self._json({"error": str(e)}, 500)
+
         # ── RENAME WORKFLOW (new filename; steps and automation data unchanged) ─
         elif p.startswith("/workflow/") and p.endswith("/rename"):
             try:
@@ -9333,7 +10515,7 @@ class Handler(BaseHTTPRequestHandler):
                 name    = data.get("workflow_name", "")
                 dry_run = data.get("dry_run", False)
                 mode    = str(data.get("mode", "smart") or "smart").strip().lower()
-                if mode not in ("fast", "smart"):
+                if mode not in ("fast", "smart", "wra"):
                     mode = "smart"
                 if not name:
                     self._json({"error": "workflow_name required"}, 400); return
@@ -9341,7 +10523,10 @@ class Handler(BaseHTTPRequestHandler):
                     self._json({"error": "another workflow run is already in progress"}, 409); return
                 _RUN_STOP_EVENT.clear()
                 try:
-                    results = run_workflow(name, dry_run=dry_run, run_mode=mode, run_source="manual_run")
+                    if mode == "wra":
+                        results = run_wra_workflow(name, dry_run=bool(dry_run), run_source="manual_run")
+                    else:
+                        results = run_workflow(name, dry_run=dry_run, run_mode=mode, run_source="manual_run")
                     audit_path = save_run_audit(name, bool(dry_run), results)
                     if not _stop_requested():
                         _send_whatsapp_run_notification(
@@ -9387,6 +10572,815 @@ class Handler(BaseHTTPRequestHandler):
                             error=str(e),
                         )
                 self._json({"error": str(e)}, 500)
+
+        elif p == "/control/engine/start":
+            _CONTROL_ENGINE_STOP_REQUESTED = False
+            _control_append_engine_log("Start Engine (Control Center).")
+            self._json({"success": True, "engine_ready": True})
+        elif p == "/control/engine/stop":
+            _CONTROL_ENGINE_STOP_REQUESTED = True
+            _control_append_engine_log("Stop Engine (Control Center).")
+            self._json({"success": True, "engine_ready": False})
+        elif p == "/control/settings":
+            try:
+                payload = json.loads(body or b"{}")
+            except Exception:
+                self._json({"error": "invalid JSON"}, 400)
+                return
+            cur = _load_control_settings()
+            incoming = payload.get("settings") if isinstance(payload.get("settings"), dict) else payload
+            if isinstance(incoming, dict):
+                for k, v in incoming.items():
+                    if k in cur or k in _control_default_settings():
+                        cur[k] = v
+            _save_control_settings(cur)
+            _apply_control_center_paths()
+            self._json({"success": True, "settings": _load_control_settings()})
+        elif p == "/wra/lucky/cancel":
+            _LUCKY_CANCEL.set()
+            self._json({"success": True, "cancel_requested": True})
+        elif p == "/wra/lucky/run":
+            try:
+                payload = json.loads(body or b"{}")
+            except Exception:
+                self._json({"error": "invalid JSON"}, 400)
+                return
+            wf_name = str(payload.get("workflow_name") or "").strip()
+            if not wf_name:
+                self._json({"error": "workflow_name required"}, 400)
+                return
+            path = WORKFLOWS_DIR / f"{wf_name}.json"
+            if not path.exists():
+                self._json({"error": "workflow not found"}, 404)
+                return
+            with _LUCKY_JOB_LOCK:
+                if _LUCKY_JOB_STATUS.get("running"):
+                    self._json({"error": "Lucky run already in progress"}, 409)
+                    return
+                _LUCKY_CANCEL.clear()
+                _LUCKY_JOB_STATUS.update({"running": True, "error": "", "report": None})
+
+            def _lucky_thread() -> None:
+                global _LAST_LUCKY_REPORT  # noqa: PLW0603
+                try:
+                    wf = json.loads(path.read_text(encoding="utf-8"))
+                    from cusear.engine.lucky import Lucky as _Lucky
+                    from cusear.engine.paths import WraPaths as _WraPaths
+
+                    pr = _WraPaths(root=str(BASE_DIR))
+                    rep = _Lucky(logs_dir=str(pr.lucky_logs_dir), stop_event=_LUCKY_CANCEL).run(wf).to_dict()
+                    _LAST_LUCKY_REPORT = rep
+                    with _LUCKY_JOB_LOCK:
+                        _LUCKY_JOB_STATUS.update({"running": False, "error": "", "report": rep})
+                except Exception as exc:
+                    with _LUCKY_JOB_LOCK:
+                        _LUCKY_JOB_STATUS.update({"running": False, "error": str(exc), "report": None})
+
+            threading.Thread(target=_lucky_thread, daemon=True).start()
+            self._json({"success": True, "started": True})
+        elif p == "/export/workflow-encrypted":
+            try:
+                payload = json.loads(body.decode("utf-8") or "{}")
+            except Exception:
+                self._json({"error": "invalid JSON"}, 400)
+                return
+            wf_name = str(payload.get("workflow_name") or "").strip()
+            if not wf_name:
+                self._json({"error": "workflow_name required"}, 400)
+                return
+            fp = WORKFLOWS_DIR / f"{wf_name}.json"
+            if not fp.is_file():
+                self._json({"error": "workflow not found"}, 404)
+                return
+            try:
+                from security.license import get_machine_id
+                from security.workflow_crypto import encrypt_workflow
+
+                wf_obj = json.loads(fp.read_text(encoding="utf-8"))
+                blob = encrypt_workflow(wf_obj, get_machine_id())
+            except Exception as e:
+                self._json({"error": str(e)}, 500)
+                return
+            safe_fn = re.sub(r"[^\w.\-]+", "_", wf_name).strip("._-") or "workflow"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(len(blob)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Disposition", f'attachment; filename="{safe_fn}.cusear.enc"')
+            self.send_header("Cache-Control", "no-store, must-revalidate")
+            self.end_headers()
+            self.wfile.write(blob)
+        elif p == "/wra/rekky/start":
+            try:
+                payload = json.loads(body or b"{}")
+            except Exception:
+                self._json({"error": "invalid JSON"}, 400)
+                return
+            wf_name = str(payload.get("workflow_name") or "").strip()
+            platform_name = str(payload.get("platform") or "").strip()
+            url = str(payload.get("url") or "").strip()
+            per_keypress = payload.get("per_keypress")
+            if per_keypress is None:
+                batch_tabs = bool(payload.get("batch_tabs", False))
+            else:
+                batch_tabs = not bool(per_keypress)
+            if not wf_name or not platform_name or not url:
+                self._json({"error": "workflow_name, platform, url are required"}, 400)
+                return
+            with _WRA_REKKY_LOCK:
+                if _WRA_REKKY_STATUS.get("running"):
+                    self._json({"error": "Rekky already running"}, 409)
+                    return
+                _WRA_REKKY_STOP.clear()
+                _WRA_REKKY_STATUS.update(
+                    {
+                        "running": True,
+                        "mode": "record",
+                        "workflow_name": wf_name,
+                        "error": "",
+                        "saved_path": "",
+                        "enrich_path": "",
+                        "enrich_report": {},
+                    }
+                )
+
+                def _run():
+                    try:
+                        from cusear.engine.rekky import start_rekky_recording
+
+                        wf = start_rekky_recording(
+                            workflow_name=wf_name,
+                            platform=platform_name,
+                            url=url,
+                            workflows_dir=str(WORKFLOWS_DIR),
+                            stop_event=_WRA_REKKY_STOP,
+                            batch_tabs=batch_tabs,
+                        )
+                        saved = str(WORKFLOWS_DIR / f"{wf.get('workflow_name')}.json")
+                        with _WRA_REKKY_LOCK:
+                            _WRA_REKKY_STATUS.update(
+                                {"running": False, "mode": "", "saved_path": saved, "error": "", "enrich_report": {}}
+                            )
+                    except Exception as exc:
+                        with _WRA_REKKY_LOCK:
+                            _WRA_REKKY_STATUS.update({"running": False, "mode": "", "error": str(exc)})
+
+                global _WRA_REKKY_THREAD
+                _WRA_REKKY_THREAD = threading.Thread(target=_run, daemon=True)
+                _WRA_REKKY_THREAD.start()
+            self._json({"success": True, "running": True, "workflow_name": wf_name})
+
+        elif p == "/wra/rekky/stop":
+            with _WRA_REKKY_LOCK:
+                if not _WRA_REKKY_STATUS.get("running"):
+                    self._json({"success": True, "running": False})
+                    return
+                _WRA_REKKY_STOP.set()
+            self._json({"success": True, "running": False})
+
+        elif p == "/wra/rekky/enrich":
+            if self.command != "POST":
+                self._json({"error": "POST required"}, 405)
+                return
+            try:
+                payload = json.loads(body or b"{}")
+            except Exception:
+                self._json({"error": "invalid JSON"}, 400)
+                return
+            wf_name = str(payload.get("workflow_name") or "").strip()
+            if not wf_name:
+                self._json({"error": "workflow_name required"}, 400)
+                return
+            fp = WORKFLOWS_DIR / f"{wf_name}.json"
+            if not fp.is_file():
+                self._json({"error": "workflow not found"}, 404)
+                return
+            wf_path_str = str(fp.resolve())
+            with _WRA_REKKY_LOCK:
+                if _WRA_REKKY_STATUS.get("running"):
+                    self._json({"error": "Rekky already running"}, 409)
+                    return
+                _WRA_REKKY_STATUS.update(
+                    {
+                        "running": True,
+                        "mode": "enrich",
+                        "workflow_name": wf_name,
+                        "error": "",
+                        "saved_path": "",
+                        "enrich_path": wf_path_str,
+                        "enrich_report": {},
+                    }
+                )
+
+                def _run_enrich():
+                    try:
+                        from cusear.engine.rekky import enrich_workflow
+
+                        rep = enrich_workflow(wf_path_str)
+                        with _WRA_REKKY_LOCK:
+                            _WRA_REKKY_STATUS.update(
+                                {
+                                    "running": False,
+                                    "mode": "",
+                                    "saved_path": wf_path_str,
+                                    "enrich_report": rep,
+                                    "error": "",
+                                }
+                            )
+                    except Exception as exc:
+                        with _WRA_REKKY_LOCK:
+                            _WRA_REKKY_STATUS.update({"running": False, "mode": "", "error": str(exc), "enrich_report": {}})
+
+                threading.Thread(target=_run_enrich, daemon=True).start()
+
+            self._json({"success": True, "started": True, "workflow_name": wf_name})
+
+        elif p == "/cusear/save-calendar-media":
+            if self.command != "POST":
+                self._json({"error": "POST required"}, 405)
+                return
+            try:
+                bnd = re.search(r"boundary=([^\s;]+)", ct)
+                if not bnd:
+                    self._json({"error": "no boundary"}, 400)
+                    return
+                fields = parse_multipart(body, bnd.group(1))
+                layer = str(fields.get("calendar_layer") or "").strip().lower()
+                slot_kind = str(fields.get("slot_kind") or "auto").strip().lower()
+                file_items = []
+                for fk in ("media", "file", "upload"):
+                    lst = fields.get(fk)
+                    if isinstance(lst, list):
+                        file_items.extend(lst)
+                if layer not in ("core", "hybrid", "ai"):
+                    self._json({"error": "calendar_layer must be core, hybrid, or ai"}, 400)
+                    return
+                if slot_kind not in ("auto", "image", "video", "text"):
+                    slot_kind = "auto"
+                if not file_items:
+                    self._json({"error": "no file uploaded"}, 400)
+                    return
+                try:
+                    single_day = int(str(fields.get("calendar_day") or "1").strip())
+                except (TypeError, ValueError):
+                    single_day = 1
+                try:
+                    start_raw = str(fields.get("calendar_start_day") or "").strip()
+                    start_day = int(start_raw) if start_raw else single_day
+                except (TypeError, ValueError):
+                    start_day = single_day
+                max_d = calendar_total_days_env()
+                dl = _downloads_dir()
+                saved_rows: list[dict[str, Any]] = []
+                if len(file_items) == 1:
+                    day_plan = [single_day]
+                else:
+                    day_plan = list(range(start_day, start_day + len(file_items)))
+                    if day_plan[-1] > max_d:
+                        self._json(
+                            {
+                                "error": (
+                                    f"bulk upload exceeds calendar length "
+                                    f"(last day would be {day_plan[-1]}; max {max_d})"
+                                )
+                            },
+                            400,
+                        )
+                        return
+                for idx, fi in enumerate(file_items):
+                    d_day = day_plan[idx]
+                    data_blob = fi.get("data") or b""
+                    if not isinstance(data_blob, (bytes, bytearray)) or len(data_blob) < 1:
+                        self._json({"error": f"empty file at index {idx}"}, 400)
+                        return
+                    fn_src = str(fi.get("filename") or "").strip()
+                    ctype_src = str(fi.get("content_type") or "").strip()
+                    try:
+                        row = write_calendar_slot_media(
+                            dl,
+                            flow_label="",
+                            workflow_key="",
+                            workflow_display="",
+                            layer_key=layer,
+                            day=d_day,
+                            slot_kind=slot_kind or "auto",
+                            data=bytes(data_blob),
+                            original_filename=fn_src,
+                            content_type=ctype_src,
+                        )
+                    except ValueError as ve:
+                        self._json({"error": str(ve)}, 400)
+                        return
+                    saved_rows.append(row)
+                self._json(
+                    {
+                        "ok": True,
+                        "saved": saved_rows,
+                        "calendar_max_days": max_d,
+                        "vault_root": str(vault_root(dl).resolve()),
+                    },
+                    no_cache=True,
+                )
+            except Exception as exc:
+                traceback.print_exc()
+                self._json({"ok": False, "error": str(exc)}, 500, no_cache=True)
+
+        elif p == "/cusear/storage/init":
+            if self.command != "POST":
+                self._json({"error": "POST required"}, 405)
+                return
+            try:
+                dl = _downloads_dir()
+                payload: dict[str, Any] = {}
+                try:
+                    raw = body.decode("utf-8") if body else ""
+                    if raw.strip():
+                        parsed = json.loads(raw)
+                        if isinstance(parsed, dict):
+                            payload = parsed
+                except Exception:
+                    payload = {}
+                layout_raw = str(payload.get("layout") or payload.get("mode") or "").strip().lower()
+                layout = "full" if layout_raw in ("full", "all") else "minimal"
+                if (os.environ.get("CUSEAR_STORAGE_LAYOUT") or "").strip().lower() in ("full", "all", "1", "true", "yes"):
+                    layout = "full"
+                self._json(bootstrap_storage_vault(dl, layout=layout), no_cache=True)
+            except Exception as exc:
+                self._json({"ok": False, "error": str(exc)}, 500, no_cache=True)
+
+        elif p == "/cusear/storage/ensure-plan":
+            if self.command != "POST":
+                self._json({"error": "POST required"}, 405)
+                return
+            try:
+                payload = json.loads(body.decode("utf-8") or "{}")
+                if not isinstance(payload, dict):
+                    self._json({"error": "invalid payload"}, 400)
+                    return
+                plan_raw = str(payload.get("plan") or "").strip().lower()
+                platform_raw = str(payload.get("platform") or "").strip().lower()
+                plan = _cusear_storage_norm_plan(plan_raw)
+                if plan not in ("core", "hybrid", "ai_budget", "ai_pro"):
+                    self._json({"error": "plan must be core, hybrid, ai_budget, or ai_pro"}, 400)
+                    return
+                if plan == "ai_pro" and platform_raw not in PLATFORM_DIR:
+                    self._json({"error": "platform required for AI Pro"}, 400)
+                    return
+                dl = _downloads_dir()
+                if plan == "ai_pro":
+                    d = ensure_plan_vault(dl, "ai_pro", platform=platform_raw)  # type: ignore[arg-type]
+                else:
+                    d = ensure_plan_vault(dl, plan)  # type: ignore[arg-type]
+                self._json({"ok": True, **d}, no_cache=True)
+            except Exception as exc:
+                traceback.print_exc()
+                self._json({"ok": False, "error": str(exc)}, 500, no_cache=True)
+
+        elif p == "/cusear/storage/cleanup-legacy":
+            if self.command != "POST":
+                self._json({"error": "POST required"}, 405)
+                return
+            try:
+                payload = json.loads(body.decode("utf-8") or "{}")
+                if not isinstance(payload, dict):
+                    self._json({"error": "invalid payload"}, 400)
+                    return
+                if not bool(payload.get("confirm")):
+                    self._json({"error": 'Set "confirm": true to remove legacy folders'}, 400)
+                    return
+                raw_names = payload.get("names")
+                names: list[str] | None = None
+                if isinstance(raw_names, list) and raw_names:
+                    names = [str(x).strip() for x in raw_names if str(x).strip()]
+                dl = _downloads_dir()
+                self._json(cleanup_cusear_legacy_top_level(dl, names=names), no_cache=True)
+            except Exception as exc:
+                traceback.print_exc()
+                self._json({"ok": False, "error": str(exc)}, 500, no_cache=True)
+
+        elif p == "/cusear/storage/upload-slot":
+            if self.command != "POST":
+                self._json({"error": "POST required"}, 405)
+                return
+            try:
+                bnd = re.search(r"boundary=([^\s;]+)", ct)
+                if not bnd:
+                    self._json({"error": "no boundary"}, 400)
+                    return
+                fields = parse_multipart(body, bnd.group(1))
+                plan_raw = str(fields.get("plan") or "").strip().lower()
+                media_raw = str(fields.get("media_kind") or fields.get("kind") or "").strip().lower()
+                if not media_raw:
+                    mv = fields.get("media")
+                    media_raw = str(mv or "").strip().lower() if not isinstance(mv, list) else ""
+                platform_raw = str(fields.get("platform") or "").strip().lower()
+                try:
+                    day = int(str(fields.get("day") or "1").strip())
+                except (TypeError, ValueError):
+                    day = 1
+                file_items: list[dict[str, Any]] = []
+                for fk in ("media", "file", "upload"):
+                    lst = fields.get(fk)
+                    if isinstance(lst, list):
+                        file_items.extend(lst)
+                if not file_items:
+                    self._json({"error": "no file uploaded"}, 400)
+                    return
+
+                def norm_plan(x: str) -> str:
+                    t = (x or "").strip().lower().replace("-", "_").replace(" ", "_")
+                    if t in ("core",):
+                        return "core"
+                    if t in ("hybrid",):
+                        return "hybrid"
+                    if t in ("ai_budget", "aibudget", "budget", "ai"):
+                        return "ai_budget"
+                    if t in ("ai_pro", "aipro", "pro"):
+                        return "ai_pro"
+                    return ""
+
+                def norm_media(x: str) -> str:
+                    t = (x or "").strip().lower()
+                    if t in ("text", "texts", "caption", "captions"):
+                        return "text"
+                    if t in ("image", "images", "img"):
+                        return "image"
+                    if t in ("video", "videos", "vid"):
+                        return "video"
+                    return ""
+
+                plan = norm_plan(plan_raw)
+                media = norm_media(media_raw)
+                if plan not in ("core", "hybrid", "ai_budget", "ai_pro"):
+                    self._json({"error": "plan must be Core, Hybrid, AI Budget, or AI Pro"}, 400)
+                    return
+                if media not in ("text", "image", "video"):
+                    self._json({"error": "media must be Texts, Images, or Videos"}, 400)
+                    return
+                if day < 1 or day > calendar_total_days_env():
+                    self._json({"error": f"day must be 1..{calendar_total_days_env()}"}, 400)
+                    return
+                if plan == "ai_pro" and platform_raw not in PLATFORM_DIR:
+                    self._json({"error": "platform required for AI Pro (facebook/linkedin/instagram/x/whatsapp)"}, 400)
+                    return
+
+                fi = file_items[0]
+                data_blob = fi.get("data") or b""
+                if not isinstance(data_blob, (bytes, bytearray)) or len(data_blob) < 1:
+                    self._json({"error": "uploaded file is empty"}, 400)
+                    return
+                dl = _downloads_dir()
+                _cusear_ensure_storage_plan(dl, plan, platform_raw)
+                dest = slot_path(
+                    dl,
+                    plan=plan,
+                    media=media,
+                    day=day,
+                    platform=(platform_raw or None),
+                )
+                from cusear.storage_vault import atomic_write_bytes as _awb
+
+                _awb(dest, bytes(data_blob))
+                self._json(
+                    {
+                        "ok": True,
+                        "path": str(dest.resolve()),
+                        "relative_to_downloads": _rel_under_downloads(dl, dest),
+                        "plan": plan,
+                        "media": media,
+                        "platform": platform_raw,
+                        "day": day,
+                        "size_bytes": int(dest.stat().st_size) if dest.exists() else 0,
+                    },
+                    no_cache=True,
+                )
+            except Exception as exc:
+                traceback.print_exc()
+                self._json({"ok": False, "error": str(exc)}, 500, no_cache=True)
+
+        elif p == "/cusear/storage/set-text":
+            if self.command != "POST":
+                self._json({"error": "POST required"}, 405)
+                return
+            try:
+                payload = json.loads(body.decode("utf-8") or "{}")
+                if not isinstance(payload, dict):
+                    self._json({"error": "invalid payload"}, 400)
+                    return
+                plan_raw = str(payload.get("plan") or "").strip().lower()
+                platform_raw = str(payload.get("platform") or "").strip().lower()
+                text = str(payload.get("text") or "")
+                try:
+                    day = int(str(payload.get("day") or "1").strip())
+                except (TypeError, ValueError):
+                    day = 1
+
+                def norm_plan(x: str) -> str:
+                    t = (x or "").strip().lower().replace("-", "_").replace(" ", "_")
+                    if t in ("core",):
+                        return "core"
+                    if t in ("hybrid",):
+                        return "hybrid"
+                    if t in ("ai_budget", "aibudget", "budget", "ai"):
+                        return "ai_budget"
+                    if t in ("ai_pro", "aipro", "pro"):
+                        return "ai_pro"
+                    return ""
+
+                plan = norm_plan(plan_raw)
+                if plan not in ("core", "hybrid", "ai_budget", "ai_pro"):
+                    self._json({"error": "plan required"}, 400)
+                    return
+                if day < 1 or day > calendar_total_days_env():
+                    self._json({"error": f"day must be 1..{calendar_total_days_env()}"}, 400)
+                    return
+                if plan == "ai_pro" and platform_raw not in PLATFORM_DIR:
+                    self._json({"error": "platform required for AI Pro"}, 400)
+                    return
+                dl = _downloads_dir()
+                _cusear_ensure_storage_plan(dl, plan, platform_raw)
+                dest = slot_path(dl, plan=plan, media="text", day=day, platform=(platform_raw or None))
+                from cusear.storage_vault import atomic_write_text as _awt
+
+                # Always end with newline for portability with shell tools.
+                out = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+                if not out.endswith("\n"):
+                    out += "\n"
+                _awt(dest, out)
+                try:
+                    rel = str(dest.resolve().relative_to(dl.resolve()))
+                except ValueError:
+                    rel = str(dest.resolve())
+                self._json(
+                    {
+                        "ok": True,
+                        "plan": plan,
+                        "day": day,
+                        "platform": platform_raw,
+                        "path": str(dest.resolve()),
+                        "relative_to_downloads": rel,
+                        "size_bytes": int(dest.stat().st_size) if dest.exists() else 0,
+                    },
+                    no_cache=True,
+                )
+            except Exception as exc:
+                traceback.print_exc()
+                self._json({"ok": False, "error": str(exc)}, 500, no_cache=True)
+
+        elif p == "/cusear/storage/topics":
+            if self.command != "POST":
+                self._json({"error": "POST required"}, 405)
+                return
+            try:
+                payload = json.loads(body.decode("utf-8") or "{}")
+                if not isinstance(payload, dict):
+                    self._json({"error": "invalid payload"}, 400)
+                    return
+                main_topic = str(payload.get("main_topic") or payload.get("topic") or "").strip()
+                if not main_topic:
+                    self._json({"error": "main_topic required"}, 400)
+                    return
+                if not _openai_api_key_configured():
+                    self._json(
+                        {
+                            "ok": False,
+                            "error": "OPENAI_API_KEY is not set — add it to .env.local and restart the dashboard for AI topic generation.",
+                        },
+                        400,
+                        no_cache=True,
+                    )
+                    return
+                total = calendar_total_days_env()
+                topics = _generate_topics_from_seed(main_topic, completed=[], count=total)
+                self._json({"ok": True, "topics": topics, "total_days": total}, no_cache=True)
+            except Exception as exc:
+                traceback.print_exc()
+                self._json({"ok": False, "error": str(exc)}, 500, no_cache=True)
+
+        elif p == "/cusear/storage/generate-seq":
+            if self.command != "POST":
+                self._json({"error": "POST required"}, 405)
+                return
+            try:
+                payload = json.loads(body.decode("utf-8") or "{}")
+                if not isinstance(payload, dict):
+                    self._json({"error": "invalid payload"}, 400)
+                    return
+                plan_raw = str(payload.get("plan") or "").strip().lower()
+                media_raw = str(payload.get("media") or "").strip().lower()
+                platform_raw = str(payload.get("platform") or "").strip().lower()
+                main_topic = str(payload.get("main_topic") or payload.get("topic") or "").strip()
+                industry = str(payload.get("industry") or "").strip()
+                topics_in = payload.get("topics")
+                topics_list: list[str] = []
+                if isinstance(topics_in, list):
+                    topics_list = [str(x).strip() for x in topics_in if str(x).strip()]
+                plan = _cusear_storage_norm_plan(plan_raw)
+                media = _cusear_storage_norm_media(media_raw)
+                if plan not in ("core", "hybrid", "ai_budget", "ai_pro"):
+                    self._json({"error": "plan must be Core, Hybrid, AI Budget, or AI Pro"}, 400)
+                    return
+                if plan == "core":
+                    self._json({"error": "Core plan has no AI slots — use paste + Save for texts, upload for media"}, 400)
+                    return
+                if media not in ("text", "image", "video"):
+                    self._json({"error": "media must be text/image/video"}, 400)
+                    return
+                if not main_topic:
+                    self._json({"error": "main_topic required"}, 400)
+                    return
+                if plan == "ai_pro" and platform_raw not in PLATFORM_DIR:
+                    self._json({"error": "platform required for AI Pro (facebook/linkedin/instagram/x/whatsapp)"}, 400)
+                    return
+                if not _openai_api_key_configured():
+                    self._json(
+                        {
+                            "ok": False,
+                            "error": "OPENAI_API_KEY is not set — add it to .env.local and restart the dashboard for AI generation.",
+                        },
+                        400,
+                        no_cache=True,
+                    )
+                    return
+                total = calendar_total_days_env()
+                dl = _downloads_dir()
+                days_done: list[dict[str, Any]] = []
+                for day in range(1, total + 1):
+                    t = topics_list[day - 1] if day - 1 < len(topics_list) else ""
+                    topic = t or f"{main_topic} — day {day}"
+                    row = _cusear_storage_generate_one(
+                        dl,
+                        plan=plan,
+                        media=media,
+                        day=day,
+                        platform=platform_raw,
+                        industry=industry,
+                        main_topic=main_topic,
+                        topic=topic,
+                    )
+                    days_done.append({"day": day, **row})
+                self._json(
+                    {
+                        "ok": True,
+                        "plan": plan,
+                        "media": media,
+                        "total_days": total,
+                        "saved": len(days_done),
+                        "days": days_done,
+                    },
+                    no_cache=True,
+                )
+            except Exception as exc:
+                traceback.print_exc()
+                self._json({"ok": False, "error": str(exc)}, 500, no_cache=True)
+
+        elif p == "/cusear/storage/generate-slot":
+            if self.command != "POST":
+                self._json({"error": "POST required"}, 405)
+                return
+            try:
+                payload = json.loads(body.decode("utf-8") or "{}")
+                if not isinstance(payload, dict):
+                    self._json({"error": "invalid payload"}, 400)
+                    return
+                plan_raw = str(payload.get("plan") or "").strip().lower()
+                media_raw = str(payload.get("media") or "").strip().lower()
+                platform_raw = str(payload.get("platform") or "").strip().lower()
+                main_topic = str(payload.get("main_topic") or payload.get("topic") or "").strip()
+                topic = str(payload.get("topic") or "").strip() or main_topic
+                industry = str(payload.get("industry") or "").strip()
+                try:
+                    day = int(str(payload.get("day") or "1").strip())
+                except (TypeError, ValueError):
+                    day = 1
+
+                plan = _cusear_storage_norm_plan(plan_raw)
+                media = _cusear_storage_norm_media(media_raw)
+                if plan not in ("core", "hybrid", "ai_budget", "ai_pro"):
+                    self._json({"error": "plan must be Core, Hybrid, AI Budget, or AI Pro"}, 400)
+                    return
+                if media not in ("text", "image", "video"):
+                    self._json({"error": "media must be text/image/video"}, 400)
+                    return
+                if day < 1 or day > calendar_total_days_env():
+                    self._json({"error": f"day must be 1..{calendar_total_days_env()}"}, 400)
+                    return
+                if plan == "ai_pro" and platform_raw not in PLATFORM_DIR:
+                    self._json({"error": "platform required for AI Pro (facebook/linkedin/instagram/x/whatsapp)"}, 400)
+                    return
+                if not topic:
+                    topic = f"Day {day}"
+                if not main_topic:
+                    main_topic = topic
+                if plan == "core":
+                    self._json({"error": "Core plan has no AI generate — use paste + Save for texts"}, 400)
+                    return
+                if not _openai_api_key_configured():
+                    self._json(
+                        {
+                            "ok": False,
+                            "error": "OPENAI_API_KEY is not set — add it to .env.local and restart the dashboard for AI generation.",
+                        },
+                        400,
+                        no_cache=True,
+                    )
+                    return
+
+                dl = _downloads_dir()
+                out = _cusear_storage_generate_one(
+                    dl,
+                    plan=plan,
+                    media=media,
+                    day=day,
+                    platform=platform_raw,
+                    industry=industry,
+                    main_topic=main_topic,
+                    topic=topic,
+                )
+                self._json({"ok": True, **out}, no_cache=True)
+            except Exception as exc:
+                traceback.print_exc()
+                self._json({"ok": False, "error": str(exc)}, 500, no_cache=True)
+
+        elif p == "/cusear/storage/hybrid/generate-texts":
+            if self.command != "POST":
+                self._json({"error": "POST required"}, 405)
+                return
+            try:
+                payload = json.loads(body.decode("utf-8") or "{}")
+            except Exception:
+                payload = {}
+            try:
+                if not isinstance(payload, dict):
+                    self._json({"error": "invalid payload"}, 400)
+                    return
+                main_topic = str(payload.get("main_topic") or payload.get("topic") or "").strip()
+                industry = str(payload.get("industry") or "").strip()
+                if not main_topic:
+                    self._json({"error": "main_topic required"}, 400)
+                    return
+                if not _openai_api_key_configured():
+                    self._json(
+                        {
+                            "ok": False,
+                            "error": "OPENAI_API_KEY is not set — add it to .env.local and restart the dashboard for AI generation.",
+                        },
+                        400,
+                        no_cache=True,
+                    )
+                    return
+                total = calendar_total_days_env()
+                topics = _generate_topics_from_seed(main_topic, completed=[], count=total)
+                dl = _downloads_dir()
+                _cusear_ensure_storage_plan(dl, "hybrid", "")
+                saved = 0
+                for i, t in enumerate(topics[:total], 1):
+                    _cusear_storage_generate_one(
+                        dl,
+                        plan="hybrid",
+                        media="text",
+                        day=i,
+                        platform="",
+                        industry=industry,
+                        main_topic=main_topic,
+                        topic=t,
+                    )
+                    saved += 1
+                self._json(
+                    {
+                        "ok": True,
+                        "plan": "hybrid",
+                        "media": "text",
+                        "saved": saved,
+                        "total_days": total,
+                        "industry": industry,
+                    },
+                    no_cache=True,
+                )
+            except Exception as exc:
+                traceback.print_exc()
+                self._json({"ok": False, "error": str(exc)}, 500, no_cache=True)
+
+        elif p == "/cusear/create-folders":
+            if self.command != "POST":
+                self._json({"error": "POST required"}, 405)
+                return
+            try:
+                dl = _downloads_dir()
+                d = bootstrap_storage_vault(dl, layout="minimal")
+                self._json(
+                    {
+                        "ok": bool(d.get("ok")),
+                        "roots_created": 1 if d.get("ok") else 0,
+                        "sample_root": str(d.get("root") or ""),
+                        "thirty_day_stub_files": int(d.get("stub_files_created") or 0),
+                        "total_days": int(d.get("total_days") or 30),
+                        "detail": str(d.get("detail") or ""),
+                    },
+                    no_cache=True,
+                )
+            except Exception as exc:
+                self._json({"ok": False, "error": str(exc)}, 500, no_cache=True)
 
         else:
             self._json({"error": "not found"}, 404)
@@ -9469,7 +11463,8 @@ def run_trainer_server() -> None:
             f"  Replay workflows: export AGENCY_HOME={BASE_DIR!s}  "
             "then run: python main.py --run-workflow <name> --mode fast"
         )
-    print(f"  ⚡ cusear™  →  {ui_url}")
+    print(f"  ⚡ Public site:    {ui_url}/")
+    print(f"  ⚡ Control Center: {ui_url}/trainer")
     _ah = (os.environ.get("AGENCY_HOME") or "").strip()
     print(f"  Data root: {BASE_DIR.resolve()}")
     print(f"  Workflows: {WORKFLOWS_DIR.resolve()}")
@@ -9556,7 +11551,7 @@ def run_trainer_server() -> None:
     print(f"{'━'*50}\n")
     if os.environ.get("TRAINER_NO_OPEN_BROWSER", "").strip().lower() not in ("1", "true", "yes"):
         try:
-            webbrowser.open(ui_url)
+            webbrowser.open(f"{ui_url}/trainer")
         except Exception:
             pass
     try:

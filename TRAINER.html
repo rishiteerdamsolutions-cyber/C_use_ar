@@ -12,12 +12,114 @@
   } catch (_) {}
 })();
 </script>
-<title>cusear Trainer</title>
+<title>cusear™ Control Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,400&family=JetBrains+Mono:wght@400&family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--gold:#c9a96e;--bg:#0d0d0d;--bg2:#141414;--bg3:#1c1c1c;
-      --text:#e8e8e8;--muted:#777;--border:#252525;--ok:#86efac;--err:#f87171}
-body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+:root{
+  --cc-bg-primary:#07070F;--cc-bg-surface:#0D0D18;--cc-bg-elevated:#12121F;--cc-bg-hover:rgba(246,245,241,0.05);
+  --cc-text-primary:#F6F5F1;--cc-text-secondary:#A8A5A0;--cc-text-muted:#6B6865;
+  --cc-border:rgba(246,245,241,0.07);--cc-border-hover:rgba(246,245,241,0.14);
+  --cc-green:#00CFA8;--cc-purple:#7B6EF6;--cc-amber:#F0A500;--cc-red:#E5484D;
+  --cc-radius-card:12px;--cc-radius-btn:7px;--cc-radius-inp:6px;
+  --gold:#00CFA8;--bg:#07070F;--bg2:#0D0D18;--bg3:#12121F;
+  --text:#F6F5F1;--muted:#6B6865;--border:rgba(246,245,241,0.07);--ok:#00CFA8;--err:#E5484D}
+body{background:var(--cc-bg-primary);color:var(--cc-text-primary);font-family:'DM Sans',system-ui,sans-serif;min-height:100vh;font-weight:400}
+.cc-app{display:flex;flex-direction:column;height:100vh;min-height:640px}
+.cc-topbar{height:48px;flex-shrink:0;background:var(--cc-bg-surface);border-bottom:1px solid var(--cc-border);display:flex;align-items:center;justify-content:space-between;padding:0 16px;gap:12px}
+.cc-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;color:var(--cc-text-primary);display:flex;align-items:center;gap:6px}
+.cc-logo-spark{color:var(--cc-green)}
+.cc-mode-pill{display:flex;background:var(--cc-bg-elevated);border-radius:999px;padding:3px;border:1px solid var(--cc-border)}
+.cc-mode-opt{padding:6px 18px;border-radius:999px;border:none;font-family:'Syne',sans-serif;font-weight:700;font-size:.78rem;cursor:pointer;background:transparent;color:var(--cc-text-muted)}
+.cc-mode-opt.cc-active{background:#fff;color:#000}
+.cc-top-right{display:flex;align-items:center;gap:10px}
+.cc-license-pill{font-size:.68rem;padding:4px 10px;border-radius:999px;background:var(--cc-bg-elevated);border:1px solid var(--cc-border);color:var(--cc-text-secondary)}
+.cc-icon-btn{width:36px;height:36px;border-radius:var(--cc-radius-btn);border:1px solid var(--cc-border);background:var(--cc-bg-elevated);color:var(--cc-text-primary);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.cc-icon-btn:hover{background:var(--cc-bg-hover);border-color:var(--cc-border-hover)}
+.cc-body-row{flex:1;display:flex;min-height:0}
+.cc-nav{width:200px;flex-shrink:0;background:var(--cc-bg-surface);border-right:1px solid var(--cc-border);display:flex;flex-direction:column;padding:8px 0}
+.cc-nav-item{display:flex;align-items:center;gap:10px;height:40px;padding:0 16px;font-size:.84rem;color:var(--cc-text-muted);cursor:pointer;border-left:2px solid transparent;background:transparent;width:100%;text-align:left;border-right:none}
+.cc-nav-item:hover{background:rgba(246,245,241,0.04)}
+.cc-nav-item.cc-nav-active{border-left-color:var(--cc-green);background:rgba(0,207,168,0.06);color:var(--cc-text-primary)}
+.cc-nav-div{height:1px;background:var(--cc-border);margin:8px 12px}
+.cc-nav-foot{margin-top:auto;padding:12px 16px;font-size:11px;color:var(--cc-text-muted);border-top:1px solid var(--cc-border)}
+.cc-nav-foot-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.cc-nav-foot-dot.ok{background:var(--cc-green)}.cc-nav-foot-dot.err{background:var(--cc-red)}
+.cc-main{flex:1;overflow:auto;background:var(--cc-bg-primary);padding:20px 24px}
+.cc-section{display:none}.cc-section.cc-sec-active{display:block}
+.cc-statusbar{height:32px;flex-shrink:0;background:var(--cc-bg-surface);border-top:1px solid var(--cc-border);display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:.72rem;color:var(--cc-text-muted)}
+.cc-card{background:var(--cc-bg-elevated);border:1px solid var(--cc-border);border-radius:var(--cc-radius-card);padding:16px}
+.cc-btn{min-height:36px;padding:0 16px;border-radius:var(--cc-radius-btn);font-weight:500;font-size:.82rem;cursor:pointer;border:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:opacity .15s,transform .05s}
+.cc-btn:hover:not(:disabled){filter:brightness(1.08)}.cc-btn:active:not(:disabled){transform:scale(0.98)}
+.cc-btn:disabled{opacity:.4;cursor:not-allowed}
+.cc-btn-primary{background:var(--cc-green);color:#000}
+.cc-btn-outline{background:transparent;border:1px solid var(--cc-green);color:var(--cc-green)}
+.cc-btn-danger-outline{background:transparent;border:1px solid var(--cc-red);color:var(--cc-red)}
+.cc-grid-dash{display:grid;grid-template-columns:1.2fr 0.8fr;gap:20px}
+@media(max-width:1100px){.cc-grid-dash{grid-template-columns:1fr}}
+.cc-status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:900px){.cc-status-grid{grid-template-columns:repeat(2,1fr)}}
+.cc-stat-card{padding:14px;border-radius:var(--cc-radius-card);border:1px solid var(--cc-border);background:var(--cc-bg-surface)}
+.cc-stat-label{font-size:.65rem;letter-spacing:.06em;color:var(--cc-text-muted);font-weight:600}
+.cc-stat-val{font-family:'Syne',sans-serif;font-weight:700;font-size:1.05rem;margin-top:6px}
+.cc-stat-sub{font-size:.72rem;color:var(--cc-text-muted);margin-top:4px}
+.cc-quick-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px}
+.cc-toast-wrap{position:fixed;bottom:20px;right:20px;z-index:20000;display:flex;flex-direction:column;gap:8px;max-width:360px}
+.cc-toast{padding:12px 14px;background:var(--cc-bg-elevated);border-radius:var(--cc-radius-card);border:1px solid var(--cc-border);font-size:.82rem;box-shadow:0 8px 32px rgba(0,0,0,.45)}
+.cc-toast.ok{border-left:3px solid var(--cc-green)}.cc-toast.err{border-left:3px solid var(--cc-red)}.cc-toast.warn{border-left:3px solid var(--cc-amber)}
+.cc-modal-back{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:19000;display:none;align-items:center;justify-content:center;padding:20px}
+.cc-modal-back.cc-show{display:flex}
+.cc-modal{background:var(--cc-bg-elevated);border:1px solid rgba(246,245,241,0.12);border-radius:var(--cc-radius-card);padding:20px;max-width:420px;width:100%}
+.cc-fld{width:100%;background:var(--cc-bg-surface);border:1px solid var(--cc-border);color:var(--cc-text-primary);border-radius:var(--cc-radius-inp);padding:9px 12px;font-size:.86rem;outline:none}
+.cc-fld:focus{border-color:var(--cc-green);box-shadow:0 0 0 1.5px var(--cc-green)}
+.cc-tabs{display:flex;gap:4px;border-bottom:1px solid var(--cc-border);margin-bottom:16px}
+.cc-tab{padding:10px 14px;font-size:.8rem;color:var(--cc-text-muted);cursor:pointer;border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none}
+.cc-tab.cc-tab-on{color:var(--cc-text-primary);border-bottom-color:var(--cc-green)}
+.cc-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.cc-table th,.cc-table td{padding:10px 8px;text-align:left;border-bottom:1px solid var(--cc-border)}
+.cc-badge{font-size:.65rem;padding:2px 8px;border-radius:999px;font-weight:600}
+.cc-badge-wra{background:rgba(0,207,168,0.15);color:var(--cc-green)}
+.cc-badge-tr{background:rgba(240,165,0,0.15);color:var(--cc-amber)}
+.cc-step-builder-grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+@media(max-width:1000px){.cc-step-builder-grid{grid-template-columns:1fr}}
+.cc-step-builder-left{width:340px;max-width:100%;min-width:0;min-height:120px}
+.cc-step-builder-right{min-width:0}
+@media(max-width:1000px){.cc-step-builder-left{width:100%}}
+.cc-build-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.cc-main,.log-box,.cc-scroll,#step-list,#cc-lucky-report,#cc-wra-signal-log{scrollbar-width:thin;scrollbar-color:rgba(246,245,241,.28) transparent}
+.cc-main::-webkit-scrollbar,.log-box::-webkit-scrollbar,.cc-scroll::-webkit-scrollbar,#step-list::-webkit-scrollbar{width:10px;height:10px}
+.cc-main::-webkit-scrollbar-thumb,.log-box::-webkit-scrollbar-thumb,.cc-scroll::-webkit-scrollbar-thumb,#step-list::-webkit-scrollbar-thumb{background:rgba(246,245,241,.2);border-radius:6px}
+.step-row.cc-step-drag-over{box-shadow:inset 0 0 0 2px var(--cc-green)}
+.step-row[data-dragging="1"]{opacity:.55}
+.step-row .step-drag-handle{cursor:grab;color:var(--cc-text-muted);padding:4px 6px;user-select:none;font-size:1rem;line-height:1}
+.step-row .step-drag-handle:active{cursor:grabbing}
+.step-act-border{border-left:3px solid var(--cc-border)}
+.step-act-click{border-left-color:var(--cc-amber)}
+.step-act-type,.step-act-ai_type{border-left-color:var(--cc-purple)}
+.step-act-open_url,.step-act-open_tab,.step-act-open_whatsapp{border-left-color:#5B9BD5}
+.step-act-wait{border-left-color:var(--cc-text-muted)}
+.step-act-shell{border-left-color:#C97C5D}
+.step-act-hotkey{border-left-color:#9B7EDE}
+.step-act-press_tab,.step-act-press_enter,.step-act-press_arrow_left,.step-act-press_arrow_right,.step-act-press_arrow_up,.step-act-press_arrow_down,.step-act-press_home,.step-act-press_space{border-left-color:var(--cc-green)}
+.step-act-best_ai_copy_query_bundle,.step-act-best_ai_capture_slot_from_clipboard,.step-act-best_ai_run_synthesizer{border-left-color:var(--cc-purple)}
+.cc-wra-monitor-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+@media(max-width:900px){.cc-wra-monitor-grid{grid-template-columns:1fr}}
+.cc-wra-mon-card{border:1px solid var(--cc-border);border-radius:var(--cc-radius-card);padding:14px;background:var(--cc-bg-surface)}
+.cc-wra-mon-title{font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;margin-bottom:10px;color:var(--cc-text-secondary)}
+.cc-wra-signal-line{font-size:.72rem;font-family:'JetBrains Mono',monospace;padding:6px 8px;border-radius:6px;margin-bottom:6px;background:var(--cc-bg-elevated);border:1px solid var(--cc-border)}
+.cc-settings-layout{display:grid;grid-template-columns:200px 1fr;gap:20px;min-height:400px}
+.cc-set-nav-item{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:var(--cc-radius-inp);border:none;background:transparent;color:var(--cc-text-muted);cursor:pointer;font-size:.84rem}
+.cc-set-nav-item:hover{background:var(--cc-bg-hover)}.cc-set-nav-item.cc-on{color:var(--cc-text-primary);background:rgba(0,207,168,0.08)}
+html.trainer-desktop-shell .cc-topbar{padding-left:max(82px, env(safe-area-inset-left, 0px))}
+.legacy-tabs-hidden{display:none!important}
+/* legacy trainer */
+#start-btn{background:var(--cc-green);color:#000;border:none;border-radius:8px;
+           padding:9px 20px;font-weight:700;font-size:.88rem;cursor:pointer;
+           display:flex;align-items:center;gap:6px}
+#start-btn:hover{opacity:.85}
+#start-btn:disabled{opacity:.4;cursor:not-allowed}
 
 /* pywebview on macOS: page draws under traffic lights — inset header (see desktop.py URL #trainerDesktopShell). */
 html.trainer-desktop-shell header{
@@ -157,26 +259,208 @@ select.fld{cursor:pointer}
 </style>
 </head>
 <body>
+<div id="cc-toast-root" class="cc-toast-wrap" aria-live="polite"></div>
+<div id="cc-mode-confirm" class="cc-modal-back" role="dialog" aria-modal="true">
+  <div class="cc-modal">
+    <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:10px">Switch mode?</div>
+    <p id="cc-mode-confirm-msg" style="font-size:.84rem;color:var(--cc-text-secondary);line-height:1.5;margin-bottom:16px"></p>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccDismissModeConfirm(false)">Cancel</button>
+      <button type="button" class="cc-btn cc-btn-primary" onclick="ccDismissModeConfirm(true)">Continue</button>
+    </div>
+  </div>
+</div>
 
-<header>
-  <div class="logo">cusear Trainer</div>
-  <div class="hdr-right">
-    <div class="api-key-bar" title="Each client’s ak_live_… key scopes cloud-saved workflows to that customer (MongoDB). Stored only in this browser.">
-      <input type="password" id="api-key-inp" placeholder="Client API key" autocomplete="off"
-        style="width:min(200px,28vw);font-size:.72rem;padding:6px 9px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
-      <button type="button" class="btn btn-outline btn-sm" style="padding:6px 10px;font-size:.72rem" onclick="saveTrainerApiKey()">Save</button>
-    </div>
-    <div id="server-status" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <div class="dot" id="dot"></div>
-      <span id="status-text">Connecting…</span>
-      <button type="button" class="btn btn-outline btn-sm" style="padding:3px 8px;font-size:.68rem" onclick="void recheckTrainerServer()" title="Retry connection to dashboard / API">↻ Retry</button>
-    </div>
-    <span id="countdown"></span>
-    <button id="start-btn" onclick="handleStartStopButton()" disabled>▶ START</button>
-    <button type="button" id="header-export-app-btn" class="btn btn-outline btn-sm" style="padding:6px 10px;font-size:.72rem" onclick="void openDesktopExportInApp()" title="Export this project as a Mac or Windows desktop app">📦 Export app</button>
-  <button class="btn btn-outline btn-sm" onclick="document.getElementById('permissions-gate').style.display='block'">Help & Permissions</button>
+<div class="cc-app">
+<header class="cc-topbar">
+  <div class="cc-logo">cusear™ <span class="cc-logo-spark">⚡</span></div>
+  <div class="cc-mode-pill" role="group" aria-label="Trainer or User mode">
+    <button type="button" class="cc-mode-opt cc-active" id="cc-mode-trainer" onclick="ccSetMode('trainer')">TRAINER</button>
+    <button type="button" class="cc-mode-opt" id="cc-mode-user" onclick="ccSetMode('user')">USER</button>
+  </div>
+  <div class="cc-top-right">
+    <span class="cc-license-pill" id="cc-license-pill" title="Plan">Plan — local</span>
+    <button type="button" class="cc-icon-btn" title="Settings" onclick="ccNavigate('settings')">⚙</button>
+    <button type="button" class="cc-icon-btn" title="Help &amp; Permissions" onclick="document.getElementById('permissions-gate').style.display='block'">?</button>
+    <button type="button" class="cc-icon-btn" title="Minimize" onclick="ccWindowMinimize()">━</button>
+    <button type="button" class="cc-icon-btn" title="Close" onclick="ccWindowClose()">✕</button>
   </div>
 </header>
+<div class="cc-body-row">
+<nav class="cc-nav" aria-label="Primary">
+  <button type="button" class="cc-nav-item cc-nav-active" data-cc-nav="dashboard" onclick="ccNavigate('dashboard')"><span>⬡</span> Dashboard</button>
+  <button type="button" class="cc-nav-item" data-cc-nav="storage" onclick="ccNavigate('storage')"><span>🗄️</span> Storage</button>
+  <div class="cc-nav-div"></div>
+  <button type="button" class="cc-nav-item" data-cc-nav="step-builder" onclick="ccNavigate('step-builder')"><span>✏️</span> Step Builder</button>
+  <button type="button" class="cc-nav-item" data-cc-nav="wra-studio" onclick="ccNavigate('wra-studio')"><span>🔴</span> WRA™ Studio</button>
+  <button type="button" class="cc-nav-item" data-cc-nav="workflow-library" onclick="ccNavigate('workflow-library')"><span>📚</span> Workflow Library</button>
+  <div class="cc-nav-div"></div>
+  <button type="button" class="cc-nav-item" data-cc-nav="ar-composer" onclick="ccNavigate('ar-composer')"><span>📦</span> ar™ Composer</button>
+  <button type="button" class="cc-nav-item" data-cc-nav="exporter" onclick="ccNavigate('exporter')"><span>📤</span> Exporter</button>
+  <div class="cc-nav-div"></div>
+  <button type="button" class="cc-nav-item" data-cc-nav="settings" onclick="ccNavigate('settings')"><span>⚙️</span> Settings</button>
+  <div class="cc-nav-foot"><span class="cc-nav-foot-dot ok" id="cc-nav-engine-dot"></span><span id="cc-nav-engine-txt">Engine Ready</span></div>
+</nav>
+<div class="cc-main">
+
+<section id="cc-sec-dashboard" class="cc-section cc-sec-active">
+  <div class="cc-grid-dash">
+    <div>
+      <div class="cc-status-grid">
+        <div class="cc-stat-card" id="cc-card-chrome">
+          <div class="cc-stat-label">CHROME</div>
+          <div class="cc-stat-val" id="cc-chrome-val" style="color:var(--cc-text-muted)">…</div>
+        </div>
+        <div class="cc-stat-card" id="cc-card-perm">
+          <div class="cc-stat-label">PERMISSIONS</div>
+          <div class="cc-stat-val" id="cc-perm-val">…</div>
+          <div class="cc-stat-sub">Accessibility + Screen Recording</div>
+        </div>
+        <div class="cc-stat-card" id="cc-card-net">
+          <div class="cc-stat-label">NETWORK</div>
+          <div class="cc-stat-val" id="cc-net-val">…</div>
+          <div class="cc-stat-sub" id="cc-net-sub">platforms</div>
+        </div>
+        <div class="cc-stat-card" id="cc-card-disk">
+          <div class="cc-stat-label">DISK SPACE</div>
+          <div class="cc-stat-val" id="cc-disk-val">…</div>
+        </div>
+      </div>
+      <div class="cc-quick-actions">
+        <button type="button" class="cc-btn cc-btn-outline" onclick="ccNavigate('step-builder')">✏️ Open Step Builder</button>
+        <button type="button" class="cc-btn cc-btn-outline" onclick="ccNavigate('wra-studio')">🔴 Open WRA™ Studio</button>
+        <button type="button" class="cc-btn cc-btn-outline" onclick="ccNavigate('workflow-library')">📚 Open Workflow Library</button>
+        <button type="button" class="cc-btn cc-btn-outline" onclick="ccNavigate('ar-composer')">📦 Open ar™ Composer</button>
+        <button type="button" class="cc-btn cc-btn-outline" onclick="ccOpenLogsFolder()">📂 Open Logs Folder</button>
+        <button type="button" class="cc-btn cc-btn-primary" onclick="void ccOpenStorage()">🗄️ STORAGE</button>
+      </div>
+      <div class="cc-card" style="margin-bottom:14px">
+        <div style="font-size:.72rem;font-weight:700;color:var(--cc-text-muted);letter-spacing:.06em;margin-bottom:10px">RECENT ACTIVITY</div>
+        <div id="cc-recent-activity" style="font-size:.82rem;color:var(--cc-text-secondary);max-height:220px;overflow:auto"></div>
+      </div>
+      <div class="cc-card">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px">
+          <button type="button" class="cc-btn cc-btn-primary" onclick="ccEngineStart()">Start Engine</button>
+          <button type="button" class="cc-btn cc-btn-danger-outline" onclick="ccEngineStop()">Stop Engine</button>
+          <button type="button" id="start-btn" class="cc-btn cc-btn-outline" onclick="handleStartStopButton()">▶ START</button>
+          <span id="countdown" style="font-size:.78rem;color:var(--cc-text-muted)"></span>
+        </div>
+        <div id="server-status" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.78rem;color:var(--cc-text-muted)">
+          <div class="dot" id="dot"></div>
+          <span id="status-text">Connecting…</span>
+          <button type="button" class="cc-btn cc-btn-outline" style="min-height:28px;padding:0 10px;font-size:.72rem" onclick="void recheckTrainerServer()">↻ Retry</button>
+        </div>
+        <label style="font-size:.72rem;color:var(--cc-text-muted)">Engine log</label>
+        <pre id="cc-engine-log" style="margin-top:6px;padding:12px;background:var(--cc-bg-primary);border:1px solid var(--cc-border);border-radius:var(--cc-radius-inp);font-family:'JetBrains Mono',monospace;font-size:.72rem;max-height:160px;overflow:auto;white-space:pre-wrap;color:var(--cc-text-secondary)"></pre>
+      </div>
+    </div>
+    <div>
+      <div class="cc-card" style="margin-bottom:14px;min-height:120px">
+        <div style="font-size:.72rem;font-weight:700;color:var(--cc-text-muted);letter-spacing:.06em;margin-bottom:10px">NEXT SCHEDULED RUNS</div>
+        <div id="cc-schedule-list" style="font-size:.82rem"></div>
+      </div>
+      <div class="cc-card">
+        <div style="font-size:.72rem;font-weight:700;color:var(--cc-text-muted);margin-bottom:8px">Cloud API key (optional)</div>
+        <div class="api-key-bar" title="Client API key for cloud workflows">
+          <input type="password" id="api-key-inp" class="cc-fld" placeholder="Client API key" autocomplete="off" style="margin-bottom:8px">
+          <button type="button" class="cc-btn cc-btn-outline" onclick="saveTrainerApiKey()">Save key</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="cc-sec-storage" class="cc-section">
+  <div class="cc-card" style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+      <div>
+        <div class="card-title" style="margin:0;text-transform:none;letter-spacing:.2px">Storage</div>
+        <p style="font-size:.78rem;color:var(--muted);line-height:1.5;margin:8px 0 0">
+          The vault is only the <strong>four plan folders</strong>: <code>Core</code>, <code>Hybrid</code>, <code>AI Budget</code>, <code>AI Pro</code> — each with <code>Texts</code> / <code>Images</code> / <code>Videos</code>. Example: Hybrid day 1 caption = <code>cusear/Hybrid/Texts/1H.txt</code>. If you see folders named like workflows (<code>Instagram_Post</code>, <code>Social_Media_Package</code>, …), those are from an <strong>older cusear layout</strong>; use <strong>Review extra folders</strong> / <strong>Remove old extra folders</strong> below to clean them (plan folders are never removed).
+        </p>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button type="button" class="cc-btn cc-btn-outline" onclick="void ccStorageInit(true)">↻ Recreate folders</button>
+        <button type="button" class="cc-btn cc-btn-outline" onclick="void ccStorageListLegacy()">Review extra folders</button>
+        <button type="button" class="cc-btn cc-btn-outline" onclick="void ccStorageCleanupLegacy()">Remove old extra folders…</button>
+        <button type="button" class="cc-btn cc-btn-outline" onclick="void ccStorageReset()">Reset view</button>
+      </div>
+    </div>
+    <div id="cc-storage-alert" class="alert" style="display:none;margin-top:12px"></div>
+    <p id="cc-storage-path" style="font-size:.72rem;color:var(--muted);margin:10px 0 0;line-height:1.45">Vault: —</p>
+  </div>
+
+  <div class="cc-card" style="margin-bottom:14px">
+    <div style="font-size:.72rem;font-weight:700;color:var(--cc-text-muted);letter-spacing:.06em;margin-bottom:10px">PLAN</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccStoragePickPlan('core')">Core</button>
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccStoragePickPlan('hybrid')">Hybrid</button>
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccStoragePickPlan('ai_budget')">AI Budget</button>
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccStoragePickPlan('ai_pro')">AI Pro</button>
+    </div>
+    <p id="cc-storage-plan-line" style="font-size:.78rem;color:var(--muted);margin:10px 0 0">Selected: —</p>
+  </div>
+
+  <div class="cc-card" id="cc-storage-platform-card" style="display:none;margin-bottom:14px">
+    <div style="font-size:.72rem;font-weight:700;color:var(--cc-text-muted);letter-spacing:.06em;margin-bottom:10px">PLATFORM (AI Pro)</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccStoragePickPlatform('facebook')">Facebook</button>
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccStoragePickPlatform('linkedin')">LinkedIn</button>
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccStoragePickPlatform('instagram')">Instagram</button>
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccStoragePickPlatform('x')">X</button>
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccStoragePickPlatform('whatsapp')">WhatsApp</button>
+    </div>
+    <p id="cc-storage-platform-line" style="font-size:.78rem;color:var(--muted);margin:10px 0 0">Selected: —</p>
+  </div>
+
+  <div class="cc-card" style="margin-bottom:14px">
+    <div style="font-size:.72rem;font-weight:700;color:var(--cc-text-muted);letter-spacing:.06em;margin-bottom:10px">TYPE</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccStoragePickMedia('text')">Texts</button>
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccStoragePickMedia('image')">Images</button>
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccStoragePickMedia('video')">Videos</button>
+    </div>
+    <p id="cc-storage-media-line" style="font-size:.78rem;color:var(--muted);margin:10px 0 0">Selected: —</p>
+  </div>
+
+  <div class="cc-card" id="cc-storage-topic-card" style="display:none;margin-bottom:14px">
+    <div style="font-size:.72rem;font-weight:700;color:var(--cc-text-muted);letter-spacing:.06em;margin-bottom:10px">TOPIC (AI)</div>
+    <p style="font-size:.78rem;color:var(--muted);margin:0 0 10px;line-height:1.45">Set a <strong>main topic</strong>, then <strong>Generate 30 day topics</strong> (OpenAI). Pick <strong>TYPE</strong> below, then <strong>Generate all days</strong> to fill each slot <strong>one day at a time</strong> in order, or use <strong>⚡ Generate</strong> on a single day.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <input class="cc-fld" id="cc-storage-main-topic" placeholder="Main topic (e.g. Skin care tips)" style="flex:1;min-width:260px">
+      <button type="button" class="cc-btn cc-btn-outline" onclick="ccStorageSaveTopic()">Save topic</button>
+    </div>
+    <p id="cc-storage-topic-line" style="font-size:.78rem;color:var(--muted);margin:10px 0 0">Current: —</p>
+    <p id="cc-storage-openai-line" style="font-size:.72rem;color:var(--cc-text-muted);margin:8px 0 0">OpenAI: —</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+      <button type="button" class="cc-btn cc-btn-outline" onclick="void ccStorageCheckAiKey()">Check OpenAI key</button>
+      <button type="button" class="cc-btn cc-btn-primary" onclick="void ccStorageGenerateTopics30()">Generate 30 day topics</button>
+      <button type="button" class="cc-btn cc-btn-primary" onclick="void ccStorageGenerateAllDaysSeq()">Generate all days (sequential)</button>
+    </div>
+    <label style="display:block;font-size:.72rem;color:var(--cc-text-muted);margin:12px 0 6px">Day topics preview (read-only)</label>
+    <textarea class="cc-fld" id="cc-storage-topics-preview" readonly rows="5" style="width:100%;font-family:ui-monospace,monospace;font-size:.72rem;line-height:1.35" placeholder="Run “Generate 30 day topics” to fill this list…"></textarea>
+  </div>
+
+  <div class="cc-card">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <div style="font-size:.72rem;font-weight:700;color:var(--cc-text-muted);letter-spacing:.06em">SLOTS</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button type="button" class="cc-btn cc-btn-outline" onclick="void ccStorageRefreshSlots()">↻ Refresh slots</button>
+        <span style="font-size:.7rem;color:var(--cc-text-muted)">Bulk AI: use <strong>Generate all days</strong> in TOPIC (AI) above.</span>
+      </div>
+    </div>
+    <div id="cc-storage-slots" class="cc-scroll" style="max-height:min(62vh,620px);overflow:auto"></div>
+    <input type="file" id="cc-storage-file" style="display:none" />
+  </div>
+</section>
+
+<section id="cc-sec-step-builder" class="cc-section"></section>
+<section id="cc-sec-wra-studio" class="cc-section"></section>
+<section id="cc-sec-workflow-library" class="cc-section"></section>
+<section id="cc-sec-ar-composer" class="cc-section"></section>
+<section id="cc-sec-exporter" class="cc-section"></section>
+<section id="cc-sec-settings" class="cc-section"></section>
+<section id="cc-sec-legacy" class="cc-section"></section>
 
 <!-- Export desktop — one modal from header (search ar™, pick, Mac/Windows) -->
 <div id="export-desktop-modal" style="display:none;position:fixed;inset:0;z-index:10050;background:rgba(3,3,8,.9);align-items:center;justify-content:center;padding:16px;box-sizing:border-box" role="dialog" aria-modal="true" aria-labelledby="export-modal-title" onclick="if(event.target===this)closeExportDesktopModal()">
@@ -220,35 +504,63 @@ select.fld{cursor:pointer}
   </div>
 </div>
 
-<div class="tabs">
-  <div class="tab active" onclick="switchTab('build',this)">🎓 Step Builder</div>
-  <div class="tab" onclick="switchTab('website',this)">🌐 Website</div>
-  <div class="tab" onclick="switchTab('ai-media',this)">🖼 AI Media Studio</div>
-  <div class="tab" onclick="switchTab('automation',this)">⏰ automation</div>
-  <div class="tab" onclick="switchTab('ar',this)">🧠 ar™</div>
-  <div class="tab" onclick="switchTab('run',this)">▶ Run</div>
-  <div class="tab" onclick="switchTab('best-ai',this)">✨ Best AI™</div>
-  <div class="tab" onclick="switchTab('workflows',this)">📋 Saved</div>
+<div class="legacy-tabs-hidden" aria-hidden="true">
+  <div class="tab active" data-tab="build" onclick="switchTab('build',this)">build</div>
+  <div class="tab" data-tab="wra" onclick="switchTab('wra',this)">wra</div>
+  <div class="tab" data-tab="website" onclick="switchTab('website',this)">website</div>
+  <div class="tab" data-tab="ai-media" onclick="switchTab('ai-media',this)">ai-media</div>
+  <div class="tab" data-tab="automation" onclick="switchTab('automation',this)">automation</div>
+  <div class="tab" data-tab="ar" onclick="switchTab('ar',this)">ar</div>
+  <div class="tab" data-tab="run" onclick="switchTab('run',this)">run</div>
+  <div class="tab" data-tab="best-ai" onclick="switchTab('best-ai',this)">best-ai</div>
+  <div class="tab" data-tab="workflows" onclick="switchTab('workflows',this)">workflows</div>
 </div>
 
-<main>
+<div id="cc-panels-bucket" hidden>
 
 <!-- ═══════════════ STEP BUILDER ═══════════════ -->
 <div class="panel active" id="panel-build">
   <div id="step-builder-shell-build" class="step-builder-panel-shell">
   <div id="step-builder-dock">
-
+  <div class="cc-step-builder-grid">
+  <div class="cc-step-builder-left">
+  <div class="card" id="steps-card" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="card-title" style="margin:0">Saved Steps</div>
+      <button class="btn btn-red btn-sm" type="button" onclick="clearWorkflow()">🗑 Clear All</button>
+    </div>
+    <div class="step-list cc-scroll" id="step-list" style="max-height:min(60vh,520px);overflow-y:auto"></div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
+      <label class="lbl" for="join-source-select">Join another workflow into this one</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select class="fld" id="join-source-select" style="flex:1">
+          <option value="">— choose workflow to append —</option>
+        </select>
+        <button class="btn btn-outline" id="join-workflow-btn" onclick="joinWorkflowSteps()" disabled>➕ Join</button>
+      </div>
+      <div id="join-workflow-status" style="font-size:.78rem;color:var(--muted);margin-top:8px"></div>
+    </div>
+    <div class="log-box" id="build-log" style="display:none"></div>
+  </div>
+  </div>
+  <div class="cc-step-builder-right">
   <!-- Workflow name bar -->
   <div class="wf-bar">
     <span class="wf-bar-label">Workflow:</span>
     <input type="text" id="wf-name" placeholder="e.g. salon_build" oninput="onWfNameChange()">
     <span class="step-badge" id="step-badge">0 steps</span>
   </div>
-  <div class="wf-bar" style="margin-top:4px;gap:8px;align-items:center;flex-wrap:wrap">
-    <button class="btn btn-outline btn-sm" type="button" onclick="copyCurrentWorkflowJson()">📋 Copy JSON</button>
-    <button class="btn btn-outline btn-sm" type="button" onclick="triggerImportWorkflowJson()">📥 Import JSON</button>
+  <div class="wf-bar cc-build-toolbar" style="margin-top:4px;gap:8px;align-items:center;flex-wrap:wrap">
+    <button class="btn btn-outline btn-sm" type="button" onclick="ccBuildToolbarNew()">＋ New</button>
+    <button class="btn btn-outline btn-sm" type="button" onclick="ccBuildToolbarSave()">💾 Save</button>
+    <button class="btn btn-outline btn-sm" type="button" onclick="triggerImportWorkflowJson()">📥 Import</button>
+    <button class="btn btn-outline btn-sm" type="button" onclick="copyCurrentWorkflowJson()">📋 Export JSON</button>
+    <button class="btn btn-gold btn-sm" type="button" onclick="runFromBuilder()">▶ Run</button>
+    <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);cursor:pointer;margin-left:4px">
+      <input type="checkbox" id="dry-build" style="accent-color:var(--gold)"> Dry run
+    </label>
     <input id="import-workflow-json-input" type="file" accept=".json,application/json" style="display:none" onchange="void importWorkflowJsonFile(event)">
-    <span id="workflow-json-status" style="font-size:.75rem;color:var(--muted)"></span>
+    <span id="workflow-json-status" style="font-size:.75rem;color:var(--muted);flex:1;min-width:140px"></span>
   </div>
   <div class="wf-bar" id="build-whatsapp-wrap" style="flex-wrap:wrap;align-items:flex-end;margin-top:4px;gap:10px">
     <div style="flex:1;min-width:min(100%, 380px)">
@@ -261,6 +573,77 @@ select.fld{cursor:pointer}
         <input class="fld" type="text" id="build-whatsapp-number" inputmode="tel" placeholder="e.g. 919876543210 or +91 98765 43210" style="flex:1;min-width:200px" />
         <button type="button" class="btn btn-outline" onclick="saveBuildWhatsAppNumber()">Save Notify</button>
         <span id="build-whatsapp-status" style="font-size:.72rem;color:var(--gold)"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="build-save-calendar-card" class="card" style="margin-top:14px;background:linear-gradient(180deg,var(--bg2),var(--panel));border-color:rgba(201,169,110,0.25)">
+    <div class="card-title" style="text-transform:none;letter-spacing:.2px;font-size:1rem">Save calendar media · Core / Hybrid / AI</div>
+    <p style="font-size:.78rem;color:var(--muted);line-height:1.5;margin-bottom:10px;margin-top:6px">
+      Uses the <strong>Workflow</strong> name in the bar above (saved workflows only). Same <code>nC.*</code> / <code>nH.*</code> / <code>nAI.*</code> layout under <strong>Downloads → cusear → …</strong>.
+    </p>
+    <div id="build-save-media-alert" class="alert" style="display:none;margin-bottom:10px"></div>
+    <p id="build-save-media-path-hint" style="font-size:.72rem;color:var(--muted);margin:0 0 14px;line-height:1.45">Enter a workflow name above, then save or check the folder hint.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px">
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--panel)">
+        <div style="font-weight:600;color:var(--gold);margin-bottom:4px">Core</div>
+        <p style="font-size:.66rem;color:var(--muted);margin:0 0 10px;line-height:1.4">Examples: <code>3C.png</code> <code>3C.mp4</code> <code>3C.txt</code></p>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Start day
+          <select class="fld" id="build-cal-day-core" style="margin-top:4px"></select>
+        </label>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Type
+          <select class="fld" id="build-cal-kind-core" style="margin-top:4px">
+            <option value="auto">Auto-detect</option>
+            <option value="image">Image</option>
+            <option value="video">Video</option>
+            <option value="text">Caption (.txt)</option>
+          </select>
+        </label>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:4px">File(s)
+          <input class="fld" type="file" id="build-cal-file-core" multiple style="margin-top:4px;font-size:.7rem;width:100%">
+        </label>
+        <p style="font-size:.62rem;color:var(--muted);margin:6px 0 8px;line-height:1.35">Multiple files → consecutive days.</p>
+        <button type="button" class="btn btn-gold" style="width:100%" onclick="void saveCalendarMediaContext('build','core')">Save to Core</button>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--panel)">
+        <div style="font-weight:600;color:var(--gold);margin-bottom:4px">Hybrid</div>
+        <p style="font-size:.66rem;color:var(--muted);margin:0 0 10px;line-height:1.4"><code>nH.*</code> same pattern</p>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Start day
+          <select class="fld" id="build-cal-day-hybrid" style="margin-top:4px"></select>
+        </label>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Type
+          <select class="fld" id="build-cal-kind-hybrid" style="margin-top:4px">
+            <option value="auto">Auto-detect</option>
+            <option value="image">Image</option>
+            <option value="video">Video</option>
+            <option value="text">Caption (.txt)</option>
+          </select>
+        </label>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:4px">File(s)
+          <input class="fld" type="file" id="build-cal-file-hybrid" multiple style="margin-top:4px;font-size:.7rem;width:100%">
+        </label>
+        <p style="font-size:.62rem;color:var(--muted);margin:6px 0 8px;line-height:1.35">Multiple files → consecutive days.</p>
+        <button type="button" class="btn btn-gold" style="width:100%" onclick="void saveCalendarMediaContext('build','hybrid')">Save to Hybrid</button>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--panel)">
+        <div style="font-weight:600;color:var(--gold);margin-bottom:4px">AI</div>
+        <p style="font-size:.66rem;color:var(--muted);margin:0 0 10px;line-height:1.4"><code>nAI.*</code> for AI-channel posts</p>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Start day
+          <select class="fld" id="build-cal-day-ai" style="margin-top:4px"></select>
+        </label>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Type
+          <select class="fld" id="build-cal-kind-ai" style="margin-top:4px">
+            <option value="auto">Auto-detect</option>
+            <option value="image">Image</option>
+            <option value="video">Video</option>
+            <option value="text">Caption (.txt)</option>
+          </select>
+        </label>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:4px">File(s)
+          <input class="fld" type="file" id="build-cal-file-ai" multiple style="margin-top:4px;font-size:.7rem;width:100%">
+        </label>
+        <p style="font-size:.62rem;color:var(--muted);margin:6px 0 8px;line-height:1.35">Multiple files → consecutive days.</p>
+        <button type="button" class="btn btn-gold" style="width:100%" onclick="void saveCalendarMediaContext('build','ai')">Save to AI</button>
       </div>
     </div>
   </div>
@@ -295,32 +678,6 @@ select.fld{cursor:pointer}
         <div class="template-item">Click the <code>"IAM &amp; Admin"</code> menu item in the left sidebar navigation.</div>
       </div>
     </details>
-  </div>
-
-  <!-- Saved steps first so long “Type” drafts don’t push the list off-screen -->
-  <div class="card" id="steps-card" style="display:none">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div class="card-title" style="margin:0">Saved Steps</div>
-      <button class="btn btn-red btn-sm" onclick="clearWorkflow()">🗑 Clear All</button>
-    </div>
-    <div class="step-list" id="step-list"></div>
-    <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
-      <button class="btn btn-gold" onclick="runFromBuilder()">▶ Run All Steps Now</button>
-      <label style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted);cursor:pointer">
-        <input type="checkbox" id="dry-build" style="accent-color:var(--gold)"> Dry run
-      </label>
-    </div>
-    <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
-      <label class="lbl" for="join-source-select">Join another workflow into this one</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <select class="fld" id="join-source-select" style="flex:1">
-          <option value="">— choose workflow to append —</option>
-        </select>
-        <button class="btn btn-outline" id="join-workflow-btn" onclick="joinWorkflowSteps()" disabled>➕ Join</button>
-      </div>
-      <div id="join-workflow-status" style="font-size:.78rem;color:var(--muted);margin-top:8px"></div>
-    </div>
-    <div class="log-box" id="build-log" style="display:none"></div>
   </div>
 
   <!-- Action type -->
@@ -374,6 +731,28 @@ select.fld{cursor:pointer}
       <input class="fld" type="text" id="step-desc"
              placeholder="e.g. Click the chrome icon on the desktop"
              style="margin-bottom:14px">
+    </div>
+
+    <div id="upload-calendar-row" style="display:none;margin-bottom:14px">
+      <label class="lbl" for="calendar-upload-layer">Bind file picker to 30-day folder</label>
+      <select class="fld" id="calendar-upload-layer">
+        <option value="">Off — AI media queue (same as before)</option>
+        <option value="core">Core — day n as <code>nC.txt</code> / <code>nC.png</code> / <code>nC.mp4</code></option>
+        <option value="hybrid">Hybrid — <code>nH.*</code></option>
+        <option value="ai">AI mode — <code>nAI.*</code></option>
+      </select>
+      <label class="lbl" for="calendar-asset-pick" style="margin-top:10px;display:block">What to paste / upload next</label>
+      <select class="fld" id="calendar-asset-pick">
+        <option value="auto">Auto — image → video → caption-only (.txt)</option>
+        <option value="image">Image only (.png/.jpg/.webp)</option>
+        <option value="video">Video only (.mp4/.mov)</option>
+        <option value="text">Caption (.txt) — clipboard gets caption text if no media</option>
+      </select>
+      <p style="font-size:.82rem;color:var(--muted);margin-top:8px;line-height:1.45">
+        Scheduled automation <strong>run #</strong> maps to calendar day (<code>CUSEAR_CALENDAR_TOTAL_DAYS</code>, default 30).
+        Run 5 picks <code>5C</code> / <code>5H</code> / <code>5AI</code> under <code>Downloads/cusear/…/{Core|Hybrid|AI}/</code>.
+        Override wrap vs stop at day 30: <code>CUSEAR_CALENDAR_CYCLE=clamp</code>.
+      </p>
     </div>
 
     <div id="type-text-row" style="display:none">
@@ -560,6 +939,8 @@ select.fld{cursor:pointer}
     <p id="add-step-hint" style="font-size:.72rem;color:var(--muted);margin-top:10px;line-height:1.45;display:none"></p>
   </div>
 
+  </div>
+  </div>
   </div>
   </div>
 </div>
@@ -785,6 +1166,77 @@ select.fld{cursor:pointer}
       <span style="font-size:.72rem;color:var(--muted);max-width:420px;line-height:1.35">Reset runs only clears the <strong>scheduler run counter</strong> (for snake grid / run # windows). It does not delete workflow steps.</span>
     </div>
   </div>
+
+  <div id="auto-save-calendar-card" class="card" style="margin-top:14px;background:linear-gradient(180deg,var(--bg2),var(--panel));border-color:rgba(201,169,110,0.25)">
+    <div class="card-title" style="text-transform:none;letter-spacing:.2px;font-size:1rem">Save calendar media · Core / Hybrid / AI</div>
+    <p style="font-size:.78rem;color:var(--muted);line-height:1.5;margin-bottom:10px;margin-top:6px">
+      Uses the <strong>workflow</strong> in the schedule bar above. Files are saved with <code>nC.*</code> / <code>nH.*</code> / <code>nAI.*</code> under <strong>Downloads → cusear → …</strong> — same as ar™. Choose file(s) below; the server writes the correct day names.
+    </p>
+    <div id="auto-save-media-alert" class="alert" style="display:none;margin-bottom:10px"></div>
+    <p id="auto-save-media-path-hint" style="font-size:.72rem;color:var(--muted);margin:0 0 14px;line-height:1.45">Select a saved workflow in the schedule dropdown above.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px">
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--panel)">
+        <div style="font-weight:600;color:var(--gold);margin-bottom:4px">Core</div>
+        <p style="font-size:.66rem;color:var(--muted);margin:0 0 10px;line-height:1.4">Examples: <code>3C.png</code> <code>3C.mp4</code> <code>3C.txt</code></p>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Start day
+          <select class="fld" id="auto-cal-day-core" style="margin-top:4px"></select>
+        </label>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Type
+          <select class="fld" id="auto-cal-kind-core" style="margin-top:4px">
+            <option value="auto">Auto-detect</option>
+            <option value="image">Image</option>
+            <option value="video">Video</option>
+            <option value="text">Caption (.txt)</option>
+          </select>
+        </label>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:4px">File(s)
+          <input class="fld" type="file" id="auto-cal-file-core" multiple style="margin-top:4px;font-size:.7rem;width:100%">
+        </label>
+        <p style="font-size:.62rem;color:var(--muted);margin:6px 0 8px;line-height:1.35">Multiple files → consecutive days.</p>
+        <button type="button" class="btn btn-gold" style="width:100%" onclick="void saveCalendarMediaContext('auto','core')">Save to Core</button>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--panel)">
+        <div style="font-weight:600;color:var(--gold);margin-bottom:4px">Hybrid</div>
+        <p style="font-size:.66rem;color:var(--muted);margin:0 0 10px;line-height:1.4"><code>nH.*</code> same pattern</p>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Start day
+          <select class="fld" id="auto-cal-day-hybrid" style="margin-top:4px"></select>
+        </label>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Type
+          <select class="fld" id="auto-cal-kind-hybrid" style="margin-top:4px">
+            <option value="auto">Auto-detect</option>
+            <option value="image">Image</option>
+            <option value="video">Video</option>
+            <option value="text">Caption (.txt)</option>
+          </select>
+        </label>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:4px">File(s)
+          <input class="fld" type="file" id="auto-cal-file-hybrid" multiple style="margin-top:4px;font-size:.7rem;width:100%">
+        </label>
+        <p style="font-size:.62rem;color:var(--muted);margin:6px 0 8px;line-height:1.35">Multiple files → consecutive days.</p>
+        <button type="button" class="btn btn-gold" style="width:100%" onclick="void saveCalendarMediaContext('auto','hybrid')">Save to Hybrid</button>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--panel)">
+        <div style="font-weight:600;color:var(--gold);margin-bottom:4px">AI</div>
+        <p style="font-size:.66rem;color:var(--muted);margin:0 0 10px;line-height:1.4"><code>nAI.*</code> for AI-channel posts</p>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Start day
+          <select class="fld" id="auto-cal-day-ai" style="margin-top:4px"></select>
+        </label>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Type
+          <select class="fld" id="auto-cal-kind-ai" style="margin-top:4px">
+            <option value="auto">Auto-detect</option>
+            <option value="image">Image</option>
+            <option value="video">Video</option>
+            <option value="text">Caption (.txt)</option>
+          </select>
+        </label>
+        <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:4px">File(s)
+          <input class="fld" type="file" id="auto-cal-file-ai" multiple style="margin-top:4px;font-size:.7rem;width:100%">
+        </label>
+        <p style="font-size:.62rem;color:var(--muted);margin:6px 0 8px;line-height:1.35">Multiple files → consecutive days.</p>
+        <button type="button" class="btn btn-gold" style="width:100%" onclick="void saveCalendarMediaContext('auto','ai')">Save to AI</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 
@@ -813,6 +1265,78 @@ select.fld{cursor:pointer}
     </div>
     <div id="ar-routines-list" style="border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--bg2);margin-bottom:12px">
       <div style="font-size:.75rem;color:var(--muted)">No ar™ routines yet.</div>
+    </div>
+    <div id="ar-save-calendar-card" class="card" style="margin-bottom:12px;background:linear-gradient(180deg,var(--bg2),var(--panel));border-color:rgba(201,169,110,0.25)">
+      <div class="card-title" style="text-transform:none;letter-spacing:.2px;font-size:1rem">Save calendar media · Core / Hybrid / AI</div>
+      <p style="font-size:.78rem;color:var(--muted);line-height:1.5;margin-bottom:10px;margin-top:6px">
+        Upload here for <strong>ar™</strong>; the same save panel is under <strong>Automation</strong> and <strong>Step Builder</strong> for scheduled or manual runs. We rename + place files as <code>nC.*</code>, <code>nH.*</code>, <code>nAI.*</code> (<strong>Downloads → cusear → …</strong>). Match to Upload steps with calendar bind.</p>
+      <div id="ar-save-media-alert" class="alert" style="display:none;margin-bottom:10px"></div>
+      <label class="lbl" for="ar-save-media-wf-select">Workflow in the selected ar™</label>
+      <select class="fld" id="ar-save-media-wf-select" style="margin-bottom:8px;max-width:min(100%,440px)"
+              onchange="void updateArSaveMediaPathHint()"></select>
+      <p id="ar-save-media-path-hint" style="font-size:.72rem;color:var(--muted);margin:0 0 14px;line-height:1.45">Select an ar™ routine above, then pick a workflow.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px">
+        <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--panel)">
+          <div style="font-weight:600;color:var(--gold);margin-bottom:4px">Core</div>
+          <p style="font-size:.66rem;color:var(--muted);margin:0 0 10px;line-height:1.4">Examples: <code>3C.png</code> <code>3C.mp4</code> <code>3C.txt</code></p>
+          <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Start day
+            <select class="fld" id="ar-cal-day-core" style="margin-top:4px"></select>
+          </label>
+          <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Type
+            <select class="fld" id="ar-cal-kind-core" style="margin-top:4px">
+              <option value="auto">Auto-detect</option>
+              <option value="image">Image</option>
+              <option value="video">Video</option>
+              <option value="text">Caption (.txt)</option>
+            </select>
+          </label>
+          <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:4px">File(s)
+            <input class="fld" type="file" id="ar-cal-file-core" multiple style="margin-top:4px;font-size:.7rem;width:100%">
+          </label>
+          <p style="font-size:.62rem;color:var(--muted);margin:6px 0 8px;line-height:1.35">Multiple files → consecutive days.</p>
+          <button type="button" class="btn btn-gold" style="width:100%" onclick="void saveArCalendarMedia('core')">Save to Core</button>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--panel)">
+          <div style="font-weight:600;color:var(--gold);margin-bottom:4px">Hybrid</div>
+          <p style="font-size:.66rem;color:var(--muted);margin:0 0 10px;line-height:1.4"><code>nH.*</code> same pattern</p>
+          <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Start day
+            <select class="fld" id="ar-cal-day-hybrid" style="margin-top:4px"></select>
+          </label>
+          <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Type
+            <select class="fld" id="ar-cal-kind-hybrid" style="margin-top:4px">
+              <option value="auto">Auto-detect</option>
+              <option value="image">Image</option>
+              <option value="video">Video</option>
+              <option value="text">Caption (.txt)</option>
+            </select>
+          </label>
+          <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:4px">File(s)
+            <input class="fld" type="file" id="ar-cal-file-hybrid" multiple style="margin-top:4px;font-size:.7rem;width:100%">
+          </label>
+          <p style="font-size:.62rem;color:var(--muted);margin:6px 0 8px;line-height:1.35">Multiple files → consecutive days.</p>
+          <button type="button" class="btn btn-gold" style="width:100%" onclick="void saveArCalendarMedia('hybrid')">Save to Hybrid</button>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--panel)">
+          <div style="font-weight:600;color:var(--gold);margin-bottom:4px">AI</div>
+          <p style="font-size:.66rem;color:var(--muted);margin:0 0 10px;line-height:1.4"><code>nAI.*</code> for AI-channel posts</p>
+          <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Start day
+            <select class="fld" id="ar-cal-day-ai" style="margin-top:4px"></select>
+          </label>
+          <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:6px">Type
+            <select class="fld" id="ar-cal-kind-ai" style="margin-top:4px">
+              <option value="auto">Auto-detect</option>
+              <option value="image">Image</option>
+              <option value="video">Video</option>
+              <option value="text">Caption (.txt)</option>
+            </select>
+          </label>
+          <label class="lbl" style="font-size:.72rem;display:block;margin-bottom:4px">File(s)
+            <input class="fld" type="file" id="ar-cal-file-ai" multiple style="margin-top:4px;font-size:.7rem;width:100%">
+          </label>
+          <p style="font-size:.62rem;color:var(--muted);margin:6px 0 8px;line-height:1.35">Multiple files → consecutive days.</p>
+          <button type="button" class="btn btn-gold" style="width:100%" onclick="void saveArCalendarMedia('ai')">Save to AI</button>
+        </div>
+      </div>
     </div>
     <label class="lbl">Available automations</label>
     <div id="ar-workflow-checklist" style="max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--bg2);margin-bottom:8px">
@@ -941,6 +1465,60 @@ select.fld{cursor:pointer}
   </div>
 </div>
 
+<!-- ═══════════════ WRA (Rekky/Lucky/Agami/AHA) ═══════════════ -->
+<div class="panel" id="panel-wra">
+  <div class="card">
+    <div class="card-title">WRA™ Engine v2</div>
+    <p style="font-size:.8rem;color:var(--muted);line-height:1.55;margin-bottom:12px">
+      Train a WRA™ v2 workflow with Rekky (anchors + tab drift resilience). Use <strong>Stop Recording</strong> here (no F10 needed).
+      After saving, use <strong>Validate (Lucky)</strong> or <strong>Run Monitor</strong> for AHA™ runs.
+    </p>
+
+    <div style="display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:end">
+      <div>
+        <label class="lbl" for="wra-name">Workflow name</label>
+        <input class="fld" id="wra-name" placeholder="e.g. WRA_Instagram_Post">
+      </div>
+      <div>
+        <label class="lbl" for="wra-platform">Platform</label>
+        <select class="fld" id="wra-platform">
+          <option value="Instagram" selected>Instagram</option>
+          <option value="Facebook">Facebook</option>
+          <option value="LinkedIn">LinkedIn</option>
+          <option value="X">X</option>
+          <option value="Statuses">Statuses</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl" for="wra-url">Start URL</label>
+        <input class="fld" id="wra-url" placeholder="https://instagram.com" value="https://instagram.com">
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <label class="lbl">Recording mode</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--text);margin-top:6px;cursor:pointer">
+        <input type="radio" name="wra-rec-mode" id="wra-mode-perkey" value="per" checked style="accent-color:var(--gold)">
+        Per-keypress (Recommended) — each Tab is its own step
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--text);margin-top:4px;cursor:pointer">
+        <input type="radio" name="wra-rec-mode" id="wra-mode-batch" value="batch" style="accent-color:var(--gold)">
+        Fast batch (Legacy) — consecutive Tabs merge
+      </label>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px">
+      <button type="button" class="btn btn-gold" id="wra-start-btn" onclick="wraStartRecording()">● Start Recording</button>
+      <button type="button" class="btn btn-outline" id="wra-stop-btn" onclick="wraStopRecording()" disabled>■ Stop Recording</button>
+      <button type="button" class="btn btn-outline" onclick="wraRefreshStatus()">↻ Status</button>
+      <button type="button" class="btn btn-outline" onclick="wraClearLog()">🧹 Clear log</button>
+      <span id="wra-status" style="font-size:.78rem;color:var(--muted)"></span>
+    </div>
+
+    <div class="log-box" id="wra-log" style="margin-top:12px;display:block"></div>
+  </div>
+</div>
+
 
 <!-- ═══════════════ RUN PANEL ═══════════════ -->
 <div class="panel" id="panel-run">
@@ -959,12 +1537,17 @@ select.fld{cursor:pointer}
     <div class="mode-row">
       <div class="mode-btn" onclick="setMode(this,'fast')">⚡ Fast — replay saved clicks</div>
       <div class="mode-btn active" onclick="setMode(this,'smart')">🤖 Smart — AI-assisted</div>
+      <div class="mode-btn" onclick="setMode(this,'wra')">⌨ WRA — keyboard-only (Lucky → Agami → AHA™)</div>
     </div>
 
     <label style="display:flex;align-items:center;gap:8px;font-size:.84rem;color:var(--muted);
                   cursor:pointer;margin-bottom:14px">
       <input type="checkbox" id="dry-run" style="accent-color:var(--gold)"> Dry run (preview, no actual clicks)
     </label>
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;align-items:center;margin:-6px 0 12px">
+      <button type="button" class="btn btn-gold" id="run-start-btn" onclick="handleStartStopButton()">▶ START</button>
+    </div>
 
     <div id="run-alert" class="alert"></div>
     <div class="prog-wrap" id="run-prog-wrap"><div class="prog-bar" id="run-prog-bar"></div></div>
@@ -1095,7 +1678,16 @@ select.fld{cursor:pointer}
   </div>
 </div>
 
-</main>
+</div>
+
+    </div>
+  </div>
+  <footer class="cc-statusbar">
+    <span id="cc-bottom-wf">—</span>
+    <span><span class="cc-nav-foot-dot ok" id="cc-footer-engine-dot"></span><span id="cc-footer-engine-txt">Engine Ready</span></span>
+    <span id="cc-bottom-version">cusear™ …</span>
+  </footer>
+</div>
 
 <div id="permissions-gate" style="display:none;position:fixed;inset:0;background:rgba(5,8,12,.92);z-index:9999;padding:26px;overflow:auto">
   <div style="max-width:880px;margin:0 auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px">
@@ -1144,6 +1736,16 @@ const API = (function () {
     return 'http://127.0.0.1:7788';
   }
 })();
+/** Product strings — use BRAND.* for UI copy that must stay trademark-consistent. */
+const BRAND = {
+  name: 'cusear',
+  tm: '™',
+  product: 'Control Center',
+  wra: 'WRA™',
+  aha: 'AHA™',
+  ar: 'ar™',
+  luckyReportFile: 'LuckyReport™.json',
+};
 /** Tab + arrow steps share `tab_count` in the API; only arrow steps are editable on the Automation tab. */
 const TRAINER_REPEAT_ACTION_TYPES = new Set([
   'press_tab',
@@ -1233,6 +1835,118 @@ function trainerAuthHeaders() {
 function mergeTrainerFetchOpts(extra = {}) {
   const { headers: h2, ...rest } = extra;
   return { ...rest, headers: { ...trainerAuthHeaders(), ...(h2 || {}) } };
+}
+
+// ── WRA Panel (Rekky control via local dashboard) ─────────────────────────────
+function wraLog(cls, msg) {
+  const box = document.getElementById('wra-log');
+  if (!box) return;
+  const line = document.createElement('div');
+  line.className = 'log-line ' + (cls || 'info');
+  const ts = new Date().toLocaleTimeString();
+  line.textContent = `[${ts}] ${msg}`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function wraClearLog() {
+  const box = document.getElementById('wra-log');
+  if (box) box.innerHTML = '';
+  const statusEl = document.getElementById('wra-status');
+  if (statusEl) statusEl.textContent = '';
+}
+
+async function wraRefreshStatus() {
+  const statusEl = document.getElementById('wra-status');
+  const startBtn = document.getElementById('wra-start-btn');
+  const stopBtn = document.getElementById('wra-stop-btn');
+  try {
+    const r = await fetch(`${API}/wra/rekky/status`, mergeTrainerFetchOpts({ cache: 'no-store', signal: trainerAbortMs(4000) }));
+    const d = await r.json();
+    if (!r.ok) throw new Error(apiErrMessage(d));
+    const running = !!d.running;
+    if (statusEl) statusEl.textContent = running ? `Recording: ${d.workflow_name || ''}` : (d.saved_path ? `Saved: ${d.saved_path}` : 'Idle');
+    if (startBtn) startBtn.disabled = running;
+    if (stopBtn) stopBtn.disabled = !running;
+    if (d.error) wraLog('err', `Error: ${d.error}`);
+    if (d.saved_path) wraLog('ok', `Saved: ${d.saved_path}`);
+  } catch (e) {
+    if (statusEl) statusEl.textContent = (e && e.message) ? e.message : String(e);
+  }
+}
+
+async function wraStartRecording() {
+  const wf = String(document.getElementById('wra-name')?.value || '').trim();
+  const url = String(document.getElementById('wra-url')?.value || '').trim();
+  const platform = String(document.getElementById('wra-platform')?.value || 'Instagram').trim() || 'Instagram';
+  if (!wf) { wraLog('err', 'Workflow name required'); return; }
+  if (!url) { wraLog('err', 'Start URL required'); return; }
+  try {
+    wraLog('info', `Starting Rekky: ${wf} [${platform}] (${url})`);
+    const perKey = !!(document.getElementById('wra-mode-perkey') && document.getElementById('wra-mode-perkey').checked);
+    const res = await fetch(`${API}/wra/rekky/start`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ workflow_name: wf, platform, url, per_keypress: perKey }),
+    }));
+    const d = await res.json();
+    if (!res.ok) throw new Error(apiErrMessage(d));
+    wraLog('ok', `Recording started: ${wf}. Switch to Chrome and navigate with keyboard. Click Stop here when done.`);
+    await wraRefreshStatus();
+  } catch (e) {
+    wraLog('err', (e && e.message) ? e.message : String(e));
+  }
+}
+
+async function wraStopRecording() {
+  try {
+    wraLog('info', 'Stopping Rekky…');
+    const res = await fetch(`${API}/wra/rekky/stop`, mergeTrainerFetchOpts({ method: 'POST' }));
+    const d = await res.json();
+    if (!res.ok) throw new Error(apiErrMessage(d));
+    wraLog('ok', 'Stop requested. Waiting for save…');
+    // Poll briefly for saved_path
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 300));
+      await wraRefreshStatus();
+      const st = document.getElementById('wra-status')?.textContent || '';
+      if (st.startsWith('Saved:')) break;
+    }
+  } catch (e) {
+    wraLog('err', (e && e.message) ? e.message : String(e));
+  }
+}
+
+async function ccRekkyEnrichWorkflow(name) {
+  if (!name) return;
+  try {
+    ccToast('Starting Rekky enrichment — keep Chrome available…', 'ok');
+    const res = await fetch(`${API}/wra/rekky/enrich`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workflow_name: name }),
+    }));
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || res.statusText || 'enrich failed');
+    for (let i = 0; i < 600; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const st = await fetch(`${API}/wra/rekky/status`, mergeTrainerFetchOpts({ cache: 'no-store', signal: trainerAbortMs(8000) }));
+      const jd = await st.json();
+      if (!st.ok) break;
+      if (!jd.running && (jd.saved_path || jd.error || jd.enrich_report)) {
+        if (jd.error) throw new Error(String(jd.error));
+        const rep = jd.enrich_report || {};
+        const cap = rep.elements_captured != null ? rep.elements_captured : '—';
+        const stp = rep.steps_enriched != null ? rep.steps_enriched : '—';
+        ccToast(`Rekky enrich done · steps=${stp} · elements=${cap}`, 'ok');
+        void loadWorkflowsList();
+        return;
+      }
+    }
+    ccToast('Enrichment still running — check WRA Rekky status in Studio.', 'warn');
+  } catch (e) {
+    ccToast((e && e.message) ? e.message : String(e), 'err');
+  }
 }
 
 /** AbortSignal.timeout is missing in some browsers; keep health checks from throwing. */
@@ -1364,6 +2078,11 @@ async function checkServer() {
   healthCheckInFlight = false;
   return false;
 }
+
+// Run-status polling timer must be declared before we call startTrainerRunStatusPolling()
+// (avoids TDZ ReferenceError when init calls startTrainerRunStatusPolling early).
+let trainerRunStatusPollTimer = null;
+
 setTimeout(() => {
   void checkServer();
 }, 500);
@@ -1870,6 +2589,7 @@ async function startDesktopExportFromModal(platform) {
 
 // ── Tab switch ────────────────────────────────────────────────────────────────
 function switchTab(name, el, opts = {}) {
+  if (!opts.skipCcSync && typeof ccSyncFromLegacyTab === 'function') ccSyncFromLegacyTab(name);
   if (name !== 'automation') stopAutomationPanelPolling();
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1878,6 +2598,7 @@ function switchTab(name, el, opts = {}) {
   if (tabBtn) tabBtn.classList.add('active');
   if (name === 'workflows') loadWorkflowsList();
   if (name === 'run' && !opts.skipRunLoad) void loadRunDropdown();
+  if (name === 'wra') void wraRefreshStatus();
   if (name === 'ai-media') refreshAiMediaStatus();
   if (name === 'automation') {
     loadAutomationWorkflowDropdown();
@@ -1887,7 +2608,11 @@ function switchTab(name, el, opts = {}) {
     loadArWorkflowDropdown();
     void refreshDesktopExportCaps();
   }
-  if (name === 'build') dockStepBuilder('step-builder-shell-build');
+  if (name === 'build') {
+    dockStepBuilder('step-builder-shell-build');
+    void fillArCalendarDaySelectOptions();
+    void updateBuildSaveMediaPathHint();
+  }
   else if (name === 'website') dockStepBuilder('step-builder-shell-website');
   else if (name === 'best-ai') {
     dockStepBuilder('step-builder-shell-best-ai');
@@ -2199,6 +2924,8 @@ function copyBestAiFinalResult() {
 }
 
 function getTabEl(name) {
+  const byData = document.querySelector('.tab[data-tab="' + name + '"]');
+  if (byData) return byData;
   return Array.from(document.querySelectorAll('.tab')).find((tab) => {
     const raw = tab.getAttribute('onclick') || '';
     return raw.includes(`switchTab('${name}'`);
@@ -2618,6 +3345,9 @@ async function saveBuildWhatsAppNumber() {
 }
 
 function onWfNameChange() {
+  try {
+    window.ccDirtyWorkflow = true;
+  } catch (_) {}
   const name = document.getElementById('wf-name').value.trim();
   currentWfName = name;
   updateStartButtonDisabledState();
@@ -2633,6 +3363,8 @@ function onWfNameChange() {
     currentSteps = [];
     renderStepList();
     refreshJoinWorkflowOptions();
+    ccSyncBottomBarWf();
+    void updateBuildSaveMediaPathHint();
     return;
   }
   _wfTimer = setTimeout(() => loadWorkflowSteps(name), 500);
@@ -2642,6 +3374,8 @@ function onWfNameChange() {
   if (document.getElementById('panel-ar').classList.contains('active')) {
     loadArWorkflowDropdown(name);
   }
+  void updateBuildSaveMediaPathHint();
+  ccSyncBottomBarWf();
 }
 
 function updateJoinWorkflowControls() {
@@ -3186,6 +3920,7 @@ function openStepInWorkflowBuilder(stepNum) {
 
 async function onAutomationWorkflowSelect() {
   await loadAutomationSettings();
+  await updateAutoSaveMediaPathHint();
 }
 
 async function loadAutomationWorkflowDropdown(preferredName = '') {
@@ -3225,6 +3960,8 @@ async function loadAutomationWorkflowDropdown(preferredName = '') {
     window._autoPanelWfName = '';
     window._autoPanelSteps = [];
   }
+  await fillArCalendarDaySelectOptions();
+  await updateAutoSaveMediaPathHint();
 }
 
 function currentArWorkflowName() {
@@ -3720,6 +4457,206 @@ function onArWorkflowSelect() {
   loadArWorkflowDropdown(currentArWorkflowName());
 }
 
+async function fetchCalendarMaxDays() {
+  try {
+    const r = await fetch(`${API}/cusear/calendar-upload-info`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    const d = await r.json().catch(() => ({}));
+    const n = Number(d.calendar_max_days);
+    if (!r.ok || !Number.isFinite(n)) return 30;
+    return Math.max(1, Math.min(366, n));
+  } catch {
+    return 30;
+  }
+}
+
+async function fillArCalendarDaySelectOptions() {
+  const maxD = await fetchCalendarMaxDays();
+  const prefixes = ['ar', 'auto', 'build'];
+  prefixes.forEach((prefix) => {
+    ['core', 'hybrid', 'ai'].forEach((layer) => {
+      const dd = document.getElementById(`${prefix}-cal-day-${layer}`);
+      if (!dd) return;
+      const keep = dd.value;
+      dd.innerHTML = '';
+      for (let i = 1; i <= maxD; i++) {
+        const o = document.createElement('option');
+        o.value = String(i);
+        o.textContent = String(i);
+        dd.appendChild(o);
+      }
+      const ok = [...dd.options].some((x) => x.value === keep);
+      dd.value = ok ? keep : '1';
+    });
+  });
+}
+
+async function refreshArCalendarSaveMediaPanel() {
+  const sel = document.getElementById('ar-save-media-wf-select');
+  const hint = document.getElementById('ar-save-media-path-hint');
+  if (!sel) return;
+  await fillArCalendarDaySelectOptions();
+  const slug = currentArWorkflowName();
+  const b = slug ? currentArBundleFromCache(slug) : null;
+  const kids = b && Array.isArray(b.children) ? b.children.map((x) => String(x || '').trim()).filter(Boolean) : [];
+  sel.innerHTML = '<option value="">— choose workflow in this ar™ —</option>';
+  kids.forEach((k) => {
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = k;
+    sel.appendChild(o);
+  });
+  if (!slug) {
+    if (hint) {
+      hint.innerHTML = 'Select an <strong>ar™ routine</strong> above, then choose which workflow receives the calendar files.';
+    }
+    return;
+  }
+  if (!kids.length) {
+    if (hint) hint.textContent = `Add workflows to ar™ "${slug}" first (Available automations below).`;
+    return;
+  }
+  if (kids.length === 1) sel.value = kids[0];
+  else if (kids.length && !kids.includes(sel.value)) sel.value = kids[0];
+  await updateArSaveMediaPathHint();
+}
+
+async function updateArSaveMediaPathHint() {
+  const hint = document.getElementById('ar-save-media-path-hint');
+  const wfEl = document.getElementById('ar-save-media-wf-select');
+  const wf = wfEl ? String(wfEl.value || '').trim() : '';
+  const slug = currentArWorkflowName();
+  if (!slug) return;
+  if (!wf) {
+    if (hint) hint.textContent = 'Pick a workflow that belongs to this ar™.';
+    return;
+  }
+  try {
+    const r = await fetch(
+      `${API}/cusear/calendar-upload-info?workflow_name=${encodeURIComponent(wf)}&bundle_slug=${encodeURIComponent(slug)}`,
+      mergeTrainerFetchOpts({ cache: 'no-store' })
+    );
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Could not resolve target folder');
+    if (hint) {
+      hint.innerHTML = `<span style="font-variant-numeric:tabular-nums">Saves under </span>`
+        + `<code style="font-size:.72rem">${escapeHtml(String(d.relative_to_downloads || ''))}</code>`
+        + ` · calendar days <strong>1–${Number(d.calendar_max_days) || 30}</strong>`;
+    }
+  } catch (e) {
+    if (hint) hint.textContent = e.message || 'Could not resolve folder.';
+  }
+}
+
+async function updateAutoSaveMediaPathHint() {
+  const hint = document.getElementById('auto-save-media-path-hint');
+  if (!hint) return;
+  const wf = document.getElementById('auto-wf-select')?.value?.trim() || '';
+  if (!wf) {
+    hint.innerHTML = 'Select a <strong>saved workflow</strong> in the schedule dropdown above.';
+    return;
+  }
+  try {
+    const r = await fetch(
+      `${API}/cusear/calendar-upload-info?workflow_name=${encodeURIComponent(wf)}`,
+      mergeTrainerFetchOpts({ cache: 'no-store' })
+    );
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Could not resolve target folder');
+    hint.innerHTML = `<span style="font-variant-numeric:tabular-nums">Saves under </span>`
+      + `<code style="font-size:.72rem">${escapeHtml(String(d.relative_to_downloads || ''))}</code>`
+      + ` · calendar days <strong>1–${Number(d.calendar_max_days) || 30}</strong>`;
+  } catch (e) {
+    hint.textContent = e.message || 'Could not resolve folder.';
+  }
+}
+
+async function updateBuildSaveMediaPathHint() {
+  const hint = document.getElementById('build-save-media-path-hint');
+  if (!hint) return;
+  const wf = document.getElementById('wf-name')?.value?.trim() || '';
+  if (!wf) {
+    hint.textContent = 'Enter a workflow name above (save the workflow on the server first).';
+    return;
+  }
+  try {
+    const r = await fetch(
+      `${API}/cusear/calendar-upload-info?workflow_name=${encodeURIComponent(wf)}`,
+      mergeTrainerFetchOpts({ cache: 'no-store' })
+    );
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Could not resolve target folder');
+    hint.innerHTML = `<span style="font-variant-numeric:tabular-nums">Saves under </span>`
+      + `<code style="font-size:.72rem">${escapeHtml(String(d.relative_to_downloads || ''))}</code>`
+      + ` · calendar days <strong>1–${Number(d.calendar_max_days) || 30}</strong>`;
+  } catch (e) {
+    hint.textContent = e.message || 'Could not resolve folder.';
+  }
+}
+
+async function saveCalendarMediaContext(ctx, layer) {
+  const alertId = `${ctx}-save-media-alert`;
+  hideAlert(alertId);
+  let wf = '';
+  let bundleSlug = '';
+  if (ctx === 'ar') {
+    wf = document.getElementById('ar-save-media-wf-select')?.value?.trim() || '';
+    bundleSlug = currentArWorkflowName();
+    if (!bundleSlug) {
+      showAlert(alertId, 'Select an ar™ routine first (Current ar™ dropdown).', 'err');
+      return;
+    }
+    if (!wf) {
+      showAlert(alertId, 'Pick a workflow in this ar™.', 'err');
+      return;
+    }
+  } else if (ctx === 'auto') {
+    wf = document.getElementById('auto-wf-select')?.value?.trim() || '';
+    if (!wf) {
+      showAlert(alertId, 'Pick a workflow from the Automation schedule dropdown above.', 'err');
+      return;
+    }
+  } else if (ctx === 'build') {
+    wf = document.getElementById('wf-name')?.value?.trim() || '';
+    if (!wf) {
+      showAlert(alertId, 'Enter a workflow name in the Workflow field above.', 'err');
+      return;
+    }
+  } else {
+    showAlert(alertId, 'Invalid save context.', 'err');
+    return;
+  }
+  const dayEl = document.getElementById(`${ctx}-cal-day-${layer}`);
+  const kindEl = document.getElementById(`${ctx}-cal-kind-${layer}`);
+  const fileEl = document.getElementById(`${ctx}-cal-file-${layer}`);
+  const files = fileEl && fileEl.files ? Array.from(fileEl.files) : [];
+  if (!files.length) {
+    showAlert(alertId, 'Choose at least one file.', 'err');
+    return;
+  }
+  const form = new FormData();
+  form.append('workflow_name', wf);
+  if (bundleSlug) form.append('bundle_slug', bundleSlug);
+  form.append('calendar_layer', layer);
+  form.append('calendar_day', dayEl ? dayEl.value : '1');
+  form.append('calendar_start_day', dayEl ? dayEl.value : '1');
+  form.append('slot_kind', kindEl ? kindEl.value : 'auto');
+  files.forEach((f) => form.append('media', f));
+  try {
+    const r = await fetch(`${API}/cusear/save-calendar-media`, mergeTrainerFetchOpts({ method: 'POST', body: form }));
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(apiErrMessage(d));
+    const names = Array.isArray(d.saved) ? d.saved.map((x) => `${x.stem}.${x.ext}`).join(', ') : 'ok';
+    showAlert(alertId, `Saved (${layer}): ${names}`, 'ok');
+    if (fileEl) fileEl.value = '';
+  } catch (e) {
+    showAlert(alertId, e.message || 'Save failed', 'err');
+  }
+}
+
+async function saveArCalendarMedia(layer) {
+  return saveCalendarMediaContext('ar', layer);
+}
+
 async function refreshDesktopExportCaps() {
   const modalLine = document.getElementById('export-modal-cap-line');
   const hBtn = document.getElementById('header-export-app-btn');
@@ -3802,6 +4739,9 @@ async function loadArWorkflowDropdown(preferredName = '') {
   if (statusEl) statusEl.textContent = '';
   if (settingsEl) settingsEl.textContent = '';
   await loadArSettings();
+  try {
+    await refreshArCalendarSaveMediaPanel();
+  } catch (_) {}
 }
 
 async function loadArSettings() {
@@ -3814,6 +4754,9 @@ async function loadArSettings() {
     updateArScheduleReadout();
     renderArNotifyInputs([], { notify_mode: 'one', notify_same_for_all_flows: true, notify_number: '', notify_numbers_by_flow: {} });
     renderArRoutinesList();
+    try {
+      await refreshArCalendarSaveMediaPanel();
+    } catch (_) {}
     return;
   }
   try {
@@ -4688,8 +5631,11 @@ function onActionChange() {
     type === 'best_ai_capture_slot_from_clipboard' ||
     type === 'best_ai_run_synthesizer';
   const isGridSnake = type === 'press_automation_grid_nav';
+  const isUpload = type === 'upload';
   const gridWrap = document.getElementById('grid-nav-snake-row');
   if (gridWrap) gridWrap.style.display = isGridSnake ? 'block' : 'none';
+  const ucal = document.getElementById('upload-calendar-row');
+  if (ucal) ucal.style.display = isUpload ? 'block' : 'none';
   const bestAiSlotRow = document.getElementById('best-ai-step-slot-row');
   if (bestAiSlotRow) bestAiSlotRow.style.display = isBestAiSlot ? 'block' : 'none';
   const hkRow = document.getElementById('hotkey-keys-row');
@@ -4934,6 +5880,8 @@ function updateAddBtn() {
     const gc = gcEl ? parseInt(gcEl.value, 10) : NaN;
     const gr = grEl ? parseInt(grEl.value, 10) : NaN;
     ready = !!(name && Number.isInteger(gc) && gc >= 2 && gc <= 50 && Number.isInteger(gr) && gr >= 1 && gr <= 20);
+  } else if (type === 'upload') {
+    ready = !!name;
   } else if (type === 'click') {
     ready = !!(name && desc && (liveAtRun || currentFile));
   } else {
@@ -5060,7 +6008,7 @@ function updateAddBtn() {
   } else if (type === 'upload') {
     hint.style.display = 'block';
     hint.textContent =
-      'Upload step now binds the next AI-media item in strict order (topic + caption + media path) to runtime tokens so posts do not cross-mix. Use {{CURRENT_CAPTION}} in Type/AI Type step, optionally read {{CURRENT_CAPTION_PATH}}, and upload {{CURRENT_MEDIA_PATH}} (or {{CURRENT_IMAGE_PATH}}/{{CURRENT_VIDEO_PATH}}) in the file picker.';
+      'Choose a 30-day folder bind (Core / Hybrid / AI) so scheduled run #5 auto-fills paths for 5C, 5H, or 5AI under Downloads/cusear. Clipboard gets the media path (or caption text for .txt‑only). Or leave bind Off to consume the AI media queue in order — same tokens: {{CURRENT_CAPTION}}, {{CURRENT_MEDIA_PATH}}, etc.';
   } else {
     hint.style.display = 'none';
     hint.textContent = '';
@@ -5078,6 +6026,10 @@ if (_rsCamp) _rsCamp.addEventListener('change', updateAddBtn);
 const _tpi = document.getElementById('tab-press-increment');
 if (_tpi) _tpi.addEventListener('input', updateAddBtn);
 document.getElementById('shell-command').addEventListener('input', updateAddBtn);
+const _cuLayer = document.getElementById('calendar-upload-layer');
+const _cuPick = document.getElementById('calendar-asset-pick');
+if (_cuLayer) _cuLayer.addEventListener('change', updateAddBtn);
+if (_cuPick) _cuPick.addEventListener('change', updateAddBtn);
 document.querySelectorAll('.hotkey-slot').forEach((el) => el.addEventListener('input', updateAddBtn));
 document.getElementById('join-source-select').addEventListener('change', updateJoinWorkflowControls);
 
@@ -5155,6 +6107,12 @@ async function addStep() {
     if (insertAfterStepNum !== null) {
       form.append('insert_after', String(insertAfterStepNum));
     }
+    if (type === 'upload') {
+      const lyr = document.getElementById('calendar-upload-layer');
+      const apk = document.getElementById('calendar-asset-pick');
+      if (lyr && lyr.value) form.append('calendar_upload_layer', lyr.value);
+      if (apk && apk.value) form.append('calendar_asset_pick', apk.value);
+    }
     const armIn = document.getElementById('step-automation-run-min');
     const arxIn = document.getElementById('step-automation-run-max');
     if (armIn && arxIn) {
@@ -5218,6 +6176,10 @@ function clearStep() {
   const armaxEl = document.getElementById('step-automation-run-max');
   if (arminEl) arminEl.value = '';
   if (armaxEl) armaxEl.value = '';
+  const cul = document.getElementById('calendar-upload-layer');
+  const capk = document.getElementById('calendar-asset-pick');
+  if (cul) cul.value = '';
+  if (capk) capk.value = 'auto';
   const gnc = document.getElementById('grid-nav-cols');
   const gnr = document.getElementById('grid-nav-rows');
   if (gnc) gnc.value = '6';
@@ -5274,6 +6236,16 @@ function editStep(stepNum) {
   const armaxEl = document.getElementById('step-automation-run-max');
   if (arminEl) arminEl.value = (s.automation_run_min != null && s.automation_run_min !== '') ? String(s.automation_run_min) : '';
   if (armaxEl) armaxEl.value = (s.automation_run_max != null && s.automation_run_max !== '') ? String(s.automation_run_max) : '';
+  const culEd = document.getElementById('calendar-upload-layer');
+  const capkEd = document.getElementById('calendar-asset-pick');
+  if (culEd) {
+    const ly = String(s.calendar_upload_layer || '').trim().toLowerCase();
+    culEd.value = ['core', 'hybrid', 'ai'].includes(ly) ? ly : '';
+  }
+  if (capkEd) {
+    const pk = String(s.calendar_asset_pick || 'auto').trim().toLowerCase();
+    capkEd.value = ['auto', 'image', 'video', 'text'].includes(pk) ? pk : 'auto';
+  }
   const gncEl = document.getElementById('grid-nav-cols');
   const gnrEl = document.getElementById('grid-nav-rows');
   if (gncEl) gncEl.value = String(s.grid_nav_cols != null && s.grid_nav_cols !== '' ? s.grid_nav_cols : 6);
@@ -5309,6 +6281,116 @@ function insertStepAfter(stepNum) {
   document.getElementById('add-btn').textContent = `+ Insert After ${stepNum}`;
   document.getElementById('add-status').textContent = `Will insert after step ${stepNum}`;
   updateAddBtn();
+}
+
+function ccStepActClass(actionType) {
+  return 'step-act-' + String(actionType || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+let _ccStepDragFrom = null;
+
+function ccStepDragStart(ev) {
+  const row = ev.currentTarget;
+  _ccStepDragFrom = parseInt(String(row.getAttribute('data-step-num') || ''), 10);
+  row.setAttribute('data-dragging', '1');
+  try {
+    ev.dataTransfer.effectAllowed = 'move';
+    ev.dataTransfer.setData('text/plain', String(_ccStepDragFrom));
+  } catch (_) {}
+}
+
+function ccStepDragEnd(ev) {
+  const row = ev.currentTarget;
+  row.removeAttribute('data-dragging');
+  document.querySelectorAll('.step-row.cc-step-drag-over').forEach((el) => el.classList.remove('cc-step-drag-over'));
+  _ccStepDragFrom = null;
+}
+
+function ccStepDragOver(ev) {
+  ev.preventDefault();
+  ev.currentTarget.classList.add('cc-step-drag-over');
+  try {
+    ev.dataTransfer.dropEffect = 'move';
+  } catch (_) {}
+}
+
+function ccStepDragLeave(ev) {
+  ev.currentTarget.classList.remove('cc-step-drag-over');
+}
+
+async function ccStepDrop(ev) {
+  ev.preventDefault();
+  const target = ev.currentTarget;
+  target.classList.remove('cc-step-drag-over');
+  const toNum = parseInt(String(target.getAttribute('data-step-num') || ''), 10);
+  let fromNum = _ccStepDragFrom;
+  if (fromNum == null || !Number.isFinite(fromNum)) {
+    try {
+      fromNum = parseInt(ev.dataTransfer.getData('text/plain') || '', 10);
+    } catch (_) {}
+  }
+  if (!Number.isFinite(fromNum) || !Number.isFinite(toNum) || fromNum === toNum) return;
+  const name = document.getElementById('wf-name').value.trim();
+  if (!name) return;
+  const order = currentSteps.map((s) => s.step);
+  const fi = order.indexOf(fromNum);
+  const ti = order.indexOf(toNum);
+  if (fi < 0 || ti < 0) return;
+  order.splice(fi, 1);
+  order.splice(ti, 0, fromNum);
+  try {
+    const r = await fetch(`${API}/workflow/${encodeURIComponent(name)}/reorder`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order }),
+    }));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'reorder failed');
+    await loadWorkflowSteps(name);
+    ccToast('Steps reordered', 'ok');
+  } catch (e) {
+    ccToast((e && e.message) ? e.message : String(e), 'err');
+  }
+}
+
+function ccBuildToolbarNew() {
+  const w = document.getElementById('wf-name');
+  const cur = (w && w.value) ? w.value.trim() : '';
+  if (cur && !confirm('Start a new workflow? The current name and step list will clear from this view.')) return;
+  if (w) w.value = '';
+  onWfNameChange();
+  clearStep();
+}
+
+async function ccBuildToolbarSave() {
+  const name = document.getElementById('wf-name') && document.getElementById('wf-name').value.trim();
+  if (!name) {
+    ccToast('Name the workflow first', 'warn');
+    return;
+  }
+  await loadWorkflowSteps(name);
+  ccToast('Reloaded from server', 'ok');
+}
+
+function ccSyncBottomBarWf() {
+  const el = document.getElementById('cc-bottom-wf');
+  if (!el) return;
+  const w = document.getElementById('wf-name');
+  const n = w && w.value ? w.value.trim() : '';
+  el.textContent = n || '—';
+}
+
+async function ccFetchAppVersion() {
+  const el = document.getElementById('cc-bottom-version');
+  if (!el) return;
+  try {
+    const r = await fetch(`${API}/app/version`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    const d = await r.json();
+    const v = d.version || '—';
+    el.textContent = BRAND.name + BRAND.tm + ' v' + v;
+  } catch (_) {
+    el.textContent = BRAND.name + BRAND.tm;
+  }
 }
 
 // ── Step list render ──────────────────────────────────────────────────────────
@@ -5400,10 +6482,20 @@ function renderStepList() {
       ? `<div class="step-desc">${escapeHtml(s.description || '')}</div><div class="step-coords">Slot: <strong>${escapeHtml(s.best_ai_slot || '')}</strong></div>`
       : (s.action_type === 'best_ai_copy_query_bundle' || s.action_type === 'best_ai_run_synthesizer')
       ? `<div class="step-desc">${escapeHtml(s.description || '')}</div>`
+      : s.action_type === 'upload'
+      ? `<div class="step-desc">${escapeHtml(s.description || '')}</div>${
+            (s.calendar_upload_layer || '').toString().trim()
+              ? `<div class="step-coords">30-day: <strong>${escapeHtml(String(s.calendar_upload_layer))}</strong> · ${escapeHtml(String(s.calendar_asset_pick || 'auto'))}</div>`
+              : ''
+          }`
       : `<div class="step-desc">${escapeHtml(s.description || '')}</div>`;
     const runRn = automationRunRangeHtmlSnippet(s);
+    const actCls = ccStepActClass(s.action_type);
     return `
-      <div class="step-row">
+      <div class="step-row step-act-border ${actCls}" draggable="true" data-step-num="${s.step}"
+        ondragstart="ccStepDragStart(event)" ondragend="ccStepDragEnd(event)"
+        ondragover="ccStepDragOver(event)" ondragleave="ccStepDragLeave(event)" ondrop="void ccStepDrop(event)">
+        <span class="step-drag-handle" title="Drag to reorder" aria-hidden="true" onclick="event.stopPropagation()">⋮⋮</span>
         <div class="step-num">${s.step}</div>
         <div class="step-info">
           <div class="step-action">${icon} ${s.action_type}</div>
@@ -5467,13 +6559,14 @@ async function runFromBuilder() {
 let countdownTimer = null;
 /** True when the Python runner holds the workflow lock but this tab did not start the run (scheduler / ar™ / other). */
 let serverSideRunActive = false;
-let trainerRunStatusPollTimer = null;
 
 function setStartButtonIdle() {
   const btn = document.getElementById('start-btn');
   if (!btn) return;
   btn.textContent = '▶ START';
   btn.style.background = 'var(--gold)';
+  const runBtn = document.getElementById('run-start-btn');
+  if (runBtn) runBtn.textContent = '▶ START';
 }
 
 function setStartButtonCountdown() {
@@ -5481,6 +6574,8 @@ function setStartButtonCountdown() {
   if (!btn) return;
   btn.textContent = '✕ Cancel';
   btn.style.background = '#7f1d1d';
+  const runBtn = document.getElementById('run-start-btn');
+  if (runBtn) runBtn.textContent = '✕ Cancel';
 }
 
 function setStartButtonRunning() {
@@ -5488,16 +6583,17 @@ function setStartButtonRunning() {
   if (!btn) return;
   btn.textContent = '■ STOP';
   btn.style.background = '#7f1d1d';
+  const runBtn = document.getElementById('run-start-btn');
+  if (runBtn) runBtn.textContent = '■ STOP';
 }
 
 function updateStartButtonDisabledState() {
   const btn = document.getElementById('start-btn');
   if (!btn) return;
-  if (runInProgress || countdownTimer || serverSideRunActive) {
-    btn.disabled = false;
-    return;
-  }
-  btn.disabled = !currentWfName;
+  const runBtn = document.getElementById('run-start-btn');
+  // User preference: always keep START enabled; the handler will no-op if no workflow is selected.
+  btn.disabled = false;
+  if (runBtn) runBtn.disabled = false;
 }
 
 function handleStartStopButton() {
@@ -5514,7 +6610,12 @@ function handleStartStopButton() {
 
 function startRun() {
   if (runInProgress) return;
-  const name = currentWfName || document.getElementById('wf-name').value.trim();
+  let name = (currentWfName || '').trim();
+  if (!name) {
+    const sel = document.getElementById('run-wf-select');
+    if (sel && sel.value) name = String(sel.value || '').trim();
+  }
+  if (!name) name = document.getElementById('wf-name').value.trim();
   if (!name) return;
   if (countdownTimer) {
     clearInterval(countdownTimer);
@@ -5744,6 +6845,12 @@ async function loadRunSteps() {
         ? `<div class="step-desc"><strong>${escapeHtml(String(s.tab_count ?? '1'))}x</strong> Tab key presses${s.direct_jump ? ' · <strong>direct jump</strong>' : ''}</div>`
         : TRAINER_ARROW_LABELS_UI[s.action_type]
         ? `<div class="step-desc"><strong>${escapeHtml(String(s.tab_count ?? '1'))}x</strong> ${escapeHtml(TRAINER_ARROW_LABELS_UI[s.action_type])} key presses${s.repeat_scale_campaign_day ? ` <span style="opacity:.85">· scheduled: start ${escapeHtml(String(s.tab_count ?? '1'))} + ${escapeHtml(String(s.tab_press_increment != null ? s.tab_press_increment : 1))}/run</span>` : ''}</div>`
+        : s.action_type === 'upload'
+        ? `<div class="step-desc">${escapeHtml(s.description || '')}</div>${
+              (s.calendar_upload_layer || '').toString().trim()
+                ? `<div class="step-coords">30-day: <strong>${escapeHtml(String(s.calendar_upload_layer))}</strong> · ${escapeHtml(String(s.calendar_asset_pick || 'auto'))}</div>`
+                : ''
+            }`
         : s.action_type === 'shell'
         ? `<div class="step-desc" style="white-space:pre-wrap;word-break:break-all;font-family:ui-monospace,monospace;font-size:.78rem">${escapeHtml(s.shell_command || s.description || '')}</div>`
         : `<div class="step-desc">${escapeHtml(s.description || '')}</div>`;
@@ -5772,9 +6879,13 @@ async function loadWorkflowsList() {
       .filter((name) => typeof name === 'string' && name.trim().length > 0);
     renderJoinWorkflowOptions();
     if (!wfs.length) {
+      _ccWfRowsCache = [];
+      ccFilterWorkflowTable();
       el.innerHTML = '<p style="color:var(--muted);font-size:.84rem">No workflows yet. Use Step Builder to create one.</p>';
       return;
     }
+    _ccWfRowsCache = wfs.map((w) => (typeof w === 'object' && w ? w : { name: w, total_steps: 0 }));
+    ccFilterWorkflowTable();
     el.innerHTML = wfs.map((w) => {
       const nm = String(w.name || '');
       const nmEnc = encodeURIComponent(nm);
@@ -5818,10 +6929,11 @@ function editWf(name) {
   void loadWorkflowSteps(name);
   try { sessionStorage.setItem(TRAINER_WF_STORAGE_KEY, name); } catch (_) {}
   clearStep();
+  ccSyncBottomBarWf();
 }
 
 async function deleteWf(name) {
-  if (!confirm(`Delete workflow "${name}"?`)) return;
+  if (!confirm(`Delete workflow "${name}" permanently? This cannot be undone.`)) return;
   await fetch(`${API}/workflow/${encodeURIComponent(name)}`, mergeTrainerFetchOpts({ method: 'DELETE' }));
   loadWorkflowsList();
   refreshJoinWorkflowOptions();
@@ -6190,6 +7302,1501 @@ if (IS_CLOUD_TRAINER) {
     runAlert.style.display = 'block';
   }
 }
+
+// ── cusear™ Control Center ───────────────────────────────────────────────────
+const CC_NAV_TO_SEC = {
+  dashboard: 'cc-sec-dashboard',
+  storage: 'cc-sec-storage',
+  'step-builder': 'cc-sec-step-builder',
+  'wra-studio': 'cc-sec-wra-studio',
+  'workflow-library': 'cc-sec-workflow-library',
+  'ar-composer': 'cc-sec-ar-composer',
+  exporter: 'cc-sec-exporter',
+  settings: 'cc-sec-settings',
+  legacy: 'cc-sec-legacy',
+};
+const CC_LEGACY_TAB = {
+  build: 'step-builder',
+  wra: 'wra-studio',
+  workflows: 'workflow-library',
+  ar: 'ar-composer',
+  run: 'wra-studio',
+  website: 'legacy',
+  'ai-media': 'legacy',
+  automation: 'legacy',
+  'best-ai': 'legacy',
+};
+let ccModeConfirmCallback = null;
+
+function ccToast(msg, kind) {
+  const root = document.getElementById('cc-toast-root');
+  if (!root) return;
+  const el = document.createElement('div');
+  el.className = 'cc-toast ' + (kind === 'err' ? 'err' : kind === 'warn' ? 'warn' : 'ok');
+  el.textContent = msg;
+  root.appendChild(el);
+  setTimeout(() => { try { el.remove(); } catch (_) {} }, 4000);
+}
+
+function ccSyncFromLegacyTab(name) {
+  const nav = CC_LEGACY_TAB[name] || 'dashboard';
+  document.querySelectorAll('.cc-nav-item').forEach((b) => {
+    b.classList.toggle('cc-nav-active', b.getAttribute('data-cc-nav') === nav);
+  });
+  document.querySelectorAll('.cc-section').forEach((s) => s.classList.remove('cc-sec-active'));
+  const sid = CC_NAV_TO_SEC[nav];
+  const sec = sid ? document.getElementById(sid) : null;
+  if (sec) sec.classList.add('cc-sec-active');
+}
+
+function ccNavigate(navId, opts) {
+  if (navId === 'settings' && typeof ccLoadSettingsForm === 'function') ccLoadSettingsForm();
+  document.querySelectorAll('.cc-nav-item').forEach((b) => {
+    b.classList.toggle('cc-nav-active', b.getAttribute('data-cc-nav') === navId);
+  });
+  document.querySelectorAll('.cc-section').forEach((s) => s.classList.remove('cc-sec-active'));
+  const sid = CC_NAV_TO_SEC[navId];
+  const sec = sid ? document.getElementById(sid) : null;
+  if (sec) sec.classList.add('cc-sec-active');
+  const legacyMap = {
+    'step-builder': 'build',
+    'wra-studio': 'wra',
+    'workflow-library': 'workflows',
+    'ar-composer': 'ar',
+    legacy: 'website',
+  };
+  const leg = legacyMap[navId];
+  if (leg && !opts?.skipSwitchTab) {
+    switchTab(leg, getTabEl(leg), { skipCcSync: true, skipRunLoad: navId !== 'wra-studio' });
+  }
+  if (navId === 'workflow-library') void loadWorkflowsList();
+  if (navId === 'wra-studio') {
+    void wraRefreshStatus();
+    void loadRunDropdown();
+    void ccPopulateLuckyWorkflows();
+  }
+  if (navId === 'dashboard') void ccRefreshDashboard();
+}
+
+function ccEnsureWraShell() {
+  const sec = document.getElementById('cc-sec-wra-studio');
+  if (!sec || document.getElementById('wra-sub-tabs')) return;
+  sec.insertAdjacentHTML(
+    'afterbegin',
+    '<div class="cc-tabs" id="wra-sub-tabs">' +
+      '<button type="button" class="cc-tab cc-tab-on" data-wra-sub="record" onclick="ccWraSubTab(\'record\')">🔴 Record (Rekky)</button>' +
+      '<button type="button" class="cc-tab" data-wra-sub="validate" onclick="ccWraSubTab(\'validate\')">✅ Validate (Lucky)</button>' +
+      '<button type="button" class="cc-tab" data-wra-sub="monitor" onclick="ccWraSubTab(\'monitor\')">▶ Run Monitor (Agami + ' + BRAND.aha + ')</button>' +
+      '</div>' +
+      '<div id="wra-pane-record"></div>' +
+      '<div id="wra-pane-validate" class="cc-card" style="display:none;margin-top:12px">' +
+      '<label class="lbl" for="cc-lucky-wf-select">' + BRAND.wra + ' workflow</label>' +
+      '<select class="fld" id="cc-lucky-wf-select" style="margin-bottom:10px"></select>' +
+      '<button type="button" class="cc-btn cc-btn-primary" style="width:100%;margin-bottom:8px" onclick="void ccRunLuckyDry()">Run Lucky (dry)</button>' +
+      '<button type="button" class="cc-btn cc-btn-danger-outline" id="cc-lucky-abort" style="display:none;width:100%;margin-bottom:12px" onclick="void ccLuckyAbort()">Abort Lucky</button>' +
+      '<div id="cc-lucky-progress" style="font-size:.8rem;color:var(--cc-text-muted);margin-bottom:8px"></div>' +
+      '<div id="cc-lucky-stats" style="font-size:.76rem;color:var(--cc-text-secondary);margin-bottom:8px"></div>' +
+      '<div id="cc-lucky-report" class="cc-scroll" style="font-size:.78rem;max-height:320px;overflow:auto"></div>' +
+      '<button type="button" class="cc-btn cc-btn-outline" style="margin-top:10px" onclick="ccExportLuckyReport()">Export report JSON</button>' +
+      '</div>' +
+      '<div id="wra-pane-monitor" style="display:none"></div>'
+  );
+}
+
+function ccWraSubTab(which) {
+  document.querySelectorAll('#wra-sub-tabs .cc-tab').forEach((t) => {
+    t.classList.toggle('cc-tab-on', t.getAttribute('data-wra-sub') === which);
+  });
+  ['record', 'validate', 'monitor'].forEach((w) => {
+    const el = document.getElementById(w === 'record' ? 'wra-pane-record' : w === 'validate' ? 'wra-pane-validate' : 'wra-pane-monitor');
+    if (el) el.style.display = w === which ? 'block' : 'none';
+  });
+  if (which === 'validate') void ccPopulateLuckyWorkflows();
+  if (which === 'monitor') {
+    void loadRunDropdown();
+    void ccPollWraMonitor();
+  }
+}
+
+let _luckyPoll = null;
+let _ccMonTimer = null;
+
+async function ccPopulateLuckyWorkflows() {
+  const sel = document.getElementById('cc-lucky-wf-select');
+  if (!sel) return;
+  try {
+    const r = await fetch(`${API}/workflows`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    const d = await r.json();
+    const wfs = (d.workflows || []).filter((w) => (w.engine || '') === 'wra_v2' || String(w.name || '').indexOf('WRA') === 0);
+    sel.innerHTML = wfs.length
+      ? wfs.map((w) => '<option value="' + encodeURIComponent(w.name) + '">' + escapeHtml(w.name) + '</option>').join('')
+      : '<option value="">— no WRA™ workflows —</option>';
+  } catch (_) {
+    sel.innerHTML = '<option value="">— error —</option>';
+  }
+}
+
+async function ccRunLuckyDry() {
+  const sel = document.getElementById('cc-lucky-wf-select');
+  const wf = sel && decodeURIComponent(sel.value || '');
+  if (!wf) {
+    ccToast('Select a ' + BRAND.wra + ' workflow', 'warn');
+    return;
+  }
+  const pr = document.getElementById('cc-lucky-progress');
+  const ab = document.getElementById('cc-lucky-abort');
+  const st = document.getElementById('cc-lucky-stats');
+  if (pr) pr.textContent = 'Running Lucky…';
+  if (st) st.textContent = '';
+  if (ab) ab.style.display = 'block';
+  try {
+    const res = await fetch(`${API}/wra/lucky/run`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workflow_name: wf }),
+    }));
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || d.detail || 'failed');
+    if (_luckyPoll) clearInterval(_luckyPoll);
+    _luckyPoll = setInterval(async () => {
+      try {
+        const jr = await fetch(`${API}/wra/lucky/job`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+        const jd = await jr.json();
+        if (!jd.running) {
+          clearInterval(_luckyPoll);
+          _luckyPoll = null;
+          if (pr) pr.textContent = '';
+          if (ab) ab.style.display = 'none';
+          if (jd.error) {
+            ccToast(String(jd.error), 'err');
+            return;
+          }
+          ccRenderLuckyReport(jd.report);
+        }
+      } catch (_) {}
+    }, 500);
+  } catch (e) {
+    if (pr) pr.textContent = '';
+    if (ab) ab.style.display = 'none';
+    ccToast((e && e.message) ? e.message : String(e), 'err');
+  }
+}
+
+async function ccLuckyAbort() {
+  try {
+    await fetch(`${API}/wra/lucky/cancel`, mergeTrainerFetchOpts({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }));
+    ccToast('Stop requested — Lucky exits between steps', 'ok');
+  } catch (_) {
+    ccToast('Could not send cancel', 'err');
+  }
+}
+
+function ccRenderLuckyReport(rep) {
+  const box = document.getElementById('cc-lucky-report');
+  const st = document.getElementById('cc-lucky-stats');
+  if (!box || !rep) return;
+  const sig = rep.signal || rep.report?.signal || '—';
+  const drift = rep.drift_map || [];
+  const tempR = drift.filter((row) => row && row.resolved_after_refresh).length;
+  const permR = drift.length - tempR;
+  if (st) {
+    st.textContent =
+      'Steps (Rekky): ' +
+      (rep.total_rekky_steps != null ? rep.total_rekky_steps : '—') +
+      ' · Lucky actions: ' +
+      (rep.total_lucky_steps != null ? rep.total_lucky_steps : '—') +
+      ' · Drift rows: ' +
+      drift.length +
+      ' (Δ refresh-ok ' +
+      tempR +
+      ', persistent ' +
+      permR +
+      ')';
+  }
+  let table = '';
+  if (drift.length) {
+    table =
+      '<table class="cc-table" style="margin-top:10px;font-size:.74rem"><thead><tr><th>Step</th><th>Expected</th><th>Actual</th><th>Refresh OK</th></tr></thead><tbody>';
+    drift.forEach((row) => {
+      const exp =
+        row.expected_element && typeof row.expected_element === 'object'
+          ? JSON.stringify(row.expected_element)
+          : String(row.expected_element || '');
+      const act =
+        row.actual_element && typeof row.actual_element === 'object'
+          ? JSON.stringify(row.actual_element)
+          : String(row.actual_element || '');
+      table +=
+        '<tr><td>' +
+        escapeHtml(String(row.step)) +
+        '</td><td>' +
+        escapeHtml(exp) +
+        '</td><td>' +
+        escapeHtml(act) +
+        '</td><td>' +
+        (row.resolved_after_refresh ? '✓' : '—') +
+        '</td></tr>';
+    });
+    table += '</tbody></table>';
+  } else {
+    table =
+      '<p style="margin-top:8px;font-size:.8rem;color:var(--cc-text-muted)">No anchor drift entries (all focus targets matched).</p>';
+  }
+  box.innerHTML =
+    '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px">' +
+    '<span class="cc-badge ' +
+    (sig === 'GREEN' ? 'cc-badge-wra' : 'cc-badge-tr') +
+    '">Signal: ' +
+    escapeHtml(String(sig)) +
+    '</span></div>' +
+    (rep.abort_reason
+      ? '<p style="font-size:.8rem;color:var(--cc-red);margin-bottom:8px">' + escapeHtml(String(rep.abort_reason)) + '</p>'
+      : '') +
+    table +
+    '<details style="margin-top:12px"><summary style="cursor:pointer;font-size:.78rem;color:var(--cc-text-muted)">Raw JSON</summary><pre style="margin-top:8px;white-space:pre-wrap;font-family:JetBrains Mono,monospace;font-size:.72rem">' +
+    escapeHtml(JSON.stringify(rep, null, 2)) +
+    '</pre></details>';
+}
+
+function ccExportLuckyReport() {
+  void (async () => {
+    try {
+      const r = await fetch(`${API}/wra/last-lucky-report`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+      const d = await r.json();
+      const blob = new Blob([JSON.stringify(d.report || {}, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = BRAND.luckyReportFile;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (_) {
+      ccToast('No report to export', 'warn');
+    }
+  })();
+}
+
+function ccPollWraMonitor() {
+  if (_ccMonTimer) clearInterval(_ccMonTimer);
+  _ccMonTimer = setInterval(async () => {
+    try {
+      const r = await fetch(`${API}/wra/monitor`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+      const m = await r.json();
+      const el = document.getElementById('cc-wra-monitor-summary');
+      if (el) {
+        const wn = m.workflow_name ? 'Workflow: ' + m.workflow_name + '\n' : '';
+        el.textContent =
+          wn +
+          'Lucky: ' +
+          (m.lucky || '—') +
+          ' · Agami: ' +
+          (m.agami || '—') +
+          ' · ' +
+          BRAND.aha +
+          ': ' +
+          (m.aha || '—');
+      }
+      const lk = document.getElementById('cc-wra-mon-lucky');
+      if (lk) lk.textContent = m.lucky || '—';
+      const ag = document.getElementById('cc-wra-mon-agami');
+      if (ag) ag.textContent = m.agami || '—';
+      const rl = document.getElementById('cc-wra-run-lock');
+      if (rl) rl.textContent = m.run_lock_busy ? 'busy (session active)' : 'idle';
+      const sigBody = document.getElementById('cc-wra-signal-log-body');
+      if (sigBody && Array.isArray(m.signals)) {
+        sigBody.innerHTML = m.signals
+          .slice(-32)
+          .reverse()
+          .map((s) => {
+            const msg = escapeHtml(String(s.msg || ''));
+            const det = escapeHtml(String(s.detail || ''));
+            const t = escapeHtml(String(s.t || ''));
+            return '<div class="cc-wra-signal-line">' + t + ' · <strong>' + msg + '</strong> ' + det + '</div>';
+          })
+          .join('');
+      }
+      const sub = document.getElementById('cc-wra-mon-lucky-sub');
+      if (sub) {
+        const lr = m.last_result;
+        let sig = '';
+        if (lr && typeof lr === 'object') {
+          sig = String(lr.signal || (lr.lucky_report && lr.lucky_report.signal) || lr.reason || '').trim();
+        }
+        sub.textContent = sig ? 'Last payload signal: ' + sig : (m.last_error ? String(m.last_error) : '');
+      }
+    } catch (_) {}
+  }, 1200);
+}
+
+function ccEnsureWorkflowLibraryChrome() {
+  const sec = document.getElementById('cc-sec-workflow-library');
+  if (!sec || document.getElementById('cc-wf-toolbar')) return;
+  sec.insertAdjacentHTML(
+    'afterbegin',
+    '<div id="cc-wf-toolbar" class="cc-card" style="margin-bottom:14px">' +
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">' +
+      '<input type="search" class="cc-fld" id="cc-wf-search" placeholder="Search workflows" style="flex:1;min-width:180px" oninput="ccFilterWorkflowTable()">' +
+      '<select class="cc-fld" id="cc-wf-filter" style="width:140px" onchange="ccFilterWorkflowTable()"><option value="all">All</option><option value="trainer_v1">trainer_v1</option><option value="wra_v2">wra_v2</option></select>' +
+      '<select class="cc-fld" id="cc-wf-sort" style="width:120px" onchange="ccFilterWorkflowTable()"><option value="name">Name</option><option value="date">Date</option><option value="platform">Platform</option></select>' +
+      '<button type="button" class="cc-btn cc-btn-outline" onclick="ccNavigate(\'step-builder\')">New Workflow</button>' +
+      '<button type="button" class="cc-btn cc-btn-outline" onclick="void loadWorkflowsList()">↻ Import list</button>' +
+      '</div>' +
+      '<table class="cc-table" style="margin-top:12px"><thead><tr><th>Name</th><th>Platform</th><th>Engine</th><th>Steps</th><th>Last Run</th><th>Result</th><th>Actions</th></tr></thead><tbody id="cc-wf-table-body"></tbody></table>' +
+      '</div>'
+  );
+}
+
+let _ccWfRowsCache = [];
+
+function ccFilterWorkflowTable() {
+  const q = (document.getElementById('cc-wf-search') && document.getElementById('cc-wf-search').value) || '';
+  const fl = (document.getElementById('cc-wf-filter') && document.getElementById('cc-wf-filter').value) || 'all';
+  const tbody = document.getElementById('cc-wf-table-body');
+  if (!tbody || !_ccWfRowsCache.length) return;
+  const qq = q.trim().toLowerCase();
+  const rows = _ccWfRowsCache.filter((w) => {
+    if (fl !== 'all' && (w.engine || '') !== fl) return false;
+    if (qq && String(w.name || '').toLowerCase().indexOf(qq) === -1) return false;
+    return true;
+  });
+  tbody.innerHTML = rows.map((w) => ccWfTableRow(w)).join('');
+}
+
+function ccWfTableRow(w) {
+  const nm = String(w.name || '');
+  const nmEnc = encodeURIComponent(nm);
+  const eng = String(w.engine || '');
+  const badge = eng === 'wra_v2' ? 'cc-badge-wra' : 'cc-badge-tr';
+  const rekkyAt = String(w.rekky_enriched_at || '').trim();
+  const rekkyBtn =
+    eng === 'wra_v2'
+      ? '<button type="button" class="cc-btn cc-btn-outline" data-wf-act="rekky-enrich" data-wf-name="' +
+        nmEnc +
+        '" title="' +
+        (rekkyAt ? 'Re-enrich (last: ' + escapeHtml(rekkyAt) + ')' : 'Enrich DOM anchors') +
+        '">🔬 ' +
+        (rekkyAt ? 'Re-enrich' : 'Enrich Rekky') +
+        '</button> '
+      : '';
+  const lr = String(w.last_run || '—');
+  const ok = w.last_result === 'success' ? '✅' : w.last_result === 'failed' ? '❌' : '—';
+  return (
+    '<tr><td>' +
+    escapeHtml(nm) +
+    '</td><td>' +
+    escapeHtml(String(w.platform || '—')) +
+    '</td><td><span class="cc-badge ' +
+    badge +
+    '">' +
+    escapeHtml(eng || '—') +
+    '</span></td><td>' +
+    String(w.total_steps ?? 0) +
+    '</td><td style="font-size:.75rem">' +
+    escapeHtml(lr) +
+    '</td><td>' +
+    ok +
+    '</td><td><button type="button" class="cc-btn cc-btn-outline" style="min-height:28px;padding:0 8px;font-size:.72rem" data-wf-act="open" data-wf-name="' +
+    nmEnc +
+    '">Open</button> ' +
+    rekkyBtn +
+    '<button type="button" class="cc-btn cc-btn-outline" data-wf-act="duplicate" data-wf-name="' +
+    nmEnc +
+    '">Duplicate</button> ' +
+    '<button type="button" class="cc-btn cc-btn-outline" data-wf-act="export" data-wf-name="' +
+    nmEnc +
+    '">Export</button> ' +
+    '<button type="button" class="cc-btn cc-btn-danger-outline" data-wf-act="delete" data-wf-name="' +
+    nmEnc +
+    '">Delete</button></td></tr>'
+  );
+}
+
+function ccEnsureExporterChrome() {
+  const sec = document.getElementById('cc-sec-exporter');
+  if (!sec || document.getElementById('cc-exp-body')) return;
+  sec.innerHTML =
+    '<div id="cc-exp-body" class="cc-card" style="max-width:640px;margin:0 auto">' +
+    '<div style="font-family:Syne,sans-serif;font-weight:700;margin-bottom:12px">Exporter</div>' +
+    '<p style="font-size:.82rem;color:var(--cc-text-secondary);margin-bottom:14px">Export plain JSON, an ' +
+    BRAND.ar +
+    ' bundle, a machine-locked encrypted workflow (<code>.cusear.enc</code> via <code>WORKFLOW_MASTER_KEY</code>), or open the desktop build modal for installers.</p>' +
+    '<label class="lbl">Export type</label>' +
+    '<label style="display:block;margin:6px 0;font-size:.84rem"><input type="radio" name="cc-exp-mode" value="wf" checked> Single workflow JSON (download)</label>' +
+    '<label style="display:block;margin:6px 0;font-size:.84rem"><input type="radio" name="cc-exp-mode" value="wf-enc"> Encrypted workflow (this machine only)</label>' +
+    '<label style="display:block;margin:6px 0;font-size:.84rem"><input type="radio" name="cc-exp-mode" value="ar"> ' +
+    BRAND.ar +
+    ' routine</label>' +
+    '<label style="display:block;margin:6px 0;font-size:.84rem"><input type="radio" name="cc-exp-mode" value="app"> Full app (export modal)</label>' +
+    '<div class="lbl" style="margin-top:12px">Workflow name</div>' +
+    '<input class="cc-fld" id="cc-exp-wf-name" placeholder="e.g. my_wra_flow" style="margin-bottom:10px">' +
+    '<div id="cc-exp-progress" style="font-size:.78rem;color:var(--cc-text-muted);min-height:1.2em;margin-bottom:8px"></div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">' +
+    '<button type="button" class="cc-btn cc-btn-primary" onclick="void ccExporterRun()">Export now</button>' +
+    '<button type="button" class="cc-btn cc-btn-outline" onclick="void openDesktopExportInApp()">Desktop build…</button>' +
+    '</div>' +
+    '<p style="font-size:.72rem;color:var(--cc-text-muted);margin-top:14px;line-height:1.45">Encrypted exports use <code>security/workflow_crypto.py</code> and decrypt only with the same machine id + master key.</p>' +
+    '</div>';
+}
+
+async function ccExporterRun() {
+  const mode = (document.querySelector('input[name="cc-exp-mode"]:checked') || {}).value || 'wf';
+  const wn = (document.getElementById('cc-exp-wf-name') && document.getElementById('cc-exp-wf-name').value.trim()) || '';
+  const pr = document.getElementById('cc-exp-progress');
+  if (mode === 'app') {
+    openDesktopExportInApp();
+    return;
+  }
+  if (!wn) {
+    ccToast('Enter a workflow name', 'warn');
+    return;
+  }
+  if (pr) pr.textContent = '';
+  try {
+    if (mode === 'wf') {
+      window.open(API + '/workflow/' + encodeURIComponent(wn), '_blank');
+      if (pr) pr.textContent = 'Opened JSON in a new tab.';
+      return;
+    }
+    if (mode === 'wf-enc') {
+      if (pr) pr.textContent = 'Encrypting…';
+      const r = await fetch(`${API}/export/workflow-encrypted`, mergeTrainerFetchOpts({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workflow_name: wn }),
+      }));
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error || r.statusText || 'encrypt failed');
+      }
+      const blob = await r.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = wn.replace(/[^\w.\-]+/g, '_') + '.cusear.enc';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      if (pr) pr.textContent = 'Downloaded encrypted bundle.';
+      return;
+    }
+    if (mode === 'ar') {
+      ccToast('Use ar™ composer to export bundles, or pick JSON / app above.', 'warn');
+    }
+  } catch (e) {
+    if (pr) pr.textContent = '';
+    ccToast((e && e.message) ? e.message : String(e), 'err');
+  }
+}
+
+function ccEnsureSettingsChrome() {
+  const sec = document.getElementById('cc-sec-settings');
+  if (!sec || document.getElementById('cc-set-wrap')) return;
+  sec.innerHTML =
+    '<div id="cc-set-wrap" class="cc-settings-layout">' +
+    '<div><button type="button" class="cc-set-nav-item cc-on" data-set-panel="general" onclick="ccSettingsPanel(\'general\')">General</button>' +
+    '<button type="button" class="cc-set-nav-item" data-set-panel="license" onclick="ccSettingsPanel(\'license\')">License</button>' +
+    '<button type="button" class="cc-set-nav-item" data-set-panel="platforms" onclick="ccSettingsPanel(\'platforms\')">Platforms</button>' +
+    '<button type="button" class="cc-set-nav-item" data-set-panel="notifications" onclick="ccSettingsPanel(\'notifications\')">Notifications</button>' +
+    '<button type="button" class="cc-set-nav-item" data-set-panel="paths" onclick="ccSettingsPanel(\'paths\')">Paths</button>' +
+    '<button type="button" class="cc-set-nav-item" data-set-panel="advanced" onclick="ccSettingsPanel(\'advanced\')">Advanced</button></div>' +
+    '<div id="cc-set-panels" class="cc-card"></div></div>';
+  ccSettingsPanel('general');
+}
+
+function ccSettingsPanel(which) {
+  document.querySelectorAll('.cc-set-nav-item').forEach((b) => b.classList.toggle('cc-on', b.getAttribute('data-set-panel') === which));
+  const host = document.getElementById('cc-set-panels');
+  if (!host) return;
+  if (which === 'general') {
+    host.innerHTML =
+      '<p style="font-size:.8rem;color:var(--cc-text-muted);margin-bottom:12px">Theme: Dark only. Language: English.</p>' +
+      '<div class="lbl">Auto-start engine on launch</div><label style="display:flex;align-items:center;gap:8px;margin:8px 0"><input type="checkbox" id="cc-set-autostart"> Enable</label>' +
+      '<div class="lbl">Check for updates on launch</div><label style="display:flex;align-items:center;gap:8px;margin:8px 0"><input type="checkbox" id="cc-set-updates"> Enable</label>' +
+      '<button type="button" class="cc-btn cc-btn-primary" onclick="ccSaveSettingsPartial()">Save</button>';
+  } else if (which === 'license') {
+    host.innerHTML =
+      '<div class="lbl">License key</div><input class="cc-fld" id="cc-set-license-key" type="password" autocomplete="off" style="margin-bottom:10px">' +
+      '<button type="button" class="cc-btn cc-btn-primary" onclick="ccSaveSettingsPartial()">Activate</button>' +
+      '<p style="font-size:.78rem;color:var(--cc-text-muted);margin-top:12px">Current plan and expiry are shown in the top bar when available from the server.</p>';
+  } else if (which === 'platforms') {
+    host.innerHTML =
+      '<p style="font-size:.8rem;color:var(--cc-text-muted);margin-bottom:10px">Per-platform toggles and Chrome path (stored locally).</p>' +
+      '<label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:.84rem"><input type="checkbox" id="cc-plat-fb" checked> Facebook</label>' +
+      '<label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:.84rem"><input type="checkbox" id="cc-plat-ig" checked> Instagram</label>' +
+      '<label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:.84rem"><input type="checkbox" id="cc-plat-li" checked> LinkedIn</label>' +
+      '<div class="lbl" style="margin-top:10px">Chrome path override</div><input class="cc-fld" id="cc-chrome-path" placeholder="auto">' +
+      '<button type="button" class="cc-btn cc-btn-primary" style="margin-top:12px" onclick="ccSaveSettingsPartial()">Save</button>';
+  } else if (which === 'notifications') {
+    host.innerHTML =
+      '<div class="lbl">WhatsApp number</div><input class="cc-fld" id="cc-set-wa" type="tel" style="margin-bottom:10px">' +
+      '<div class="lbl">Company server endpoint (AHA™ reports)</div><input class="cc-fld" id="cc-set-endpoint" placeholder="https://…" style="margin-bottom:12px">' +
+      '<button type="button" class="cc-btn cc-btn-primary" onclick="ccSaveSettingsPartial()">Save</button>';
+  } else if (which === 'paths') {
+    host.innerHTML =
+      '<div class="lbl">Workflows folder</div><input class="cc-fld" id="cc-path-wf" style="margin-bottom:8px">' +
+      '<div class="lbl">Media folder</div><input class="cc-fld" id="cc-path-media" style="margin-bottom:8px">' +
+      '<div class="lbl">Logs folder</div><input class="cc-fld" id="cc-path-logs" style="margin-bottom:8px">' +
+      '<div class="lbl">Content folder</div><input class="cc-fld" id="cc-path-content" style="margin-bottom:12px">' +
+      '<button type="button" class="cc-btn cc-btn-primary" onclick="ccSaveSettingsPartial()">Save paths</button>';
+  } else if (which === 'advanced') {
+    host.innerHTML =
+      '<div class="lbl">Lucky tab interval (ms)</div><input class="cc-fld" id="cc-adv-lucky" type="number">' +
+      '<div class="lbl" style="margin-top:10px">Agami tab interval (ms)</div><input class="cc-fld" id="cc-adv-agami" type="number">' +
+      '<div class="lbl" style="margin-top:10px">AHA™ tab interval (ms)</div><input class="cc-fld" id="cc-adv-aha" type="number">' +
+      '<div class="lbl" style="margin-top:10px">Max seek forward</div><input class="cc-fld" id="cc-adv-sfwd" type="number">' +
+      '<div class="lbl" style="margin-top:10px">Max seek backward</div><input class="cc-fld" id="cc-adv-sback" type="number">' +
+      '<div class="lbl" style="margin-top:10px">Move timeout (s)</div><input class="cc-fld" id="cc-adv-moveto" type="number">' +
+      '<div class="lbl" style="margin-top:10px">Done timeout (s)</div><input class="cc-fld" id="cc-adv-doneto" type="number">' +
+      '<button type="button" class="cc-btn cc-btn-outline" style="margin-top:12px" onclick="ccResetAdvancedDefaults()">Reset all to defaults</button>' +
+      '<button type="button" class="cc-btn cc-btn-primary" style="margin-top:12px;margin-left:10px" onclick="ccSaveSettingsPartial()">Save Advanced</button>';
+  } else {
+    host.innerHTML = '<p style="color:var(--cc-text-muted);font-size:.86rem">Section not available.</p>';
+  }
+  void ccLoadSettingsForm();
+}
+
+async function ccLoadSettingsForm() {
+  try {
+    const r = await fetch(`${API}/control/settings`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    const d = await r.json();
+    const s = d.settings || {};
+    const a = document.getElementById('cc-set-autostart');
+    const u = document.getElementById('cc-set-updates');
+    if (a) a.checked = !!s.auto_start_engine;
+    if (u) u.checked = !!s.check_updates_on_launch;
+    const lk = document.getElementById('cc-set-license-key');
+    if (lk) lk.value = String(s.license_key || '');
+    const wa = document.getElementById('cc-set-wa');
+    if (wa) wa.value = String(s.whatsapp_notify_number || '');
+    const ep = document.getElementById('cc-set-endpoint');
+    if (ep) ep.value = String(s.company_endpoint || '');
+    const pw = document.getElementById('cc-path-wf');
+    const pm = document.getElementById('cc-path-media');
+    const pl = document.getElementById('cc-path-logs');
+    const pc = document.getElementById('cc-path-content');
+    if (pw) pw.value = String(s.workflows_path || '');
+    if (pm) pm.value = String(s.media_path || '');
+    if (pl) pl.value = String(s.logs_path || '');
+    if (pc) pc.value = String(s.content_path || '');
+    const al = document.getElementById('cc-adv-lucky');
+    const ag = document.getElementById('cc-adv-agami');
+    const ah = document.getElementById('cc-adv-aha');
+    if (al) al.value = s.lucky_tab_interval_ms ?? 80;
+    if (ag) ag.value = s.agami_tab_interval_ms ?? 60;
+    if (ah) ah.value = s.aha_tab_interval_ms ?? 50;
+    const sf = document.getElementById('cc-adv-sfwd');
+    const sb = document.getElementById('cc-adv-sback');
+    const mt = document.getElementById('cc-adv-moveto');
+    const dt = document.getElementById('cc-adv-doneto');
+    if (sf) sf.value = s.max_seek_forward ?? 20;
+    if (sb) sb.value = s.max_seek_backward ?? 5;
+    if (mt) mt.value = s.move_timeout_sec ?? 15;
+    if (dt) dt.value = s.done_timeout_sec ?? 30;
+  } catch (_) {}
+}
+
+function ccResetAdvancedDefaults() {
+  const set = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) el.value = v;
+  };
+  set('cc-adv-lucky', 80);
+  set('cc-adv-agami', 60);
+  set('cc-adv-aha', 50);
+  set('cc-adv-sfwd', 20);
+  set('cc-adv-sback', 5);
+  set('cc-adv-moveto', 15);
+  set('cc-adv-doneto', 30);
+}
+
+async function ccSaveSettingsPartial() {
+  const payload = { settings: {} };
+  const a = document.getElementById('cc-set-autostart');
+  const u = document.getElementById('cc-set-updates');
+  if (a) payload.settings.auto_start_engine = !!a.checked;
+  if (u) payload.settings.check_updates_on_launch = !!u.checked;
+  const lk = document.getElementById('cc-set-license-key');
+  if (lk) payload.settings.license_key = lk.value.trim();
+  const wa = document.getElementById('cc-set-wa');
+  if (wa) payload.settings.whatsapp_notify_number = wa.value.trim();
+  const ep = document.getElementById('cc-set-endpoint');
+  if (ep) payload.settings.company_endpoint = ep.value.trim();
+  const pw = document.getElementById('cc-path-wf');
+  const pm = document.getElementById('cc-path-media');
+  const pl = document.getElementById('cc-path-logs');
+  const pc = document.getElementById('cc-path-content');
+  if (pw) payload.settings.workflows_path = pw.value.trim();
+  if (pm) payload.settings.media_path = pm.value.trim();
+  if (pl) payload.settings.logs_path = pl.value.trim();
+  if (pc) payload.settings.content_path = pc.value.trim();
+  const al = document.getElementById('cc-adv-lucky');
+  const ag = document.getElementById('cc-adv-agami');
+  const ah = document.getElementById('cc-adv-aha');
+  if (al) payload.settings.lucky_tab_interval_ms = Number(al.value) || 80;
+  if (ag) payload.settings.agami_tab_interval_ms = Number(ag.value) || 60;
+  if (ah) payload.settings.aha_tab_interval_ms = Number(ah.value) || 50;
+  const sf = document.getElementById('cc-adv-sfwd');
+  const sb = document.getElementById('cc-adv-sback');
+  const mt = document.getElementById('cc-adv-moveto');
+  const dt = document.getElementById('cc-adv-doneto');
+  if (sf) payload.settings.max_seek_forward = Number(sf.value) || 20;
+  if (sb) payload.settings.max_seek_backward = Number(sb.value) || 5;
+  if (mt) payload.settings.move_timeout_sec = Number(mt.value) || 15;
+  if (dt) payload.settings.done_timeout_sec = Number(dt.value) || 30;
+  try {
+    await fetch(`${API}/control/settings`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }));
+    ccToast('Settings saved', 'ok');
+  } catch (e) {
+    ccToast((e && e.message) ? e.message : String(e), 'err');
+  }
+}
+
+async function ccRefreshDashboard() {
+  if (!isLocalDashboardTrainer()) return;
+  try {
+    const r = await fetch(`${API}/control/status`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    const s = await r.json();
+    const ch = document.getElementById('cc-chrome-val');
+    if (ch) {
+      ch.textContent = s.chrome_connected ? 'Connected' : 'Not Found';
+      ch.style.color = s.chrome_connected ? 'var(--cc-green)' : 'var(--cc-red)';
+    }
+    const pm = document.getElementById('cc-perm-val');
+    if (pm) {
+      pm.textContent = s.permissions || '—';
+      pm.style.color = s.permissions === 'Granted' ? 'var(--cc-green)' : 'var(--cc-amber)';
+    }
+    const nt = document.getElementById('cc-net-val');
+    if (nt) {
+      nt.textContent = s.network_online ? 'Online' : 'Offline';
+      nt.style.color = s.network_online ? 'var(--cc-green)' : 'var(--cc-red)';
+    }
+    const ns = document.getElementById('cc-net-sub');
+    if (ns) ns.textContent = s.platform_reachability || '';
+    const dk = document.getElementById('cc-disk-val');
+    if (dk && typeof s.disk_free_gb === 'number') {
+      dk.textContent = s.disk_free_gb + ' GB free';
+      dk.style.color = s.disk_free_gb > 1 ? 'var(--cc-green)' : s.disk_free_gb > 0.5 ? 'var(--cc-amber)' : 'var(--cc-red)';
+    }
+    const logEl = document.getElementById('cc-engine-log');
+    if (logEl) {
+      const lr = await fetch(`${API}/control/engine/log?lines=20`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+      const lj = await lr.json();
+      logEl.textContent = (lj.lines || []).join('\n');
+    }
+    const rec = await fetch(`${API}/control/activity/recent`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    const rj = await rec.json();
+    const act = document.getElementById('cc-recent-activity');
+    if (act) {
+      const items = rj.items || [];
+      act.innerHTML = items.length
+        ? items.map((x) => '<div style="padding:6px 0;border-bottom:1px solid var(--cc-border)">' + (x.ok ? '✅' : '❌') + ' ' + escapeHtml(x.workflow_name) + ' <span style="color:var(--cc-text-muted);font-size:.72rem">' + escapeHtml(x.audited_at) + '</span></div>').join('')
+        : '<span style="color:var(--cc-text-muted)">No recent runs</span>';
+    }
+    const sch = await fetch(`${API}/control/schedule/upcoming`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    const sj = await sch.json();
+    const sl = document.getElementById('cc-schedule-list');
+    if (sl) {
+      const it = sj.items || [];
+      sl.innerHTML = it.length
+        ? it.map((x) => '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--cc-border)"><span>' + escapeHtml(x.name) + ' · ' + escapeHtml(x.scheduled_at) + '</span><button type="button" class="cc-btn cc-btn-outline" style="min-height:28px;padding:0 10px;font-size:.72rem" onclick="ccRunBundleNow(\'' + encodeURIComponent(x.bundle_slug) + '\')">Run Now</button></div>').join('')
+        : '<span style="color:var(--cc-text-muted)">No runs scheduled — open ar™ Composer to schedule</span>';
+    }
+    const engDot = document.getElementById('cc-nav-engine-dot');
+    const engTxt = document.getElementById('cc-nav-engine-txt');
+    const ok = !!s.engine_ready;
+    if (engDot) {
+      engDot.className = 'cc-nav-foot-dot ' + (ok ? 'ok' : 'err');
+    }
+    if (engTxt) engTxt.textContent = ok ? 'Engine Ready' : 'Engine Stopped';
+    try {
+      const hr = await fetch(`${API}/health`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+      const hj = await hr.json();
+      const pill = document.getElementById('cc-license-pill');
+      if (pill && hj && hj.mode) {
+        pill.textContent = 'Plan — ' + String(hj.mode);
+      }
+    } catch (_) {}
+  } catch (_) {}
+}
+
+async function ccEngineStart() {
+  try {
+    await fetch(`${API}/control/engine/start`, mergeTrainerFetchOpts({ method: 'POST' }));
+    ccToast('Engine started', 'ok');
+    void ccRefreshDashboard();
+  } catch (e) {
+    ccToast((e && e.message) ? e.message : String(e), 'err');
+  }
+}
+
+async function ccEngineStop() {
+  if (!confirm('Stop the Control Center engine?')) return;
+  try {
+    await fetch(`${API}/control/engine/stop`, mergeTrainerFetchOpts({ method: 'POST' }));
+    ccToast('Engine stop requested', 'warn');
+    void ccRefreshDashboard();
+  } catch (e) {
+    ccToast((e && e.message) ? e.message : String(e), 'err');
+  }
+}
+
+async function ccOpenLogsFolder() {
+  try {
+    const r = await fetch(`${API}/control/open-logs-folder`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    const d = await r.json();
+    ccToast('Logs path: ' + (d.path || ''), 'ok');
+  } catch (_) {
+    ccToast('Could not get logs path', 'err');
+  }
+}
+
+async function ccCreateContentFolders() {
+  await ccStorageInit(false);
+}
+
+window.ccStorageState = window.ccStorageState || {
+  plan: '',
+  media: '',
+  platform: '',
+  mainTopic: '',
+  totalDays: 30,
+  vaultRoot: '',
+  topics30: null,
+};
+
+function ccStorageReset() {
+  const st = window.ccStorageState || {};
+  st.plan = '';
+  st.media = '';
+  st.platform = '';
+  st.topics30 = null;
+  window.ccStorageState = st;
+  hideAlert('cc-storage-alert');
+  const planLine = document.getElementById('cc-storage-plan-line');
+  if (planLine) planLine.textContent = 'Selected: —';
+  const platCard = document.getElementById('cc-storage-platform-card');
+  if (platCard) platCard.style.display = 'none';
+  const platLine = document.getElementById('cc-storage-platform-line');
+  if (platLine) platLine.textContent = 'Selected: —';
+  const mediaLine = document.getElementById('cc-storage-media-line');
+  if (mediaLine) mediaLine.textContent = 'Selected: —';
+  const topicCard = document.getElementById('cc-storage-topic-card');
+  if (topicCard) topicCard.style.display = 'none';
+  const topicLine = document.getElementById('cc-storage-topic-line');
+  if (topicLine) topicLine.textContent = 'Current: —';
+  const tp = document.getElementById('cc-storage-topics-preview');
+  if (tp) tp.value = '';
+  const oa = document.getElementById('cc-storage-openai-line');
+  if (oa) oa.textContent = 'OpenAI: —';
+  const slots = document.getElementById('cc-storage-slots');
+  if (slots) slots.innerHTML = '<div style="font-size:.8rem;color:var(--cc-text-muted)">Pick a plan and a type to view slots.</div>';
+}
+
+async function ccStorageListLegacy() {
+  hideAlert('cc-storage-alert');
+  try {
+    const r = await fetch(`${API}/cusear/storage/legacy-list`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'legacy-list failed');
+    const dirs = Array.isArray(d.legacy_dirs) ? d.legacy_dirs : [];
+    const files = Array.isArray(d.legacy_files) ? d.legacy_files : [];
+    const all = [...dirs, ...files];
+    if (!all.length) {
+      showAlert('cc-storage-alert', 'No extra top-level items — only the four plan folders (and files inside them) belong here.', 'ok');
+      return;
+    }
+    showAlert(
+      'cc-storage-alert',
+      `These are not part of the current vault layout: ${all.join(', ')}. You can remove them with “Remove old extra folders…”.`,
+      'warn',
+    );
+  } catch (e) {
+    showAlert('cc-storage-alert', e.message || 'legacy-list failed', 'err');
+  }
+}
+
+async function ccStorageCleanupLegacy() {
+  hideAlert('cc-storage-alert');
+  const ok = confirm(
+    'Delete every folder under Downloads/cusear whose name is NOT Core, Hybrid, AI Budget, or AI Pro?\n\n' +
+      'This removes old workflow output (e.g. Instagram_Post, Social_Media_Package) and CONTENT_LAYOUT.txt.\n' +
+      'Your real Storage slots inside Core/Hybrid/AI Budget/AI Pro are left untouched.',
+  );
+  if (!ok) return;
+  try {
+    const r = await fetch(`${API}/cusear/storage/cleanup-legacy`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: true }),
+    }));
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'cleanup failed');
+    const removed = Array.isArray(d.removed) ? d.removed : [];
+    showAlert(
+      'cc-storage-alert',
+      removed.length ? `✓ Removed: ${removed.join(', ')}` : 'Nothing to remove (vault was already clean).',
+      d.ok ? 'ok' : 'err',
+    );
+  } catch (e) {
+    showAlert('cc-storage-alert', e.message || 'cleanup failed', 'err');
+  }
+}
+
+async function ccStorageInit(force) {
+  hideAlert('cc-storage-alert');
+  const pathEl = document.getElementById('cc-storage-path');
+  if (pathEl) pathEl.textContent = 'Vault: creating…';
+  try {
+    const res = await fetch(`${API}/cusear/storage/init`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force: !!force }),
+    }));
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || d.detail || 'Storage init failed');
+    const st = window.ccStorageState || {};
+    st.totalDays = Number(d.total_days || 30) || 30;
+    st.vaultRoot = String(d.root || '');
+    window.ccStorageState = st;
+    const det = String(d.detail || '');
+    const hint =
+      det === 'minimal_root_only'
+        ? ' · pick a plan below to create only that folder tree'
+        : '';
+    if (pathEl) pathEl.innerHTML = `Vault: <code>${escapeHtml(String(d.root || ''))}</code> · days <strong>1–${st.totalDays}</strong>${hint}`;
+    ccToast(`Storage ready · ${st.totalDays} days`, 'ok');
+    return d;
+  } catch (e) {
+    if (pathEl) pathEl.textContent = 'Vault: —';
+    showAlert('cc-storage-alert', e.message || 'Storage init failed', 'err');
+    throw e;
+  }
+}
+
+async function ccOpenStorage() {
+  await ccStorageInit(false);
+  ccNavigate('storage');
+  ccStorageReset();
+}
+
+async function ccStorageEnsurePlanFolders() {
+  const st = window.ccStorageState || {};
+  if (!st.plan) return;
+  if (st.plan === 'ai_pro' && !st.platform) return;
+  try {
+    const body = { plan: st.plan };
+    if (st.plan === 'ai_pro' && st.platform) body.platform = st.platform;
+    const r = await fetch(`${API}/cusear/storage/ensure-plan`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }));
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'ensure-plan failed');
+  } catch (e) {
+    showAlert('cc-storage-alert', e.message || 'Could not create plan folders', 'err');
+  }
+}
+
+function ccStoragePickPlan(plan) {
+  const st = window.ccStorageState || {};
+  st.plan = String(plan || '');
+  st.media = '';
+  st.platform = '';
+  st.topics30 = null;
+  window.ccStorageState = st;
+  const planLine = document.getElementById('cc-storage-plan-line');
+  if (planLine) planLine.textContent = `Selected: ${st.plan || '—'}`;
+  const platCard = document.getElementById('cc-storage-platform-card');
+  if (platCard) platCard.style.display = st.plan === 'ai_pro' ? 'block' : 'none';
+  const topicCard = document.getElementById('cc-storage-topic-card');
+  if (topicCard) topicCard.style.display = (st.plan === 'hybrid' || st.plan === 'ai_budget' || st.plan === 'ai_pro') ? 'block' : 'none';
+  ccStorageSyncTopicsPreview();
+  ccStorageResetSlotsOnly();
+  if (st.plan && st.plan !== 'ai_pro') void ccStorageEnsurePlanFolders();
+}
+
+function ccStorageResetSlotsOnly() {
+  const mediaLine = document.getElementById('cc-storage-media-line');
+  if (mediaLine) mediaLine.textContent = 'Selected: —';
+  const slots = document.getElementById('cc-storage-slots');
+  if (slots) slots.innerHTML = '<div style="font-size:.8rem;color:var(--cc-text-muted)">Pick Texts, Images, or Videos to view 30 slots.</div>';
+}
+
+function ccStoragePickPlatform(platform) {
+  const st = window.ccStorageState || {};
+  st.platform = String(platform || '');
+  window.ccStorageState = st;
+  const line = document.getElementById('cc-storage-platform-line');
+  if (line) line.textContent = `Selected: ${st.platform || '—'}`;
+  if (st.plan === 'ai_pro' && st.platform) void ccStorageEnsurePlanFolders();
+}
+
+function ccStorageSaveTopic() {
+  const inp = document.getElementById('cc-storage-main-topic');
+  const st = window.ccStorageState || {};
+  st.mainTopic = inp ? String(inp.value || '').trim() : '';
+  st.topics30 = null;
+  window.ccStorageState = st;
+  const line = document.getElementById('cc-storage-topic-line');
+  if (line) line.textContent = `Current: ${st.mainTopic || '—'}`;
+  const tp = document.getElementById('cc-storage-topics-preview');
+  if (tp) tp.value = '';
+}
+
+function ccStorageSyncTopicsPreview() {
+  const st = window.ccStorageState || {};
+  const tp = document.getElementById('cc-storage-topics-preview');
+  if (!tp) return;
+  const arr = Array.isArray(st.topics30) ? st.topics30 : [];
+  if (!arr.length) {
+    tp.value = '';
+    return;
+  }
+  tp.value = arr.map((t, i) => `${i + 1}. ${t}`).join('\n');
+}
+
+async function ccStorageCheckAiKey() {
+  hideAlert('cc-storage-alert');
+  try {
+    const r = await fetch(`${API}/cusear/storage/ai-ready`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    const d = await r.json().catch(() => ({}));
+    const el = document.getElementById('cc-storage-openai-line');
+    if (el) {
+      el.textContent = d.openai_configured
+        ? 'OpenAI: key is configured on the server (OPENAI_API_KEY).'
+        : 'OpenAI: key is not set on the server — add OPENAI_API_KEY to .env.local and restart the dashboard.';
+    }
+    showAlert(
+      'cc-storage-alert',
+      d.openai_configured ? 'OpenAI API key is available for Storage AI actions.' : (d.error || 'OpenAI key missing on server.'),
+      d.openai_configured ? 'ok' : 'err',
+    );
+  } catch (e) {
+    showAlert('cc-storage-alert', e.message || 'Could not reach server', 'err');
+  }
+}
+
+async function ccStorageGenerateTopics30() {
+  const inp = document.getElementById('cc-storage-main-topic');
+  const st = window.ccStorageState || {};
+  const main = inp ? String(inp.value || '').trim() : String(st.mainTopic || '').trim();
+  if (!main) {
+    showAlert('cc-storage-alert', 'Enter and save a main topic first.', 'err');
+    return;
+  }
+  st.mainTopic = main;
+  window.ccStorageState = st;
+  const line = document.getElementById('cc-storage-topic-line');
+  if (line) line.textContent = `Current: ${main}`;
+  showAlert('cc-storage-alert', 'Generating 30 day-level topics with OpenAI…', 'warn');
+  try {
+    const r = await fetch(`${API}/cusear/storage/topics`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ main_topic: main }),
+    }));
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Topic generation failed');
+    st.topics30 = Array.isArray(d.topics) ? d.topics : [];
+    window.ccStorageState = st;
+    ccStorageSyncTopicsPreview();
+    showAlert('cc-storage-alert', `✓ Saved ${st.topics30.length} day topics in this session. Pick TYPE, then generate per day or all days.`, 'ok');
+  } catch (e) {
+    showAlert('cc-storage-alert', e.message || 'Topic generation failed', 'err');
+  }
+}
+
+async function ccStorageGenerateAllDaysSeq() {
+  const st = window.ccStorageState || {};
+  if (!st.plan || st.plan === 'core') {
+    showAlert('cc-storage-alert', 'Pick Hybrid, AI Budget, or AI Pro and a TYPE (Texts / Images / Videos) first.', 'err');
+    return;
+  }
+  if (!st.media) {
+    showAlert('cc-storage-alert', 'Pick a TYPE (Texts, Images, or Videos) first.', 'err');
+    return;
+  }
+  if (st.plan === 'ai_pro' && !st.platform) {
+    showAlert('cc-storage-alert', 'Pick a platform (AI Pro) first.', 'err');
+    return;
+  }
+  if (!st.mainTopic) {
+    const inp = document.getElementById('cc-storage-main-topic');
+    const main = inp ? String(inp.value || '').trim() : '';
+    if (!main) {
+      showAlert('cc-storage-alert', 'Enter a main topic (TOPIC card) first.', 'err');
+      return;
+    }
+    st.mainTopic = main;
+    window.ccStorageState = st;
+  }
+  const total = Number(st.totalDays || 30) || 30;
+  const topics = Array.isArray(st.topics30) ? st.topics30 : [];
+  if (!topics.length) {
+    showAlert('cc-storage-alert', 'Generate 30 day topics first (or continue with generic “main topic — day N” labels).', 'warn');
+  }
+  let lastRel = '';
+  for (let day = 1; day <= total; day++) {
+    const topic =
+      topics.length > day - 1 && String(topics[day - 1] || '').trim()
+        ? String(topics[day - 1]).trim()
+        : `${st.mainTopic} — day ${day}`;
+    showAlert('cc-storage-alert', `Generating ${st.media} day ${day} / ${total}…`, 'warn');
+    try {
+      const r = await fetch(`${API}/cusear/storage/generate-slot`, mergeTrainerFetchOpts({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: st.plan,
+          media: st.media,
+          day,
+          platform: st.platform || '',
+          main_topic: st.mainTopic,
+          topic,
+        }),
+      }));
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || `generate failed at day ${day}`);
+      lastRel = String(d.relative_to_downloads || '').trim() || lastRel;
+      void ccStorageRefreshOne(day);
+    } catch (e) {
+      showAlert('cc-storage-alert', e.message || `Stopped at day ${day}`, 'err');
+      return;
+    }
+  }
+  const tail = lastRel ? ` Last file: ${lastRel}.` : '';
+  showAlert(
+    'cc-storage-alert',
+    `✓ Finished all ${total} days for ${st.media} — each day was written to your vault under Downloads/cusear.${tail}`,
+    'ok',
+  );
+  void ccStorageRefreshSlots();
+}
+
+async function ccStoragePickMedia(media) {
+  const st = window.ccStorageState || {};
+  st.media = String(media || '');
+  window.ccStorageState = st;
+  const mediaLine = document.getElementById('cc-storage-media-line');
+  if (mediaLine) mediaLine.textContent = `Selected: ${st.media || '—'}`;
+  if (!st.plan) {
+    showAlert('cc-storage-alert', 'Pick a plan first.', 'err');
+    return;
+  }
+  if (st.plan === 'ai_pro' && !st.platform) {
+    showAlert('cc-storage-alert', 'Pick a platform (AI Pro) first.', 'err');
+    return;
+  }
+  if (st.plan === 'hybrid' && st.media === 'text') {
+    const topicCard = document.getElementById('cc-storage-topic-card');
+    if (topicCard) topicCard.style.display = 'block';
+  }
+  if ((st.plan === 'ai_budget' || st.plan === 'ai_pro') && !st.mainTopic) {
+    const topicCard = document.getElementById('cc-storage-topic-card');
+    if (topicCard) topicCard.style.display = 'block';
+  }
+  await ccStorageEnsurePlanFolders();
+  ccStorageSyncTopicsPreview();
+  await ccStorageRefreshSlots();
+}
+
+async function ccStorageRefreshSlots() {
+  const st = window.ccStorageState || {};
+  hideAlert('cc-storage-alert');
+  if (!st.plan || !st.media) {
+    ccStorageResetSlotsOnly();
+    return;
+  }
+  const slots = document.getElementById('cc-storage-slots');
+  if (!slots) return;
+  const total = Number(st.totalDays || 30) || 30;
+  slots.innerHTML = '<div style="font-size:.8rem;color:var(--cc-text-muted)">Loading…</div>';
+
+  const rows = [];
+  for (let day = 1; day <= total; day++) {
+    const id = `cc-storage-row-${day}`;
+    rows.push(
+      `<div id="${id}" style="border:1px solid var(--cc-border);border-radius:10px;padding:10px;margin-bottom:10px;background:var(--cc-bg-primary)">` +
+        `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">` +
+          `<div style="font-size:.8rem;color:var(--cc-text-secondary);font-variant-numeric:tabular-nums">Day <strong>${day}</strong></div>` +
+          `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">` +
+            `<button type="button" class="cc-btn cc-btn-outline" style="padding:6px 10px;font-size:.76rem" onclick="void ccStorageRefreshOne(${day})">↻</button>` +
+            `<span id="cc-storage-meta-${day}" style="font-size:.72rem;color:var(--cc-text-muted)">—</span>` +
+          `</div>` +
+        `</div>` +
+        `<div id="cc-storage-preview-${day}" style="margin-top:8px;font-size:.76rem;color:var(--cc-text-secondary);white-space:pre-wrap"></div>` +
+        `<div id="cc-storage-actions-${day}" style="margin-top:10px"></div>` +
+      `</div>`
+    );
+  }
+  slots.innerHTML = rows.join('');
+
+  for (let day = 1; day <= total; day++) {
+    ccStorageRenderActions(day);
+    void ccStorageRefreshOne(day);
+  }
+}
+
+function ccStorageRenderActions(day) {
+  const st = window.ccStorageState || {};
+  const box = document.getElementById(`cc-storage-actions-${day}`);
+  if (!box) return;
+  const isCore = st.plan === 'core';
+  const isHybrid = st.plan === 'hybrid';
+  const isAi = st.plan === 'ai_budget' || st.plan === 'ai_pro';
+  if (isHybrid && st.media === 'text') {
+    box.innerHTML = `<button type="button" class="cc-btn cc-btn-primary" onclick="void ccStorageGenerate(${day})">⚡ Generate</button>`;
+    return;
+  }
+  if (isCore && st.media === 'text') {
+    box.innerHTML =
+      `<label style="display:block;font-size:.72rem;color:var(--cc-text-muted);margin-bottom:6px">Paste text for day ${day}</label>` +
+      `<textarea class="cc-fld" id="cc-storage-textarea-${day}" rows="6" style="width:100%;font-family:ui-monospace,monospace;font-size:.78rem;line-height:1.35" ` +
+        `placeholder="Paste your caption/text here…" oninput="this.setAttribute('data-dirty','1')"></textarea>` +
+      `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">` +
+        `<button type="button" class="cc-btn cc-btn-primary" onclick="void ccStorageSaveText(${day})">Save text</button>` +
+        `<button type="button" class="cc-btn cc-btn-outline" onclick="void ccStorageRefreshOne(${day})">Reload</button>` +
+      `</div>`;
+    return;
+  }
+  if (isCore || (isHybrid && (st.media === 'image' || st.media === 'video'))) {
+    box.innerHTML = `<button type="button" class="cc-btn cc-btn-primary" onclick="void ccStorageUpload(${day})">Upload file</button>`;
+    return;
+  }
+  if (isAi) {
+    box.innerHTML = `<button type="button" class="cc-btn cc-btn-primary" onclick="void ccStorageGenerate(${day})">⚡ Generate</button>`;
+    return;
+  }
+  box.innerHTML = '';
+}
+
+async function ccStorageRefreshOne(day) {
+  const st = window.ccStorageState || {};
+  const meta = document.getElementById(`cc-storage-meta-${day}`);
+  const prev = document.getElementById(`cc-storage-preview-${day}`);
+  if (!st.plan || !st.media) return;
+  if (st.plan === 'ai_pro' && !st.platform) return;
+  try {
+    const qs = new URLSearchParams({
+      plan: st.plan,
+      media: st.media,
+      day: String(day),
+      platform: st.platform || '',
+    });
+    const r = await fetch(`${API}/cusear/storage/slot-info?${qs.toString()}`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'slot-info failed');
+    if (meta) {
+      const sz = Number(d.size_bytes || 0);
+      meta.textContent = (d.exists ? `✓ ${sz} bytes` : 'empty');
+    }
+    if (prev) {
+      if (st.media === 'text') {
+        prev.textContent = String(d.preview || '').trim() || '(empty)';
+        const ta = document.getElementById(`cc-storage-textarea-${day}`);
+        if (ta && String(st.plan || '') === 'core') {
+          const dirty = String(ta.getAttribute('data-dirty') || '') === '1';
+          if (!dirty) {
+            ta.value = String(d.preview || '');
+          }
+        }
+      } else {
+        const rel = String(d.relative_to_downloads || '').trim();
+        prev.innerHTML = rel ? `File: <code>${escapeHtml(rel)}</code>` : '';
+      }
+    }
+  } catch (e) {
+    if (meta) meta.textContent = '—';
+    if (prev) prev.textContent = '';
+  }
+}
+
+async function ccStorageSaveText(day) {
+  const st = window.ccStorageState || {};
+  if (!st.plan || st.plan !== 'core' || st.media !== 'text') {
+    showAlert('cc-storage-alert', 'Select Core → Texts first.', 'err');
+    return;
+  }
+  const ta = document.getElementById(`cc-storage-textarea-${day}`);
+  const text = ta ? String(ta.value || '') : '';
+  try {
+    const r = await fetch(`${API}/cusear/storage/set-text`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        plan: 'core',
+        day,
+        text,
+      }),
+    }));
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'save failed');
+    if (ta) ta.setAttribute('data-dirty', '0');
+    const rel = String(d.relative_to_downloads || '').trim();
+    showAlert('cc-storage-alert', rel ? `✓ Saved: ${rel}` : `✓ Saved Core text for day ${day}.`, 'ok');
+    void ccStorageRefreshOne(day);
+  } catch (e) {
+    showAlert('cc-storage-alert', e.message || 'save failed', 'err');
+  }
+}
+
+async function ccStorageUpload(day) {
+  const st = window.ccStorageState || {};
+  if (!st.plan || !st.media) return;
+  if (st.plan === 'core' && st.media === 'text') {
+    showAlert('cc-storage-alert', 'Core texts use paste + Save (not file upload).', 'warn');
+    return;
+  }
+  if (st.plan === 'ai_pro' && !st.platform) {
+    showAlert('cc-storage-alert', 'Pick a platform first (AI Pro).', 'err');
+    return;
+  }
+  const inp = document.getElementById('cc-storage-file');
+  if (!inp) return;
+  inp.accept = st.media === 'image' ? 'image/*' : 'video/*';
+  inp.onchange = async (ev) => {
+    try {
+      const file = inp.files && inp.files[0] ? inp.files[0] : null;
+      inp.value = '';
+      if (!file) return;
+      const form = new FormData();
+      form.append('plan', st.plan);
+      form.append('media_kind', st.media);
+      form.append('day', String(day));
+      if (st.platform) form.append('platform', st.platform);
+      form.append('media', file);
+      const r = await fetch(`${API}/cusear/storage/upload-slot`, mergeTrainerFetchOpts({ method: 'POST', body: form }));
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'upload failed');
+      const rel = String(d.relative_to_downloads || '').trim();
+      showAlert('cc-storage-alert', rel ? `✓ Saved upload: ${rel}` : `✓ Uploaded day ${day}.`, 'ok');
+      void ccStorageRefreshOne(day);
+    } catch (e) {
+      showAlert('cc-storage-alert', e.message || 'upload failed', 'err');
+    }
+  };
+  inp.click();
+}
+
+async function ccStorageGenerate(day) {
+  const st = window.ccStorageState || {};
+  if (!st.plan || !st.media) return;
+  if (st.plan === 'ai_pro' && !st.platform) {
+    showAlert('cc-storage-alert', 'Pick a platform first (AI Pro).', 'err');
+    return;
+  }
+  if (!st.mainTopic) {
+    const t = prompt('Enter a main topic for AI generation:', '');
+    if (!t) return;
+    st.mainTopic = String(t).trim();
+    window.ccStorageState = st;
+    const inp = document.getElementById('cc-storage-main-topic');
+    if (inp) inp.value = st.mainTopic;
+    const line = document.getElementById('cc-storage-topic-line');
+    if (line) line.textContent = `Current: ${st.mainTopic || '—'}`;
+  }
+  showAlert('cc-storage-alert', `Generating day ${day}…`, 'warn');
+  try {
+    const topics = Array.isArray(st.topics30) ? st.topics30 : [];
+    const topic =
+      topics.length > day - 1 && String(topics[day - 1] || '').trim()
+        ? String(topics[day - 1]).trim()
+        : `${st.mainTopic} — day ${day}`;
+    const r = await fetch(`${API}/cusear/storage/generate-slot`, mergeTrainerFetchOpts({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        plan: st.plan,
+        media: st.media,
+        day,
+        platform: st.platform || '',
+        main_topic: st.mainTopic,
+        topic,
+      }),
+    }));
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'generate failed');
+    const rel = String(d.relative_to_downloads || '').trim();
+    showAlert('cc-storage-alert', rel ? `✓ Saved to disk: ${rel}` : `✓ Generated day ${day}.`, 'ok');
+    void ccStorageRefreshOne(day);
+  } catch (e) {
+    showAlert('cc-storage-alert', e.message || 'generate failed', 'err');
+  }
+}
+
+async function ccRunBundleNow(encSlug) {
+  const slug = decodeURIComponent(encSlug || '');
+  if (!slug) return;
+  try {
+    await fetch(`${API}/bundle/${encodeURIComponent(slug)}/run`, mergeTrainerFetchOpts({ method: 'POST' }));
+    ccToast('ar™ run started', 'ok');
+  } catch (e) {
+    ccToast((e && e.message) ? e.message : String(e), 'err');
+  }
+}
+
+function ccWindowMinimize() {
+  try {
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.minimize_window) {
+      void window.pywebview.api.minimize_window();
+    }
+  } catch (_) {}
+}
+
+function ccWindowClose() {
+  if (!confirm('Close cusear™ Control Center?')) return;
+  try {
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.close_window) {
+      void window.pywebview.api.close_window();
+    } else {
+      window.close();
+    }
+  } catch (_) {}
+}
+
+function ccSetMode(mode) {
+  const dirty = !!(window.ccDirtyWorkflow && document.getElementById('wf-name') && document.getElementById('wf-name').value.trim());
+  const go = () => {
+    document.getElementById('cc-mode-trainer').classList.toggle('cc-active', mode === 'trainer');
+    document.getElementById('cc-mode-user').classList.toggle('cc-active', mode === 'user');
+    try {
+      sessionStorage.setItem('cc_trainer_user_mode', mode);
+    } catch (_) {}
+    window.ccDirtyWorkflow = false;
+  };
+  if (dirty && mode === 'user') {
+    document.getElementById('cc-mode-confirm-msg').textContent =
+      'A workflow name is open in Step Builder. Switch to USER anyway?';
+    document.getElementById('cc-mode-confirm').classList.add('cc-show');
+    ccModeConfirmCallback = go;
+    return;
+  }
+  go();
+}
+
+function ccDismissModeConfirm(ok) {
+  document.getElementById('cc-mode-confirm').classList.remove('cc-show');
+  if (ok && ccModeConfirmCallback) ccModeConfirmCallback();
+  ccModeConfirmCallback = null;
+}
+
+function ccMountPanels() {
+  ccEnsureWraShell();
+  ccEnsureWorkflowLibraryChrome();
+  ccEnsureExporterChrome();
+  ccEnsureSettingsChrome();
+  const move = (pid, hostId) => {
+    const node = document.getElementById(pid);
+    const host = document.getElementById(hostId);
+    if (node && host) host.appendChild(node);
+  };
+  move('panel-wra', 'wra-pane-record');
+  move('panel-run', 'wra-pane-monitor');
+  move('panel-build', 'cc-sec-step-builder');
+  move('panel-workflows', 'cc-sec-workflow-library');
+  move('panel-ar', 'cc-sec-ar-composer');
+  ['panel-website', 'panel-ai-media', 'panel-automation', 'panel-best-ai'].forEach((id) => move(id, 'cc-sec-legacy'));
+  const mon = document.getElementById('wra-pane-monitor');
+  if (mon) {
+    mon.insertAdjacentHTML(
+      'afterbegin',
+      '<div class="cc-wra-monitor-grid" style="margin-bottom:12px">' +
+        '<div class="cc-wra-mon-card">' +
+        '<div class="cc-wra-mon-title">Lucky™ · validate layer</div>' +
+        '<div id="cc-wra-mon-lucky" class="cc-badge cc-badge-wra" style="margin-bottom:6px;width:fit-content">—</div>' +
+        '<div id="cc-wra-mon-lucky-sub" style="font-size:.72rem;color:var(--cc-text-muted);line-height:1.45"></div>' +
+        '</div>' +
+        '<div class="cc-wra-mon-card">' +
+        '<div class="cc-wra-mon-title">Agami · runtime</div>' +
+        '<div id="cc-wra-mon-agami" class="cc-badge cc-badge-tr" style="width:fit-content">—</div>' +
+        '<p style="font-size:.72rem;color:var(--cc-text-muted);margin-top:10px;line-height:1.5">Healing / navigation during a live ' +
+        BRAND.wra +
+        ' run. ' +
+        BRAND.aha +
+        ' line shows company-report phase when configured.</p>' +
+        '</div>' +
+        '</div>' +
+        '<div class="cc-card" style="margin-bottom:12px">' +
+        '<div style="font-size:.82rem;font-weight:650;margin-bottom:8px">Session summary</div>' +
+        '<div id="cc-wra-monitor-summary" style="font-size:.8rem;line-height:1.55"></div>' +
+        '<div style="font-size:.72rem;color:var(--cc-text-muted);margin-top:8px">Run lock: <span id="cc-wra-run-lock">—</span></div>' +
+        '</div>' +
+        '<div class="cc-card cc-scroll" id="cc-wra-signal-wrap" style="max-height:240px;overflow-y:auto;margin-bottom:12px">' +
+        '<div style="font-size:.82rem;font-weight:650;margin-bottom:8px">Signal log</div>' +
+        '<div id="cc-wra-signal-log-body"></div>' +
+        '</div>' +
+        '<div class="cc-card" style="font-size:.76rem;color:var(--cc-text-secondary);line-height:1.45">' +
+        '<strong>WhatsApp</strong> — completion strip uses the per-workflow notify number from Step Builder when set.' +
+        '</div>'
+    );
+  }
+  const bucket = document.getElementById('cc-panels-bucket');
+  if (bucket) bucket.remove();
+  ccWraSubTab('record');
+}
+
+function ccInitControlCenter() {
+  ccMountPanels();
+  try {
+    const m = sessionStorage.getItem('cc_trainer_user_mode');
+    if (m === 'user') ccSetMode('user');
+  } catch (_) {}
+  ccNavigate('dashboard', { skipSwitchTab: true });
+  void ccRefreshDashboard();
+  void ccFetchAppVersion();
+  ccSyncBottomBarWf();
+  setInterval(ccRefreshDashboard, 20000);
+  document.getElementById('cc-sec-wra-studio') && ccPollWraMonitor();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    ccInitControlCenter();
+    void fillArCalendarDaySelectOptions();
+    void updateBuildSaveMediaPathHint();
+  } catch (e) {
+    console.warn(e);
+  }
+});
+
+document.addEventListener('click', (ev) => {
+  const t = ev.target;
+  if (!t || !t.getAttribute) return;
+  const act = t.getAttribute('data-wf-act');
+  const enc = t.getAttribute('data-wf-name');
+  if (!act || enc == null) return;
+  let wfName;
+  try {
+    wfName = decodeURIComponent(enc);
+  } catch (_) {
+    return;
+  }
+  if (act === 'open') {
+    void (async () => {
+      try {
+        const r = await fetch(`${API}/workflows`, mergeTrainerFetchOpts({ cache: 'no-store' }));
+        const d = await r.json();
+        const row = (d.workflows || []).find((w) => w.name === wfName);
+        const eng = row && row.engine;
+        if (eng === 'wra_v2') {
+          ccNavigate('wra-studio', { skipSwitchTab: true });
+          switchTab('run', getTabEl('run'), { skipCcSync: true });
+        } else {
+          editWf(wfName);
+          ccNavigate('step-builder', { skipSwitchTab: true });
+        }
+      } catch (_) {
+        editWf(wfName);
+      }
+    })();
+  }   else if (act === 'duplicate') void cloneWf(wfName);
+  else if (act === 'export') window.open(API + '/workflow/' + encodeURIComponent(wfName), '_blank');
+  else if (act === 'delete') void deleteWf(wfName);
+  else if (act === 'rekky-enrich') void ccRekkyEnrichWorkflow(wfName);
+});
 </script>
 </body>
 </html>

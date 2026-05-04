@@ -3,128 +3,144 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Desktop app — cusear™</title>
-<meta name="description" content="Get the cusear™ desktop agent for Windows and macOS. Purchase, download, and run website delivery on autopilot.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;0,9..40,800&display=swap" rel="stylesheet">
+<title>Download — cusear™ desktop</title>
+<meta name="description" content="Download the cusear™ Windows desktop agent. macOS builds coming soon — same installer story.">
+<link rel="stylesheet" href="site.css">
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-:root{--gold:#c9a96e;--gold2:#e0bc85;--bg:#050508;--bg2:#0c0c0f;--bg3:#141419;--text:#e8e8e8;--muted:#8a8a94;--border:#222228;--ok:#86efac}
-html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--text);font-family:"DM Sans",system-ui,sans-serif;line-height:1.65;min-height:100vh;
-  background-image:radial-gradient(ellipse 80% 50% at 50% -20%, rgba(201,169,110,0.12), transparent 55%)}
-a{color:var(--gold);text-decoration:none}
-a:hover{opacity:0.9}
-nav{display:flex;justify-content:space-between;align-items:center;padding:16px 40px;border-bottom:1px solid var(--border);
-  background:rgba(5,5,8,.9);backdrop-filter:blur(12px);position:sticky;top:0;z-index:20}
-.nav-logo{font-size:1.05rem;font-weight:800;color:var(--gold);letter-spacing:-.02em}
-.nav-links a{margin-left:22px;color:var(--muted);font-size:.86rem;font-weight:500}
-.nav-cta{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#0a0a0a;padding:8px 16px;border-radius:8px;font-weight:800;font-size:.8rem;margin-left:16px}
-.page{max-width:800px;margin:0 auto;padding:64px 24px 100px}
-.page-label{color:var(--gold);font-size:.75rem;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
-h1{font-size:clamp(1.8rem,4vw,2.5rem);font-weight:800;letter-spacing:-.03em;margin-bottom:16px}
-.lead{color:var(--muted);font-size:1.05rem;margin-bottom:40px;max-width:560px}
-.steps{list-style:none;counter-reset:st}
-.steps li{position:relative;padding:24px 0 24px 56px;border-bottom:1px solid var(--border);counter-increment:st}
-.steps li:last-child{border-bottom:none}
-.steps li::before{
-  content:counter(st);position:absolute;left:0;top:24px;width:40px;height:40px;border-radius:12px;
-  background:linear-gradient(180deg,rgba(201,169,110,0.2),rgba(201,169,110,0.08));border:1px solid rgba(201,169,110,0.3);
-  color:var(--gold);font-weight:800;font-size:.9rem;display:flex;align-items:center;justify-content:center
-}
-.steps h2{font-size:1.1rem;font-weight:700;margin-bottom:8px}
-.steps p{color:var(--muted);font-size:.92rem}
-.callout{background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:28px 24px;margin:40px 0}
-.callout h3{font-size:1rem;margin-bottom:10px}
-.callout p{color:var(--muted);font-size:.9rem;margin-bottom:16px}
-code{background:#0d1117;border:1px solid #30363d;padding:2px 8px;border-radius:6px;font-size:.85rem}
-.btn-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px}
-.btn{background:var(--gold);color:#0a0a0a;padding:12px 22px;border-radius:10px;font-weight:800;font-size:.9rem;display:inline-block}
-.btn.outline{background:transparent;border:1px solid var(--border);color:var(--text);font-weight:600}
-.btn.reco{outline:2px solid rgba(134,239,172,.6);box-shadow:0 0 0 3px rgba(134,239,172,.16)}
-.tip{color:var(--ok);font-size:.82rem;margin-top:12px}
-@media(max-width:640px){nav{padding:12px 20px}.nav-links a{margin-left:12px;font-size:.8rem}.page{padding:48px 18px 80px}}
+.page{flex:1;max-width:800px;margin:0 auto;padding:48px 24px 96px;width:100%}
+.page-label{color:var(--gold);font-size:.75rem;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px}
+h1{font-size:clamp(1.75rem,4vw,2.35rem);font-weight:800;letter-spacing:-.03em;margin-bottom:14px;line-height:1.15}
+.lead{color:var(--muted);font-size:1.02rem;margin-bottom:36px;line-height:1.6;max-width:560px}
+.callout{background:var(--bg3);border:1px solid var(--border);border-radius:16px;padding:28px 24px;margin-bottom:32px}
+.callout h2{font-size:1.08rem;margin-bottom:10px}
+.callout p{color:var(--muted);font-size:.9rem;line-height:1.55;margin-bottom:16px}
+.btn-row{display:flex;flex-wrap:wrap;gap:12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:13px 24px;border-radius:10px;font-weight:700;font-size:.88rem;text-decoration:none;border:none;cursor:pointer;font-family:inherit;transition:opacity .2s}
+.btn:hover{opacity:.9}
+.btn-gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#0a0a0a}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--gold)}
+.btn[disabled],.btn.is-disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
+.badge-strip{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;font-size:.8rem;color:var(--muted)}
+.badge-strip span{background:rgba(134,239,172,0.1);border:1px solid rgba(134,239,172,0.35);color:var(--ok);padding:6px 12px;border-radius:999px;font-weight:600}
+.badge-strip span.mac-soon{border-color:rgba(201,169,110,0.35);color:var(--gold);background:rgba(201,169,110,0.08)}
+.ol{list-style:none;counter-reset:st;margin-top:28px}
+.ol li{position:relative;padding:20px 0 20px 52px;border-bottom:1px solid var(--border);counter-increment:st;color:var(--muted);font-size:.9rem;line-height:1.55}
+.ol li:last-child{border-bottom:none}
+.ol li::before{content:counter(st);position:absolute;left:0;top:22px;width:36px;height:36px;border-radius:10px;background:rgba(201,169,110,0.12);border:1px solid rgba(201,169,110,0.28);color:var(--gold);font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:center}
+.ol strong{color:var(--text)}
+#dl-status{font-size:.82rem;color:var(--muted);min-height:1.4em;margin-top:12px}
 </style>
 </head>
-<body>
+<body class="site-body">
 
-<nav>
+<nav id="siteNav" class="site-nav">
   <a href="index.html" class="nav-logo">cusear™</a>
+  <button class="hamburger" type="button" id="navToggle" aria-label="Open menu" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
   <div class="nav-links">
     <a href="index.html">Platform</a>
     <a href="products.html">Products</a>
     <a href="pricing.html">Pricing</a>
+    <a href="download.html" class="nav-here">Download</a>
+    <a href="/trainer">Control Center</a>
   </div>
 </nav>
 
-<article class="page">
+<main class="page">
   <div class="page-label">Desktop</div>
-  <h1>Get the cusear™ app</h1>
-  <p class="lead">The cusear™ app runs on your computer with a <strong>pre-trained ar™</strong> inside—you do not build or teach workflows. Install, run the one-time setup wizard, connect what the product needs, and go. After you pay, you get download access and the licence to run the packaged build. Any keys stay in secure storage on your device.</p>
+  <h1>Download cusear™</h1>
+  <p class="lead">One installer for Windows is available now. The same website serves the marketing pages, <strong>Control Center</strong> (<code>/trainer</code>), and your API — run <code>python3 dashboard.py</code> behind TLS in production.</p>
 
-  <div class="callout" style="margin-top:0">
-    <h3>Download installers</h3>
-    <p>Choose your OS installer. The app is identical on both platforms: first launch opens Instructions & Permissions, then ar™ setup.</p>
-    <div class="btn-row">
-      <a class="btn" id="btn-mac" href="#" download>Download for macOS (.dmg)</a>
-      <a class="btn" id="btn-win" href="#" download>Download for Windows (.exe)</a>
-      <a class="btn outline" href="docs.html">Permissions guide</a>
-    </div>
-    <p class="tip" id="os-tip">Tip: we auto-highlight your platform.</p>
+  <div class="badge-strip">
+    <span>✓ Windows 64-bit</span>
+    <span class="mac-soon">macOS — launching soon</span>
   </div>
-
-  <ol class="steps">
-    <li>
-      <h2>Choose a product</h2>
-      <p>See <a href="pricing.html">pricing</a> for Cusear Core, Hybrid, and AI (INR and USD toggle). For the desktop app, complete checkout for the plan that includes your build—payment runs through <strong>Cashfree</strong> (UPI, cards, net banking) when live.</p>
-    </li>
-    <li>
-      <h2>Check your email</h2>
-      <p>We send a receipt and a link to the installer for your platform (Windows and macOS builds). If you use white-label, onboarding email includes your tenant URL and admin token.</p>
-    </li>
-    <li>
-      <h2>Install and open</h2>
-      <p>On first launch, the built-in wizard handles one-time setup: sign-ins, permissions, and any keys the app needs. The <strong>trained ar™</strong> and workflow files are already in your package—you only follow the prompts.</p>
-    </li>
-    <li>
-      <h2>Publishers and developers (optional)</h2>
-      <p>If you package or extend cusear™ yourself, the open-source repo and build scripts are documented for maintainers. Retail buyers only need the installer and wizard above.</p>
-    </li>
-  </ol>
 
   <div class="callout">
-    <h3>Before you rely on it (buyers)</h3>
-    <p>Connect your accounts, run a test in a quiet window if you can, then enable your daily routine. You should get confirmations (e.g. WhatsApp) for posts as your plan describes.</p>
+    <h2>Installer</h2>
+    <p id="manifest-note">Fetching release info…</p>
     <div class="btn-row">
-      <a class="btn" href="signup.html">Start checkout</a>
-      <a class="btn outline" href="docs.html#quickstart">Read API quick start</a>
+      <a class="btn btn-gold" id="btn-win" href="/downloads/cusear-desktop-windows-setup.exe" download>Download for Windows</a>
+      <a class="btn btn-outline is-disabled" id="btn-mac" href="#" aria-disabled="true">macOS (coming soon)</a>
+      <a class="btn btn-outline" href="/trainer">Open Control Center</a>
+      <a class="btn btn-outline" href="docs.html">Docs &amp; permissions</a>
     </div>
-    <p class="tip">Payment keys are not required to preview this site; when you add Cashfree credentials to the server, checkout becomes live.</p>
+    <p id="dl-status"></p>
   </div>
-</article>
 
+  <h2 style="font-size:1.2rem;margin-bottom:12px;font-weight:800">First-time setup</h2>
+  <ol class="ol">
+    <li><strong>Install</strong> — run the Windows setup; keep workflows beside the app when distributing a portable build.</li>
+    <li><strong>Accounts</strong> — sign into Instagram, Facebook, LinkedIn, X, and WhatsApp Web when your routine needs them.</li>
+    <li><strong>Open Control Center</strong> — use <a href="/trainer">/trainer</a> after start, or launch the bundled desktop shortcut.</li>
+    <li><strong>Enable automation</strong> — grant Accessibility / UI automation prompts (Windows).</li>
+  </ol>
+
+  <p style="margin-top:28px;font-size:.82rem;color:var(--muted);line-height:1.55">Need the raw API or trainer keys? Configure <code>.env.local</code> next to <code>dashboard.py</code>. Payment links stay on <a href="signup.html">checkout</a> when Cashfree keys are wired.</p>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">cusear™</div>
+    <div class="footer-desc">Marketing + downloads + Control Center are served together from port 7788 by default.</div>
+    <div class="footer-links">
+      <a href="privacy-policy.html">Privacy Policy</a>
+      <a href="terms-and-conditions.html">Terms &amp; Conditions</a>
+      <a href="refund-policy.html">Refund Policy</a>
+      <a href="shipping-and-delivery.html">Shipping &amp; Delivery</a>
+    </div>
+    <div class="footer-bottom">© 2026 cusear™ · Windows release active · Made in India</div>
+  </div>
+</footer>
+<script src="site.js"></script>
 <script>
-  const MAC_URL = "/downloads/cusear-ar.dmg";
-  const WIN_URL = "/downloads/cusear-ar-setup.exe";
-  const bMac = document.getElementById('btn-mac');
-  const bWin = document.getElementById('btn-win');
-  const tip = document.getElementById('os-tip');
-  bMac.href = MAC_URL;
-  bWin.href = WIN_URL;
-  const ua = navigator.userAgent || "";
-  const isMac = /Mac|iPhone|iPad|iPod/.test(ua);
-  const isWin = /Windows/.test(ua);
-  if (isMac) {
-    bMac.classList.add('reco');
-    tip.textContent = "Detected macOS/iOS browser — macOS download highlighted.";
-  } else if (isWin) {
-    bWin.classList.add('reco');
-    tip.textContent = "Detected Windows browser — Windows download highlighted.";
-  } else {
-    tip.textContent = "Could not detect OS confidently. Pick your installer manually.";
-  }
-</script>
+(function () {
+  var note = document.getElementById("manifest-note");
+  var st = document.getElementById("dl-status");
+  var bWin = document.getElementById("btn-win");
+  var bMac = document.getElementById("btn-mac");
 
+  function apply(manifest) {
+    var w = manifest && manifest.windows;
+    var mk = manifest && manifest.mac;
+    if (note) {
+      if (w && w.available && w.file) {
+        note.textContent = "Current Windows build — " + w.label + ". Copy your built .exe to downloads/ as " + w.file + " (or edit manifest.json).";
+      } else {
+        note.textContent = "Add your Windows installer to the downloads folder and set windows.available=true in downloads/manifest.json.";
+      }
+    }
+    if (w && w.file && bWin) {
+      bWin.href = "/downloads/" + encodeURIComponent(w.file);
+      bWin.textContent = w.label ? ("Download — " + w.label) : "Download for Windows";
+    }
+    if (mk && bMac) {
+      if (mk.available && mk.file) {
+        bMac.classList.remove("is-disabled");
+        bMac.removeAttribute("aria-disabled");
+        bMac.href = "/downloads/" + encodeURIComponent(mk.file);
+        bMac.textContent = mk.label ? ("Download — " + mk.label) : "Download for macOS";
+      } else {
+        bMac.textContent = "macOS (coming soon)";
+      }
+    }
+    if (st) {
+      st.textContent = "URL base: same host as this page (e.g. https://yourdomain.com/downloads/… )";
+    }
+  }
+
+  fetch("/downloads/manifest.json", { cache: "no-store" })
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(apply)
+    .catch(function () {
+      apply({
+        windows: { available: true, file: "cusear-desktop-windows-setup.exe", label: "Windows 64-bit installer" },
+        mac: { available: false, file: "cusear-desktop-macos.dmg", label: "macOS disk image" },
+      });
+    });
+})();
+</script>
 </body>
 </html>

@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-Desktop app entry — local Trainer UI + on-disk workflows only.
+Legacy desktop app entry — local Trainer UI + on-disk workflows only.
+Opens Control Center at ``/trainer`` (public marketing site is separate — ``CUSEAR WEBSITE  UX UI`` only).
+
+New builds should use trainer_app.py for the internal studio and customer_app.py
+for exported customer runners. This file remains as a compatibility wrapper for
+older scripts that still launch the webview-based Trainer shell.
 
 No MongoDB or hosted API is required to record or edit workflows. Replay from a
 second terminal:
@@ -132,6 +137,38 @@ _maybe_validate_desktop_license()
 from dashboard import PORT, bootstrap_cusear_folders_on_desktop_launch, run_trainer_server  # noqa: E402
 
 
+class _DesktopPywebviewApi:
+    """JS API for Control Center window controls (pywebview)."""
+
+    def minimize_window(self) -> str:
+        try:
+            import webview  # type: ignore
+
+            for w in webview.windows:
+                try:
+                    w.minimize()
+                    return "ok"
+                except Exception:
+                    continue
+        except Exception as exc:
+            return f"err:{exc}"
+        return "err:no_window"
+
+    def close_window(self) -> str:
+        try:
+            import webview  # type: ignore
+
+            for w in webview.windows:
+                try:
+                    w.destroy()
+                    return "ok"
+                except Exception:
+                    continue
+        except Exception as exc:
+            return f"err:{exc}"
+        return "err:no_window"
+
+
 def _ui_url() -> str:
     host = (os.environ.get("TRAINER_HOST") or "127.0.0.1").strip() or "127.0.0.1"
     if host in ("0.0.0.0", "::"):
@@ -139,11 +176,12 @@ def _ui_url() -> str:
     return f"http://{host}:{PORT}"
 
 
-def _pywebview_trainer_url(base: str) -> str:
-    """macOS WKWebView fills under the traffic lights; TRAINER.html uses #trainerDesktopShell for safe insets."""
+def _trainer_shell_url(base: str) -> str:
+    """Control Center at ``/trainer`` (macOS hash helps the desktop shell)."""
+    url = f"{base.rstrip('/')}/trainer"
     if sys.platform == "darwin":
-        return f"{base.rstrip('/')}/#trainerDesktopShell=1"
-    return base
+        return f"{url}#trainerDesktopShell=1"
+    return url
 
 
 def _wait_for_server(url: str, timeout_sec: float = 40.0) -> bool:
@@ -199,9 +237,9 @@ def _launch_native_window(url: str) -> bool:
         print("  Tip: install native shell with  pip install pywebview  (see requirements.txt)")
         return False
 
-    shell_url = _pywebview_trainer_url(url)
+    shell_url = _trainer_shell_url(url)
     # Empty native title on macOS avoids a second title string drawn in the title-bar / traffic-light region.
-    win_title = "" if sys.platform == "darwin" else "cusear Trainer"
+    win_title = "" if sys.platform == "darwin" else "cusear™ Control Center"
     webview.create_window(
         win_title,
         shell_url,
@@ -209,7 +247,8 @@ def _launch_native_window(url: str) -> bool:
         height=900,
         min_size=(1024, 680),
         text_select=True,
-        background_color="#0d0d0d",
+        background_color="#07070F",
+        js_api=_DesktopPywebviewApi(),
     )
     dbg = (os.environ.get("DESKTOP_WEBVIEW_DEBUG") or "").strip().lower() in ("1", "true", "yes")
     if not dbg and (os.environ.get("APP_MODE", "production") or "").strip() == "development":
@@ -218,15 +257,13 @@ def _launch_native_window(url: str) -> bool:
     return True
 
 
-if __name__ == "__main__":
+def main() -> int:
     try:
         boot = bootstrap_cusear_folders_on_desktop_launch()
-        if int(boot.get("roots_created") or 0) > 0:
-            print(
-                "  cusear folders ready: "
-                f"{int(boot.get('roots_created') or 0)} workflow roots "
-                f"(sample: {str(boot.get('sample_root') or '')})"
-            )
+        root = str(boot.get("sample_root") or boot.get("root") or "").strip()
+        days = int(boot.get("total_days") or 30)
+        if root:
+            print(f"  cusear STORAGE vault ready: {root} (days: {days})")
     except Exception as e:
         print(f"  ⚠ Could not pre-create cusear folders: {e}")
     ui_url = _ui_url()
@@ -241,8 +278,13 @@ if __name__ == "__main__":
         print("  Native app window unavailable — opening your default browser instead.")
         print(f"  (Same Trainer UI; internal URL: {ui_url})")
         try:
-            webbrowser.open(ui_url)
+            webbrowser.open(_trainer_shell_url(ui_url))
         except Exception:
             pass
         while server_thread.is_alive():
             time.sleep(0.4)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
