@@ -1,16 +1,5 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "bash scripts/vercel_build.sh",
-  "installCommand": "pip install -r requirements-vercel.txt",
-  "rewrites": [
-    { "source": "/api", "destination": "/api/index" },
-    { "source": "/api/:path*", "destination": "/api/index" },
-    { "source": "/docs", "destination": "/api/index" },
-    { "source": "/docs/:path*", "destination": "/api/index" },
-    { "source": "/redoc", "destination": "/api/index" },
-    { "source": "/openapi.json", "destination": "/api/index" },
-    { "source": "/api-meta", "destination": "/api/index" },
-    { "source": "/admin", "destination": "/api/index" },
-    { "source": "/admin/:path*", "destination": "/api/index" }
-  ]
+  "outputDirectory": "public",
+  "installCommand": "echo 'static site — no install needed'"
 }
