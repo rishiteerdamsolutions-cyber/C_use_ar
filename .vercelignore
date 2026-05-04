@@ -1,0 +1,40 @@
+# Static-only deploy: exclude all Python/API code so Vercel doesn't try to build Functions
+# or parse requirements.txt.
+
+# API / server code
+api/
+agency_api/
+whitelabel/
+
+# Python source everywhere (we only ship static public/)
+**/*.py
+**/*.pyc
+**/__pycache__/
+
+# Python deps / tooling
+requirements*.txt
+pyproject.toml
+Pipfile
+Pipfile.lock
+.python-version
+
+# Local/desktop app code & assets not needed for the marketing site
+cusear/
+tests/
+scripts/**
+!scripts/vercel_build.sh
+scripts/build_*.sh
+scripts/setup_*.sh
+scripts/setup_*.bat
+scripts/export_*.py
+packaging/
+downloads/
+sessions/
+standalone/
+media_library/
+Windows test/
+TRAINERCOMPLETE/
+
+# VCS/OS noise
+.git/
+.DS_Store
