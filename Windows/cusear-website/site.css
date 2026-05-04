@@ -1,0 +1,3 @@
+/* Compatibility: some pages expect site.css */
+@import url("./style.css");
+

@@ -1,0 +1,15 @@
+{
+  "product": "cusear™ desktop",
+  "windows": {
+    "available": true,
+    "file": "cusear-desktop-windows-setup.exe",
+    "label": "Windows 64-bit installer",
+    "notes": "Place the built setup executable here with this name, or change this JSON to match your filename."
+  },
+  "mac": {
+    "available": true,
+    "file": "cusear-desktop-macos.dmg",
+    "label": "macOS disk image",
+    "notes": "Set available to true when the DMG is published."
+  }
+}

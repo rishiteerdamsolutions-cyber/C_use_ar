@@ -1,0 +1,39 @@
+{
+  "slug": "daily_test",
+  "display_name": "daily_test",
+  "children": [
+    "Instagram_Post"
+  ],
+  "notify_mode": "one",
+  "notify_same_for_all_flows": true,
+  "notify_number": "",
+  "notify_numbers_by_flow": {},
+  "schedule": {
+    "enabled": false,
+    "mode": "daily",
+    "interval_minutes": 5,
+    "interval_hours": 24,
+    "daily_time": "21:00",
+    "weekly_times": {
+      "mon": "",
+      "tue": "",
+      "wed": "",
+      "thu": "",
+      "fri": "",
+      "sat": "",
+      "sun": ""
+    }
+  },
+  "scheduler_run_count": 0,
+  "last_run_at": "2026-04-20T13:09:08.107310Z",
+  "next_run_at": "",
+  "last_run_results": [
+    {
+      "child": "Instagram_Post",
+      "status": "ok",
+      "started_at": "2026-04-20T13:06:23.254217Z",
+      "finished_at": "2026-04-20T13:09:08.106373Z",
+      "error": ""
+    }
+  ]
+}

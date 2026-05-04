@@ -1,0 +1,51 @@
+{
+  "slug": "Presence",
+  "display_name": "Presence",
+  "children": [
+    "Facebook_Post",
+    "Instagram_Post",
+    "Linkedin_Post",
+    "Status_Whatsapp_Imageplustext",
+    "Status_Whatsapp_Text",
+    "X_post"
+  ],
+  "notify_mode": "one",
+  "notify_same_for_all_flows": true,
+  "notify_number": "919505009699",
+  "notify_numbers_by_flow": {},
+  "schedule": {
+    "enabled": false,
+    "mode": "daily",
+    "interval_minutes": 5,
+    "interval_hours": 24,
+    "daily_time": "02:05",
+    "weekly_times": {
+      "mon": "",
+      "tue": "",
+      "wed": "",
+      "thu": "",
+      "fri": "",
+      "sat": "",
+      "sun": ""
+    }
+  },
+  "scheduler_run_count": 2,
+  "last_run_at": "2026-05-02T06:05:38.999353Z",
+  "next_run_at": "",
+  "last_run_results": [
+    {
+      "child": "Facebook_Post",
+      "status": "error",
+      "started_at": "2026-05-02T06:04:55.963521Z",
+      "finished_at": "2026-05-02T06:05:38.999178Z",
+      "error": "can't register atexit after shutdown"
+    },
+    {
+      "child": "Instagram_Post",
+      "status": "stopped",
+      "started_at": "2026-05-02T06:05:38.999200Z",
+      "finished_at": "2026-05-02T06:05:38.999202Z",
+      "error": "Stopped by user"
+    }
+  ]
+}

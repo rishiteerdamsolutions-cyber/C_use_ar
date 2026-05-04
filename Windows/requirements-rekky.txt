@@ -1,0 +1,16 @@
+# Rekky — optional extras on top of requirements.txt
+# Install:  python3 -m pip install -r requirements.txt -r requirements-rekky.txt
+#
+# macOS: Quartz event-tap recording (start_rekky_recording) + same stack as main app
+# Windows: comtypes for UI Automation during enrich_workflow() focused-element capture
+#
+# Markers follow PEP 508 (pip understands them).
+
+# macOS — Quartz / CoreFoundation for per-key capture without keyboard library as root
+# (Pin below 12 until PyPI yanked-release churn settles; 12.0 was yanked for bad metadata.)
+pyobjc-core>=10.0,<12; sys_platform == "darwin"
+pyobjc-framework-Quartz>=10.0,<12; sys_platform == "darwin"
+pyobjc-framework-Cocoa>=10.0,<12; sys_platform == "darwin"
+
+# Windows — UI Automation (enrichment); matches rekky._capture_windows_element
+comtypes>=1.4.0; sys_platform == "win32"

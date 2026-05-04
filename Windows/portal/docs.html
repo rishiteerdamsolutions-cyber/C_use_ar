@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>API Docs — cusear™</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#c9a96e;--bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;
+  --text:#e8e8e8;--muted:#888;--border:#222;
+  --code-bg:#0d1117;--code-border:#30363d;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;display:flex;flex-direction:column;min-height:100vh}
+a{color:var(--gold);text-decoration:none}
+/* TOP NAV */
+topnav{display:flex;justify-content:space-between;align-items:center;padding:14px 32px;
+        border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0}
+.logo{font-size:1rem;font-weight:700;color:var(--gold)}
+.nav-links a{margin-left:20px;color:var(--muted);font-size:.85rem}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{background:var(--gold);color:#000;padding:8px 16px;border-radius:7px;font-weight:700;font-size:.82rem;margin-left:16px}
+/* LAYOUT */
+.doc-layout{display:flex;flex:1;overflow:hidden}
+/* SIDEBAR */
+.doc-sidebar{width:240px;border-right:1px solid var(--border);overflow-y:auto;background:var(--bg2);flex-shrink:0;padding:20px 0}
+.sidebar-section{font-size:.7rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;
+                  padding:16px 20px 6px;margin-top:8px}
+.sidebar-link{display:block;padding:8px 20px;font-size:.85rem;color:var(--muted);cursor:pointer;border-left:3px solid transparent;transition:all .2s}
+.sidebar-link:hover{color:var(--text);background:#1a1a1a}
+.sidebar-link.active{color:var(--gold);border-left-color:var(--gold);background:#1a1400}
+/* CONTENT */
+.doc-content{flex:1;overflow-y:auto;padding:40px 48px;max-width:860px}
+/* SECTIONS */
+.doc-section{display:none;padding-bottom:60px}
+.doc-section.active{display:block}
+h1.doc-h1{font-size:2rem;margin-bottom:10px}
+h2.doc-h2{font-size:1.3rem;margin:36px 0 14px;padding-top:12px;border-top:1px solid var(--border)}
+h3.doc-h3{font-size:1rem;color:var(--gold);margin:24px 0 10px}
+p.doc-p{color:var(--muted);font-size:.9rem;line-height:1.8;margin-bottom:14px}
+/* ENDPOINT PILL */
+.endpoint{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);
+           border-radius:9px;padding:12px 16px;margin:16px 0;font-family:monospace;font-size:.9rem}
+.method{font-weight:800;font-size:.8rem;padding:4px 8px;border-radius:5px}
+.method.post{background:#1a2a0a;color:#86efac}
+.method.get{background:#0a1a2a;color:#60a5fa}
+.method.patch{background:#1a1a0a;color:#fbbf24}
+.endpoint-path{color:var(--text)}
+.endpoint-tag{margin-left:auto;font-size:.72rem;background:var(--bg2);color:var(--muted);padding:3px 8px;border-radius:4px}
+/* CODE */
+.code-block{background:var(--code-bg);border:1px solid var(--code-border);border-radius:10px;
+             overflow-x:auto;font-family:'Courier New',monospace;font-size:.83rem;line-height:1.8;
+             margin:14px 0;position:relative}
+.code-lang{position:absolute;top:8px;right:12px;font-size:.7rem;color:#555;text-transform:uppercase;letter-spacing:.5px}
+.code-inner{padding:20px 24px}
+.cm{color:#6a9955}.cs{color:#ce9178}.ck{color:#569cd6}.cf{color:#dcdcaa}
+.cn{color:#b5cea8}.cp{color:#c586c0}
+/* TABS (lang switcher) */
+.code-tabs{display:flex;gap:0;margin-top:16px}
+.code-tab{padding:7px 16px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);
+           font-size:.8rem;cursor:pointer;transition:all .2s}
+.code-tab:first-child{border-radius:8px 0 0 0}
+.code-tab:last-child{border-radius:0 8px 0 0}
+.code-tab.active{background:var(--code-bg);border-bottom-color:var(--code-bg);color:var(--gold)}
+.code-pane{display:none}.code-pane.active{display:block}
+.code-tab-content{border:1px solid var(--code-border);border-top:none;border-radius:0 0 10px 10px}
+/* PARAMS TABLE */
+.params{width:100%;border-collapse:collapse;font-size:.85rem;margin:14px 0}
+.params th{text-align:left;padding:10px 14px;background:var(--bg3);color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+.params td{padding:10px 14px;border-bottom:1px solid #1a1a1a;vertical-align:top}
+.params tr:last-child td{border-bottom:none}
+.param-name{font-family:monospace;color:var(--gold)}
+.param-type{color:#60a5fa;font-family:monospace;font-size:.8rem}
+.param-req{color:#f87171;font-size:.72rem;font-weight:700}
+.param-opt{color:#555;font-size:.72rem}
+.param-desc{color:var(--muted)}
+/* ALERT NOTE */
+.note{background:#1a1400;border:1px solid #3a2a00;border-radius:8px;padding:14px 16px;font-size:.85rem;color:var(--muted);margin:16px 0}
+.note strong{color:var(--gold)}
+/* BADGE */
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:700}
+.badge-auth{background:#1a1a2a;color:#818cf8}
+.badge-credits{background:#1a1400;color:var(--gold)}
+@media(max-width:800px){
+  .doc-sidebar{display:none}
+  .doc-content{padding:24px 16px}
+}
+</style>
+</head>
+<body>
+
+<topnav>
+  <a href="index.html" class="logo" style="text-decoration:none;color:inherit">cusear™ — API</a>
+  <div class="nav-links">
+    <a href="index.html">Platform</a>
+    <a href="products.html">Products</a>
+    <a href="pricing.html">Pricing</a>
+    <a href="download.html">Download</a>
+    <a href="/trainer">Control Center</a>
+    <a href="signup.html" class="nav-cta">Get API key</a>
+  </div>
+</topnav>
+
+<div class="doc-layout">
+
+  <!-- SIDEBAR -->
+  <div class="doc-sidebar">
+    <div class="sidebar-section">Getting Started</div>
+    <a class="sidebar-link active" onclick="showSection('quickstart',this)">Quick Start</a>
+    <a class="sidebar-link" onclick="showSection('auth',this)">Authentication</a>
+    <a class="sidebar-link" onclick="showSection('errors',this)">Errors & Codes</a>
+    <a class="sidebar-link" onclick="showSection('credits',this)">Credits</a>
+
+    <div class="sidebar-section">Endpoints</div>
+    <a class="sidebar-link" onclick="showSection('ep-keys',this)">API Keys</a>
+    <a class="sidebar-link" onclick="showSection('ep-workflows',this)">Workflows</a>
+    <a class="sidebar-link" onclick="showSection('ep-templates',this)">Templates</a>
+    <a class="sidebar-link" onclick="showSection('ep-validator',this)">Validator</a>
+    <a class="sidebar-link" onclick="showSection('ep-billing',this)">Billing</a>
+    <a class="sidebar-link" onclick="showSection('ep-whitelabel',this)">White-label</a>
+
+    <div class="sidebar-section">Guides</div>
+    <a class="sidebar-link" onclick="showSection('guide-teach',this)">Teaching Workflows</a>
+    <a class="sidebar-link" onclick="showSection('guide-build',this)">Building Websites</a>
+    <a class="sidebar-link" onclick="showSection('webhooks',this)">Webhooks</a>
+    <a class="sidebar-link" onclick="showSection('guide-rate',this)">Rate Limits</a>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="doc-content">
+
+    <!-- ═══ QUICK START ═══ -->
+    <div class="doc-section active" id="sec-quickstart">
+      <h1 class="doc-h1">Quick Start</h1>
+      <p class="doc-p">Get from zero to a live website URL in under 5 minutes.</p>
+      <p class="doc-p" style="border-left:3px solid var(--gold);padding-left:16px;margin-bottom:20px;opacity:0.95">Billing is moving to <strong>Cashfree</strong> for India (UPI, cards, net banking). Some request fields and code paths may still use the legacy <code>razorpay_*</code> names until the server is fully migrated—treat them as the payment reference from your hosted checkout.</p>
+
+      <h2 class="doc-h2">1. Get your API key</h2>
+      <p class="doc-p">Sign up at <a href="signup.html">signup.html</a>, pick a plan from the <a href="pricing.html">pricing</a> list, and complete secure checkout. Your API key is shown once—save it.</p>
+
+      <h2 class="doc-h2">2. Make your first call</h2>
+      <p class="doc-p">Build a complete salon website with one API call:</p>
+
+      <div class="code-tabs">
+        <div class="code-tab active" onclick="switchLang(this,'qs-python')">Python</div>
+        <div class="code-tab" onclick="switchLang(this,'qs-js')">JavaScript</div>
+        <div class="code-tab" onclick="switchLang(this,'qs-curl')">cURL</div>
+      </div>
+      <div class="code-tab-content">
+        <div class="code-pane active" id="qs-python">
+          <div class="code-block"><div class="code-inner">
+<span class="ck">import</span> requests<br><br>
+response = requests.<span class="cf">post</span>(<br>
+&nbsp;&nbsp;<span class="cs">"https://api.yourplatform.com/api/v1/templates/build"</span>,<br>
+&nbsp;&nbsp;headers={<span class="cs">"X-API-Key"</span>: <span class="cs">"ak_live_YOUR_KEY"</span>},<br>
+&nbsp;&nbsp;json={<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="cs">"template_id"</span>: <span class="cs">"salon"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="cs">"client_name"</span>: <span class="cs">"Priya Beauty Studio"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="cs">"client_phone"</span>: <span class="cs">"9876543210"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="cs">"city"</span>: <span class="cs">"Bangalore"</span>,<br>
+&nbsp;&nbsp;}<br>
+)<br><br>
+data = response.<span class="cf">json</span>()<br>
+<span class="cf">print</span>(data[<span class="cs">"live_url"</span>])<br>
+<span class="cm"># https://priya-beauty-studio.vercel.app</span>
+          </div></div>
+        </div>
+        <div class="code-pane" id="qs-js">
+          <div class="code-block"><div class="code-inner">
+<span class="ck">const</span> response = <span class="ck">await</span> fetch(<br>
+&nbsp;&nbsp;<span class="cs">"https://api.yourplatform.com/api/v1/templates/build"</span>,<br>
+&nbsp;&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;method: <span class="cs">"POST"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;headers: {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cs">"X-API-Key"</span>: <span class="cs">"ak_live_YOUR_KEY"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cs">"Content-Type"</span>: <span class="cs">"application/json"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;},<br>
+&nbsp;&nbsp;&nbsp;&nbsp;body: JSON.<span class="cf">stringify</span>({<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;template_id: <span class="cs">"salon"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;client_name: <span class="cs">"Priya Beauty Studio"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;client_phone: <span class="cs">"9876543210"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;city: <span class="cs">"Bangalore"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;}),<br>
+&nbsp;&nbsp;}<br>
+);<br>
+<span class="ck">const</span> data = <span class="ck">await</span> response.<span class="cf">json</span>();<br>
+console.<span class="cf">log</span>(data.live_url);
+          </div></div>
+        </div>
+        <div class="code-pane" id="qs-curl">
+          <div class="code-block"><div class="code-inner">
+curl -X POST https://api.yourplatform.com/api/v1/templates/build \<br>
+&nbsp;&nbsp;-H <span class="cs">"X-API-Key: ak_live_YOUR_KEY"</span> \<br>
+&nbsp;&nbsp;-H <span class="cs">"Content-Type: application/json"</span> \<br>
+&nbsp;&nbsp;-d <span class="cs">'{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"template_id": "salon",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"client_name": "Priya Beauty Studio",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"client_phone": "9876543210",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"city": "Bangalore"<br>
+&nbsp;&nbsp;}'</span>
+          </div></div>
+        </div>
+      </div>
+
+      <h2 class="doc-h2">3. Response</h2>
+      <div class="code-block"><div class="code-inner">
+{<br>
+&nbsp;&nbsp;<span class="cs">"success"</span>: <span class="ck">true</span>,<br>
+&nbsp;&nbsp;<span class="cs">"live_url"</span>: <span class="cs">"https://priya-beauty-studio.vercel.app"</span>,<br>
+&nbsp;&nbsp;<span class="cs">"session_id"</span>: <span class="cs">"sess_2024_01_15_abc123"</span>,<br>
+&nbsp;&nbsp;<span class="cs">"credits_used"</span>: <span class="cn">50</span>,<br>
+&nbsp;&nbsp;<span class="cs">"credits_remaining"</span>: <span class="cn">450</span>,<br>
+&nbsp;&nbsp;<span class="cs">"duration_seconds"</span>: <span class="cn">247</span><br>
+}
+      </div></div>
+
+      <div class="note">
+        <strong>Base URL:</strong> <code>https://api.yourplatform.com/api/v1</code><br>
+        All requests must include <code>X-API-Key</code> header. Responses are JSON.
+      </div>
+    </div>
+
+    <!-- ═══ AUTH ═══ -->
+    <div class="doc-section" id="sec-auth">
+      <h1 class="doc-h1">Authentication</h1>
+      <p class="doc-p">Every API request must include your API key in the request header.</p>
+      <h2 class="doc-h2">Header format</h2>
+      <div class="code-block"><div class="code-inner">X-API-Key: ak_live_xxxxxxxxxxxxxxxx</div></div>
+      <p class="doc-p">API keys are prefixed <code>ak_live_</code> for production and <code>ak_test_</code> for test mode. Keys are shown once at creation — store them securely in environment variables.</p>
+      <div class="note"><strong>Security:</strong> Never embed API keys in client-side JavaScript or commit them to version control. Use server-side proxying for web applications.</div>
+    </div>
+
+    <!-- ═══ ERRORS ═══ -->
+    <div class="doc-section" id="sec-errors">
+      <h1 class="doc-h1">Error Codes</h1>
+      <p class="doc-p">The API uses standard HTTP status codes. Error responses include a <code>detail</code> field.</p>
+      <table class="params">
+        <tr><th>Code</th><th>Meaning</th><th>Common cause</th></tr>
+        <tr><td class="param-name">400</td><td>Bad Request</td><td class="param-desc">Missing or invalid request parameters</td></tr>
+        <tr><td class="param-name">401</td><td>Unauthorized</td><td class="param-desc">Missing or invalid API key</td></tr>
+        <tr><td class="param-name">402</td><td>Payment Required</td><td class="param-desc">Insufficient credits — top up via billing API</td></tr>
+        <tr><td class="param-name">403</td><td>Forbidden</td><td class="param-desc">Admin action on wrong tenant</td></tr>
+        <tr><td class="param-name">409</td><td>Conflict</td><td class="param-desc">Subdomain already taken</td></tr>
+        <tr><td class="param-name">422</td><td>Validation Error</td><td class="param-desc">Pydantic field validation failed</td></tr>
+        <tr><td class="param-name">429</td><td>Rate Limited</td><td class="param-desc">60 calls/min or 1,000 calls/day exceeded</td></tr>
+        <tr><td class="param-name">500</td><td>Server Error</td><td class="param-desc">Contact support@yourplatform.com</td></tr>
+        <tr><td class="param-name">502</td><td>Gateway Error</td><td class="param-desc">Razorpay or Vercel unreachable</td></tr>
+      </table>
+    </div>
+
+    <!-- ═══ CREDITS ═══ -->
+    <div class="doc-section" id="sec-credits">
+      <h1 class="doc-h1">Credits</h1>
+      <p class="doc-p">Credits are consumed per API call. Each endpoint has a fixed cost.</p>
+      <table class="params">
+        <tr><th>Endpoint</th><th>Mode</th><th>Credits</th></tr>
+        <tr><td class="param-name">/templates/build</td><td>Any</td><td>50</td></tr>
+        <tr><td class="param-name">/workflows/run</td><td>smart</td><td>5</td></tr>
+        <tr><td class="param-name">/workflows/run</td><td>fast</td><td>2</td></tr>
+        <tr><td class="param-name">/workflows/teach</td><td>Any</td><td>3</td></tr>
+        <tr><td class="param-name">/validate-prompt</td><td>Any</td><td>2</td></tr>
+      </table>
+      <p class="doc-p">Top up credits at any time via <code>POST /billing/create-order</code> or from your dashboard.</p>
+    </div>
+
+    <!-- ═══ KEYS ENDPOINTS ═══ -->
+    <div class="doc-section" id="sec-ep-keys">
+      <h1 class="doc-h1">API Keys</h1>
+
+      <h2 class="doc-h2">Generate API Key</h2>
+      <div class="endpoint">
+        <span class="method post">POST</span>
+        <span class="endpoint-path">/api/v1/keys/generate</span>
+        <span class="endpoint-tag">No auth required</span>
+      </div>
+      <p class="doc-p">Create a new API key after successful payment.</p>
+      <table class="params">
+        <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td class="param-name">owner_name</td><td class="param-type">string</td><td><span class="param-req">required</span></td><td class="param-desc">Your full name</td></tr>
+        <tr><td class="param-name">owner_email</td><td class="param-type">email</td><td><span class="param-req">required</span></td><td class="param-desc">Your email address</td></tr>
+        <tr><td class="param-name">pack</td><td class="param-type">string</td><td><span class="param-req">required</span></td><td class="param-desc">starter / professional / agency</td></tr>
+        <tr><td class="param-name">razorpay_payment_id</td><td class="param-type">string</td><td><span class="param-req">required</span></td><td class="param-desc">Payment ID from Razorpay checkout</td></tr>
+      </table>
+
+      <h2 class="doc-h2">Get Usage Summary</h2>
+      <div class="endpoint">
+        <span class="method get">GET</span>
+        <span class="endpoint-path">/api/v1/keys/usage</span>
+        <span class="endpoint-tag">🔑 Auth required</span>
+      </div>
+      <p class="doc-p">Returns credit balance, call counts, and recent activity.</p>
+
+      <h2 class="doc-h2">List Credit Packs</h2>
+      <div class="endpoint">
+        <span class="method get">GET</span>
+        <span class="endpoint-path">/api/v1/keys/packs</span>
+        <span class="endpoint-tag">No auth</span>
+      </div>
+    </div>
+
+    <!-- ═══ WORKFLOWS ═══ -->
+    <div class="doc-section" id="sec-ep-workflows">
+      <h1 class="doc-h1">Workflows</h1>
+
+      <h2 class="doc-h2">Run Workflow</h2>
+      <div class="endpoint">
+        <span class="method post">POST</span>
+        <span class="endpoint-path">/api/v1/workflows/run</span>
+        <span class="endpoint-tag">🔑 2–5 credits</span>
+      </div>
+      <table class="params">
+        <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td class="param-name">workflow_name</td><td class="param-type">string</td><td><span class="param-req">required</span></td><td class="param-desc">Name of the saved workflow</td></tr>
+        <tr><td class="param-name">mode</td><td class="param-type">enum</td><td><span class="param-opt">optional</span></td><td class="param-desc">smart (default) or fast</td></tr>
+        <tr><td class="param-name">variables</td><td class="param-type">object</td><td><span class="param-opt">optional</span></td><td class="param-desc">Key-value pairs for {{PLACEHOLDER}} substitution</td></tr>
+        <tr><td class="param-name">dry_run</td><td class="param-type">boolean</td><td><span class="param-opt">optional</span></td><td class="param-desc">Validate without executing (default: false)</td></tr>
+      </table>
+
+      <h2 class="doc-h2">Teach from Screenshots</h2>
+      <div class="endpoint">
+        <span class="method post">POST</span>
+        <span class="endpoint-path">/api/v1/workflows/teach</span>
+        <span class="endpoint-tag">🔑 3 credits per screenshot · multipart/form-data</span>
+      </div>
+      <p class="doc-p">Upload numbered screenshots (1.png, 2.png…) with step descriptions to teach a new workflow.</p>
+      <table class="params">
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td class="param-name">workflow_name</td><td class="param-type">string</td><td class="param-desc">Unique name for this workflow</td></tr>
+        <tr><td class="param-name">instructions</td><td class="param-type">JSON array</td><td class="param-desc">["Click New File","Type project name", ...] — one instruction per screenshot</td></tr>
+        <tr><td class="param-name">screenshots</td><td class="param-type">file[]</td><td class="param-desc">PNG/JPG files, numbered to match instructions</td></tr>
+      </table>
+
+      <h2 class="doc-h2">List Workflows</h2>
+      <div class="endpoint">
+        <span class="method get">GET</span>
+        <span class="endpoint-path">/api/v1/workflows/list</span>
+        <span class="endpoint-tag">🔑 Auth required</span>
+      </div>
+    </div>
+
+    <!-- ═══ TEMPLATES ═══ -->
+    <div class="doc-section" id="sec-ep-templates">
+      <h1 class="doc-h1">Templates</h1>
+
+      <h2 class="doc-h2">Build Website</h2>
+      <div class="endpoint">
+        <span class="method post">POST</span>
+        <span class="endpoint-path">/api/v1/templates/build</span>
+        <span class="endpoint-tag">🔑 50 credits</span>
+      </div>
+      <p class="doc-p">Full pipeline: selects template → GPT↔Gemini validates prompt → Cursor AI generates code → Vercel deploys → returns live URL.</p>
+      <table class="params">
+        <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td class="param-name">template_id</td><td class="param-type">string</td><td><span class="param-req">required</span></td><td class="param-desc">e.g. "salon", "restaurant", "portfolio"</td></tr>
+        <tr><td class="param-name">client_name</td><td class="param-type">string</td><td><span class="param-req">required</span></td><td class="param-desc">Business name for the website</td></tr>
+        <tr><td class="param-name">client_phone</td><td class="param-type">string</td><td><span class="param-opt">optional</span></td><td class="param-desc">For contact section</td></tr>
+        <tr><td class="param-name">city</td><td class="param-type">string</td><td><span class="param-opt">optional</span></td><td class="param-desc">City for local SEO</td></tr>
+        <tr><td class="param-name">extra_vars</td><td class="param-type">object</td><td><span class="param-opt">optional</span></td><td class="param-desc">Additional template variables</td></tr>
+      </table>
+
+      <h2 class="doc-h2">List Templates</h2>
+      <div class="endpoint">
+        <span class="method get">GET</span>
+        <span class="endpoint-path">/api/v1/templates/</span>
+        <span class="endpoint-tag">🔑 Auth required</span>
+      </div>
+
+      <h2 class="doc-h2">Get Template</h2>
+      <div class="endpoint">
+        <span class="method get">GET</span>
+        <span class="endpoint-path">/api/v1/templates/{template_id}</span>
+        <span class="endpoint-tag">🔑 Auth required</span>
+      </div>
+    </div>
+
+    <!-- ═══ VALIDATOR ═══ -->
+    <div class="doc-section" id="sec-ep-validator">
+      <h1 class="doc-h1">Prompt Validator</h1>
+
+      <h2 class="doc-h2">Validate Prompt</h2>
+      <div class="endpoint">
+        <span class="method post">POST</span>
+        <span class="endpoint-path">/api/v1/validate-prompt</span>
+        <span class="endpoint-tag">🔑 2 credits</span>
+      </div>
+      <p class="doc-p">Runs the GPT-4o → Gemini validation loop (max 3 iterations) to refine an AI prompt before use.</p>
+      <table class="params">
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td class="param-name">prompt</td><td class="param-type">string</td><td class="param-desc">The initial prompt to validate</td></tr>
+        <tr><td class="param-name">max_iterations</td><td class="param-type">int</td><td class="param-desc">Max refinement loops (default: 3)</td></tr>
+      </table>
+    </div>
+
+    <!-- ═══ BILLING ═══ -->
+    <div class="doc-section" id="sec-ep-billing">
+      <h1 class="doc-h1">Billing</h1>
+
+      <h2 class="doc-h2">Create Order</h2>
+      <div class="endpoint">
+        <span class="method post">POST</span>
+        <span class="endpoint-path">/api/v1/billing/create-order</span>
+        <span class="endpoint-tag">🔑 Auth required</span>
+      </div>
+      <table class="params">
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td class="param-name">pack</td><td class="param-type">string</td><td class="param-desc">starter / professional / agency</td></tr>
+      </table>
+      <p class="doc-p">Returns a Razorpay <code>order_id</code> and <code>amount</code>. Open Razorpay checkout with these values, then the webhook auto-credits your wallet on success.</p>
+
+      <h2 class="doc-h2">List Packs</h2>
+      <div class="endpoint">
+        <span class="method get">GET</span>
+        <span class="endpoint-path">/api/v1/billing/packs</span>
+        <span class="endpoint-tag">No auth</span>
+      </div>
+    </div>
+
+    <!-- ═══ WHITE-LABEL ═══ -->
+    <div class="doc-section" id="sec-ep-whitelabel">
+      <h1 class="doc-h1">White-label</h1>
+
+      <h2 class="doc-h2">Check Subdomain Availability</h2>
+      <div class="endpoint">
+        <span class="method get">GET</span>
+        <span class="endpoint-path">/api/v1/whitelabel/check-subdomain/{subdomain}</span>
+        <span class="endpoint-tag">No auth</span>
+      </div>
+
+      <h2 class="doc-h2">Create Payment Order</h2>
+      <div class="endpoint">
+        <span class="method post">POST</span>
+        <span class="endpoint-path">/api/v1/whitelabel/create-order</span>
+        <span class="endpoint-tag">No auth</span>
+      </div>
+      <p class="doc-p">Creates a hosted checkout order for agency / white-label when enabled. Amount is agreed off-list — public plan amounts are on <code>pricing.html</code> (Core, Hybrid, AI).</p>
+
+      <h2 class="doc-h2">Complete Onboarding</h2>
+      <div class="endpoint">
+        <span class="method post">POST</span>
+        <span class="endpoint-path">/api/v1/whitelabel/onboard</span>
+        <span class="endpoint-tag">No auth · Returns API key once</span>
+      </div>
+      <p class="doc-p">Call after payment succeeds. Creates tenant, issues 10,000-credit API key, sends welcome email.</p>
+      <table class="params">
+        <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+        <tr><td class="param-name">agency_name</td><td class="param-type">string</td><td><span class="param-req">required</span></td><td class="param-desc">Display name e.g. "Digital Edge"</td></tr>
+        <tr><td class="param-name">subdomain</td><td class="param-type">string</td><td><span class="param-req">required</span></td><td class="param-desc">URL slug, 3–30 chars, a-z 0-9 -</td></tr>
+        <tr><td class="param-name">owner_name</td><td class="param-type">string</td><td><span class="param-req">required</span></td><td class="param-desc">Admin contact name</td></tr>
+        <tr><td class="param-name">owner_email</td><td class="param-type">email</td><td><span class="param-req">required</span></td><td class="param-desc">Welcome email recipient</td></tr>
+        <tr><td class="param-name">owner_phone</td><td class="param-type">string</td><td><span class="param-req">required</span></td><td class="param-desc">WhatsApp number</td></tr>
+        <tr><td class="param-name">payment_id</td><td class="param-type">string</td><td><span class="param-req">required</span></td><td class="param-desc">Razorpay payment_id from checkout</td></tr>
+        <tr><td class="param-name">primary_color</td><td class="param-type">string</td><td><span class="param-opt">optional</span></td><td class="param-desc">CSS hex colour e.g. "#c9a96e"</td></tr>
+        <tr><td class="param-name">logo_url</td><td class="param-type">string</td><td><span class="param-opt">optional</span></td><td class="param-desc">Public URL of agency logo</td></tr>
+      </table>
+    </div>
+
+    <!-- ═══ GUIDE: TEACH ═══ -->
+    <div class="doc-section" id="sec-guide-teach">
+      <h1 class="doc-h1">Teaching Workflows</h1>
+      <p class="doc-p">Teach the agent a new automation by uploading numbered screenshots of each step.</p>
+
+      <h2 class="doc-h2">Step 1 — Record your workflow</h2>
+      <p class="doc-p">Perform the workflow manually while taking screenshots at each key step. Name them <code>1.png</code>, <code>2.png</code>, <code>3.png</code>, and so on.</p>
+
+      <h2 class="doc-h2">Step 2 — Upload via API</h2>
+      <div class="code-block"><div class="code-inner">
+<span class="ck">import</span> requests<br><br>
+files  = [(<span class="cs">"screenshots"</span>, <span class="cf">open</span>(<span class="cs">f"{i}.png"</span>, <span class="cs">"rb"</span>)) <span class="ck">for</span> i <span class="ck">in</span> <span class="cf">range</span>(<span class="cn">1</span>, <span class="cn">6</span>)]<br>
+data   = {<br>
+&nbsp;&nbsp;<span class="cs">"workflow_name"</span>: <span class="cs">"salon_build"</span>,<br>
+&nbsp;&nbsp;<span class="cs">"instructions"</span>: <span class="cf">json.dumps</span>([<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{<span class="cs">"step"</span>: <span class="cn">1</span>, <span class="cs">"description"</span>: <span class="cs">"Open Cursor AI"</span>},<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{<span class="cs">"step"</span>: <span class="cn">2</span>, <span class="cs">"description"</span>: <span class="cs">"Click new project"</span>},<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{<span class="cs">"step"</span>: <span class="cn">3</span>, <span class="cs">"description"</span>: <span class="cs">"Type the prompt in AI panel"</span>},<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{<span class="cs">"step"</span>: <span class="cn">4</span>, <span class="cs">"description"</span>: <span class="cs">"Run npm dev"</span>},<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{<span class="cs">"step"</span>: <span class="cn">5</span>, <span class="cs">"description"</span>: <span class="cs">"Deploy to Vercel"</span>},<br>
+&nbsp;&nbsp;])<br>
+}<br>
+requests.<span class="cf">post</span>(<br>
+&nbsp;&nbsp;<span class="cs">"https://api.yourplatform.com/api/v1/workflows/teach"</span>,<br>
+&nbsp;&nbsp;headers={<span class="cs">"X-API-Key"</span>: <span class="cs">"ak_live_YOUR_KEY"</span>},<br>
+&nbsp;&nbsp;data=data, files=files<br>
+)
+      </div></div>
+
+      <h2 class="doc-h2">Step 3 — Run with variables</h2>
+      <div class="code-block"><div class="code-inner">
+requests.<span class="cf">post</span>(<span class="cs">".../workflows/run"</span>, json={<br>
+&nbsp;&nbsp;<span class="cs">"workflow_name"</span>: <span class="cs">"salon_build"</span>,<br>
+&nbsp;&nbsp;<span class="cs">"variables"</span>: {<span class="cs">"CLIENT_NAME"</span>: <span class="cs">"Riya Salon"</span>, <span class="cs">"CITY"</span>: <span class="cs">"Mumbai"</span>}<br>
+})
+      </div></div>
+    </div>
+
+    <!-- ═══ GUIDE: BUILD ═══ -->
+    <div class="doc-section" id="sec-guide-build">
+      <h1 class="doc-h1">Building Websites</h1>
+      <p class="doc-p">Use the <code>/templates/build</code> endpoint for the fastest path to a live website — no workflow teaching needed.</p>
+
+      <h2 class="doc-h2">Available Templates</h2>
+      <table class="params">
+        <tr><th>ID</th><th>Description</th><th>Tech Stack</th></tr>
+        <tr><td class="param-name">salon</td><td class="param-desc">Beauty salon / spa</td><td>Next.js 14 + Tailwind + MongoDB</td></tr>
+        <tr><td class="param-name">restaurant</td><td class="param-desc">Restaurant / café</td><td>Next.js 14 + Tailwind</td></tr>
+        <tr><td class="param-name">portfolio</td><td class="param-desc">Freelancer portfolio</td><td>Next.js 14 + Tailwind</td></tr>
+        <tr><td class="param-name">ecommerce</td><td class="param-desc">Simple online store</td><td>Next.js 14 + Tailwind + Stripe</td></tr>
+      </table>
+    </div>
+
+    <!-- ═══ WEBHOOKS ═══ -->
+    <div class="doc-section" id="sec-webhooks">
+      <h1 class="doc-h1">Webhooks</h1>
+      <p class="doc-p">The billing webhook endpoint receives payment events from Razorpay.</p>
+
+      <div class="endpoint">
+        <span class="method post">POST</span>
+        <span class="endpoint-path">/api/v1/billing/webhook</span>
+        <span class="endpoint-tag">Razorpay only · Hidden from docs</span>
+      </div>
+
+      <p class="doc-p">Configure in Razorpay Dashboard → Webhooks → <code>https://api.yourplatform.com/api/v1/billing/webhook</code></p>
+      <p class="doc-p">The endpoint verifies the HMAC-SHA256 signature using <code>RAZORPAY_WEBHOOK_SECRET</code> and auto-credits the wallet on <code>payment.captured</code> events.</p>
+
+      <h2 class="doc-h2">Webhook signature verification</h2>
+      <div class="code-block"><div class="code-inner">
+<span class="ck">import</span> hmac, hashlib<br><br>
+<span class="ck">def</span> <span class="cf">verify</span>(raw_body, signature, secret):<br>
+&nbsp;&nbsp;expected = hmac.<span class="cf">new</span>(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;secret.<span class="cf">encode</span>(), raw_body, hashlib.sha256<br>
+&nbsp;&nbsp;).<span class="cf">hexdigest</span>()<br>
+&nbsp;&nbsp;<span class="ck">return</span> hmac.<span class="cf">compare_digest</span>(expected, signature)
+      </div></div>
+    </div>
+
+    <!-- ═══ RATE LIMITS ═══ -->
+    <div class="doc-section" id="sec-guide-rate">
+      <h1 class="doc-h1">Rate Limits</h1>
+      <table class="params">
+        <tr><th>Window</th><th>Limit</th><th>Header when exceeded</th></tr>
+        <tr><td>Per minute</td><td>60 calls</td><td class="param-desc"><code>X-RateLimit-Reset</code></td></tr>
+        <tr><td>Per day</td><td>1,000 calls</td><td class="param-desc">Resets at midnight UTC</td></tr>
+      </table>
+      <p class="doc-p">When rate limited, the response is <code>429 Too Many Requests</code> with a <code>detail</code> explaining the limit and reset time. Rate limits are per API key, tracked in Redis.</p>
+    </div>
+
+  </div><!-- /doc-content -->
+</div><!-- /doc-layout -->
+
+<script>
+function showSection(name, el) {
+  document.querySelectorAll('.doc-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('active');
+  if (el) el.classList.add('active');
+}
+
+function switchLang(tabEl, paneId) {
+  const group = tabEl.closest('.code-tab-content')?.previousElementSibling;
+  if (!group) return;
+  group.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+  tabEl.classList.add('active');
+  // find sibling panes
+  const content = tabEl.closest('.code-tab-content') || tabEl.nextElementSibling;
+  document.querySelectorAll('.code-pane').forEach(p => {
+    if (p.id === paneId) p.classList.add('active');
+    else if ([...group.parentElement.querySelectorAll('.code-pane')].includes(p)) p.classList.remove('active');
+  });
+}
+
+// Simpler: find all code-pane siblings of active tab
+document.querySelectorAll('.code-tab').forEach(tab => {
+  tab.addEventListener('click', function() {
+    const paneId = this.getAttribute('onclick').match(/'([^']+)'/)[1];
+    const wrap = this.closest('div');
+    if (!wrap) return;
+    wrap.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+    this.classList.add('active');
+    const content = wrap.nextElementSibling;
+    if (content) {
+      content.querySelectorAll('.code-pane').forEach(p => p.classList.remove('active'));
+      const target = content.querySelector('#' + paneId);
+      if (target) target.classList.add('active');
+    }
+  });
+});
+</script>
+</body>
+</html>

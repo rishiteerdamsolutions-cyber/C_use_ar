@@ -1,0 +1,108 @@
+{
+  "template_id": "salon_v1",
+  "category": "beauty_wellness",
+  "keywords": ["salon", "beauty", "hair", "spa", "parlour", "parlor", "makeup", "nails", "bridal"],
+  "display_name": "Modern Luxury Salon Website",
+  "design_style": "luxury_minimal",
+  "color_scheme": {
+    "primary": "#1a1a1a",
+    "secondary": "#c9a96e",
+    "accent": "#f5e6d3",
+    "background": "#faf8f5",
+    "text": "#2d2d2d",
+    "text_light": "#888888"
+  },
+  "typography": {
+    "heading_font": "Playfair Display",
+    "body_font": "Inter",
+    "heading_weight": "700",
+    "body_weight": "400"
+  },
+  "sections": [
+    {
+      "id": "hero",
+      "name": "Hero with Booking CTA",
+      "description": "Full-viewport hero with salon name, tagline, hero image background, and prominent 'Book Appointment' button",
+      "required": true
+    },
+    {
+      "id": "services",
+      "name": "Services Grid",
+      "description": "3-column responsive grid showing Hair, Skincare, Nail Art, Bridal, Massage, Makeup services with icons, description, price range",
+      "required": true
+    },
+    {
+      "id": "gallery",
+      "name": "Gallery",
+      "description": "Masonry-style image gallery showcasing transformations and salon interior — 12 placeholder images",
+      "required": true
+    },
+    {
+      "id": "testimonials",
+      "name": "Client Testimonials",
+      "description": "Carousel of 5-star reviews with client name, avatar, review text, star rating, and Google review badge",
+      "required": true
+    },
+    {
+      "id": "about",
+      "name": "About Us",
+      "description": "Salon story, years of experience badge, team photo, awards",
+      "required": false
+    },
+    {
+      "id": "contact",
+      "name": "Contact with Map",
+      "description": "Two-column layout — left: contact form (name, phone, service, preferred date), right: embedded Google Map, address, hours, phone",
+      "required": true
+    },
+    {
+      "id": "footer",
+      "name": "Footer",
+      "description": "Logo, quick links, social media icons (Instagram, Facebook, WhatsApp), copyright, city/address",
+      "required": true
+    }
+  ],
+  "tech_stack": {
+    "framework": "Next.js 14",
+    "ui": "Tailwind CSS",
+    "language": "TypeScript",
+    "database": "MongoDB Atlas",
+    "email": "Nodemailer via Gmail API",
+    "deployment": "Vercel",
+    "forms": "React Hook Form + Zod",
+    "animations": "Framer Motion"
+  },
+  "features": [
+    "Mobile-first responsive design",
+    "WhatsApp floating chat button",
+    "Online booking form with email confirmation",
+    "SEO optimized (meta tags, OG tags, sitemap)",
+    "Fast page load (Lighthouse score > 90)",
+    "Google Analytics integration",
+    "Instagram feed embed",
+    "Multi-language ready (Hindi + English)"
+  ],
+  "env_variables": [
+    "MONGODB_URI",
+    "NEXT_PUBLIC_SITE_NAME",
+    "NEXT_PUBLIC_SITE_PHONE",
+    "NEXT_PUBLIC_SITE_ADDRESS",
+    "NEXT_PUBLIC_GOOGLE_MAPS_KEY",
+    "GMAIL_USER",
+    "GMAIL_APP_PASSWORD",
+    "NEXT_PUBLIC_WHATSAPP_NUMBER",
+    "NEXT_PUBLIC_GA_ID"
+  ],
+  "tested": true,
+  "test_results": {
+    "lighthouse_performance": 94,
+    "lighthouse_accessibility": 98,
+    "lighthouse_seo": 100,
+    "mobile_responsive": true,
+    "form_working": true
+  },
+  "cursor_prompt_file": "templates/salon/prompt.txt",
+  "estimated_build_minutes": 25,
+  "created_at": "2024-01-01",
+  "version": "1.0.0"
+}

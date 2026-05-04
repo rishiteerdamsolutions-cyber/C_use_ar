@@ -1,0 +1,323 @@
+You are building a production-grade luxury salon website. Follow every instruction precisely.
+
+═══════════════════════════════════════════════════════════════
+PROJECT: Modern Luxury Salon Website
+STACK:   Next.js 14 (App Router) + TypeScript + Tailwind CSS + MongoDB Atlas + Framer Motion
+DEPLOY:  Vercel
+═══════════════════════════════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DESIGN SYSTEM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Colors:
+  Primary bg:    #faf8f5 (warm off-white)
+  Primary text:  #1a1a1a (near-black)
+  Gold accent:   #c9a96e
+  Blush accent:  #f5e6d3
+  Muted text:    #888888
+
+Fonts:
+  Headings: Playfair Display (700) — import from Google Fonts
+  Body:     Inter (400, 500, 600) — import from Google Fonts
+
+Spacing: Use generous whitespace. Min section padding: 80px vertical.
+Radius:  Buttons 2px, cards 8px, images 4px.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Create this exact structure:
+
+  /app
+    layout.tsx          ← root layout, fonts, metadata
+    page.tsx            ← home page assembling all sections
+    /api
+      /contact
+        route.ts        ← POST handler: saves to MongoDB + sends email
+      /booking
+        route.ts        ← POST handler: saves booking to MongoDB
+
+  /components
+    Navbar.tsx          ← sticky, transparent → white on scroll
+    Hero.tsx            ← full viewport hero
+    Services.tsx        ← 3-col services grid
+    Gallery.tsx         ← masonry gallery
+    Testimonials.tsx    ← testimonials carousel
+    About.tsx           ← about section
+    Contact.tsx         ← contact form + map
+    Footer.tsx          ← footer
+    WhatsAppButton.tsx  ← floating WhatsApp CTA
+    BookingModal.tsx    ← modal triggered by "Book Appointment"
+
+  /lib
+    mongodb.ts          ← MongoDB connection singleton
+    email.ts            ← Nodemailer email helper
+    validations.ts      ← Zod schemas for forms
+
+  /types
+    index.ts            ← TypeScript interfaces
+
+  /public
+    /images             ← placeholder images referenced below
+
+  .env.local.example    ← all required env variables listed
+  next.config.js
+  tailwind.config.ts
+  tsconfig.json
+  package.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — NAVBAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Sticky position, z-index 50
+- Transparent background when at top, white/blur when scrolled (useScrollPosition hook)
+- Logo: "✦ Luxe Salon" in Playfair Display gold (#c9a96e)
+- Nav links: Services | Gallery | About | Contact
+- CTA button: "Book Now" — gold background, dark text, hover effect
+- Mobile: hamburger menu with smooth slide-down drawer
+- Smooth scroll to sections on link click
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — HERO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Full viewport height (100vh)
+- Background: gradient overlay (#1a1a1a 60% opacity) over a high-quality salon image
+  Use: https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600
+- Content centered:
+  - Eyebrow text: "Welcome to Luxe Salon" (gold, tracking-widest, uppercase)
+  - H1: "Where Beauty Meets Luxury" (Playfair Display, 5xl, white)
+  - Subtext: "Expert stylists. Premium products. Transformative results." (white, muted)
+  - Two buttons:
+    1. "Book Appointment" — gold bg, dark text, large, Framer Motion hover scale
+    2. "View Services" — outlined white, ghost style
+- Framer Motion: fade-in-up animation for all hero elements (staggered 0.2s)
+- Bottom scroll indicator: animated chevron
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — SERVICES GRID
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Section title: "Our Services" (Playfair Display, centered)
+- Subtitle: "Crafted for your unique beauty"
+- 3-column grid (1-col mobile, 2-col tablet, 3-col desktop)
+- 6 service cards with hover lift effect:
+
+  1. Hair Styling
+     Icon: ✂️  Price: ₹500 – ₹3,000
+     Desc: "Cut, colour, keratin, smoothening & styling by expert hair artists"
+
+  2. Skincare & Facials
+     Icon: ✨  Price: ₹800 – ₹4,500
+     Desc: "Hydrafacials, clean-ups, de-tan, anti-aging treatments"
+
+  3. Nail Art
+     Icon: 💅  Price: ₹300 – ₹2,000
+     Desc: "Gel extensions, nail art, manicure & pedicure"
+
+  4. Bridal Packages
+     Icon: 👰  Price: ₹15,000 – ₹50,000
+     Desc: "Complete bridal makeup, mehendi, pre-bridal packages"
+
+  5. Massage & Spa
+     Icon: 🧘  Price: ₹1,200 – ₹5,000
+     Desc: "Swedish, deep tissue, head massage & full body spa"
+
+  6. Makeup
+     Icon: 💄  Price: ₹1,500 – ₹8,000
+     Desc: "Party makeup, HD makeup, airbrush for all occasions"
+
+- Each card: icon + name + price range + description + "Learn More" link
+- Card bg: white, border: 1px solid #f5e6d3, shadow on hover
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — GALLERY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Section title: "Our Work" + subtitle
+- CSS masonry grid (columns: 1 mobile, 2 tablet, 3 desktop)
+- 12 images from Unsplash (hair/beauty themed):
+  Use these exact URLs:
+  1. https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=600
+  2. https://images.unsplash.com/photo-1519125323398-675f0ddb6308?w=600
+  3. https://images.unsplash.com/photo-1614255663893-3a16bf7ec843?w=600
+  4. https://images.unsplash.com/photo-1527799820374-87fd155b3d51?w=600
+  5. https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=600
+  6. https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=600
+  7. https://images.unsplash.com/photo-1562322140-8baeececf3df?w=600
+  8. https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=600
+  9. https://images.unsplash.com/photo-1520190282873-afe1285c9a19?w=600
+  10. https://images.unsplash.com/photo-1492106087820-71f1a00d2b11?w=600
+  11. https://images.unsplash.com/photo-1571290274554-6a2eaa771e5f?w=600
+  12. https://images.unsplash.com/photo-1610992015732-2449b76344bc?w=600
+- Images: rounded-lg, hover zoom (scale 1.05) with overlay showing "View"
+- Lightbox on click (use react-image-lightbox or custom modal)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — TESTIMONIALS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Section title: "What Our Clients Say"
+- Bg: #1a1a1a (dark section for contrast)
+- Auto-scrolling carousel (interval 4s), manual arrow controls
+- 5 review cards (white bg):
+
+  1. Priya Sharma — ⭐⭐⭐⭐⭐
+     "Absolutely stunning bridal makeup! The team understood exactly what I wanted.
+      My wedding photos look like a magazine shoot. 100% recommend!"
+
+  2. Ananya Reddy — ⭐⭐⭐⭐⭐
+     "Best hair colouring in Karimnagar. The balayage turned out perfect and the
+      colour is still vibrant after 6 weeks. Will be back!"
+
+  3. Meera Patel — ⭐⭐⭐⭐⭐
+     "The hydrafacial gave me a glow I've never experienced before. Very hygienic,
+      professional staff and lovely ambience."
+
+  4. Sunita Verma — ⭐⭐⭐⭐⭐
+     "Nail art is absolutely gorgeous! They did intricate design exactly as I showed.
+      Staff is friendly and the salon is spotless."
+
+  5. Kavita Singh — ⭐⭐⭐⭐⭐
+     "Went for a full body spa and felt completely rejuvenated. The massage therapist
+      is incredibly skilled. Worth every rupee!"
+
+- Each card: avatar (initials circle in gold), name, 5 stars, review text, "Google Review" badge
+- "4.9 ★ Rating • 500+ Happy Clients" stat bar above cards
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6 — CONTACT WITH MAP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Two-column layout (1-col mobile, 2-col desktop)
+
+LEFT COLUMN — Contact Form:
+  Title: "Book Your Appointment"
+  Fields (React Hook Form + Zod validation):
+    - Full Name (required, min 2 chars)
+    - Phone Number (required, Indian format +91XXXXXXXXXX)
+    - Service (dropdown: all 6 services + "Other")
+    - Preferred Date (date picker, min today)
+    - Message (textarea, optional)
+  Submit button: "Send Booking Request" (gold bg)
+  On success: show toast "We'll call you within 2 hours! ✓"
+  API: POST /api/contact
+
+RIGHT COLUMN — Info:
+  - Google Maps embed (iframe, set to Karimnagar, Telangana)
+    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d30385.22!2d79.1288!3d18.4386!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bcbef!2sKarimnagar!5e0!3m2!1sen!2sin!4v1"
+  - Address: "123 Beauty Street, Karimnagar, Telangana 505001"
+  - Phone: "+91 98765 43210"
+  - Email: "hello@luxesalon.in"
+  - Hours:
+      Mon–Sat: 9:00 AM – 8:00 PM
+      Sunday:  10:00 AM – 6:00 PM
+  - Social icons: Instagram | Facebook | WhatsApp
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 7 — FOOTER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Dark bg (#1a1a1a)
+- 3-column layout:
+  Col 1: Logo + tagline + "Book a slot today"
+  Col 2: Quick Links (Services, Gallery, About, Contact, Privacy Policy)
+  Col 3: Follow Us (Instagram, Facebook, WhatsApp icons) + newsletter email signup
+- Bottom bar: "© 2024 Luxe Salon. All rights reserved. Built with ♥ in Karimnagar"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHATSAPP FLOATING BUTTON
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Fixed bottom-right, z-index 100
+- WhatsApp green (#25D366) circular button, 60px diameter
+- WhatsApp SVG icon
+- onClick: opens wa.me/{NEXT_PUBLIC_WHATSAPP_NUMBER}?text=Hi%2C%20I%20want%20to%20book%20an%20appointment
+- Pulse animation to draw attention
+- Tooltip on hover: "Chat with us"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATABASE SCHEMA (MongoDB)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Collection: bookings
+{
+  _id: ObjectId,
+  name: string,
+  phone: string,
+  service: string,
+  preferred_date: Date,
+  message: string,
+  status: "pending" | "confirmed" | "completed",
+  created_at: Date,
+  email_sent: boolean
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+API ROUTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+POST /api/contact
+  - Validate body with Zod
+  - Save to MongoDB bookings collection
+  - Send confirmation email to salon owner via Nodemailer
+  - Send auto-reply SMS (optional, just log for now)
+  - Return: { success: true, message: "Booking received" }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SEO REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+In app/layout.tsx metadata export:
+  title: "Luxe Salon Karimnagar | Hair, Makeup & Beauty Services"
+  description: "Premium salon in Karimnagar offering hair styling, bridal makeup,
+                skincare, nail art & spa. Book your appointment today."
+  keywords: "salon karimnagar, beauty parlour karimnagar, bridal makeup telangana"
+  OG image: /public/og-image.jpg
+  Twitter card: summary_large_image
+  JSON-LD: LocalBusiness schema with address, hours, ratings
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ENVIRONMENT VARIABLES (.env.local.example)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/salon
+NEXT_PUBLIC_SITE_NAME=Luxe Salon
+NEXT_PUBLIC_SITE_PHONE=+919876543210
+NEXT_PUBLIC_SITE_ADDRESS=123 Beauty Street, Karimnagar, Telangana 505001
+NEXT_PUBLIC_GOOGLE_MAPS_KEY=
+GMAIL_USER=hello@luxesalon.in
+GMAIL_APP_PASSWORD=
+NEXT_PUBLIC_WHATSAPP_NUMBER=919876543210
+NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PACKAGE.JSON DEPENDENCIES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{
+  "next": "14.2.0",
+  "react": "^18",
+  "react-dom": "^18",
+  "typescript": "^5",
+  "tailwindcss": "^3.4",
+  "framer-motion": "^11",
+  "react-hook-form": "^7",
+  "zod": "^3",
+  "@hookform/resolvers": "^3",
+  "mongoose": "^8",
+  "nodemailer": "^6",
+  "react-hot-toast": "^2",
+  "lucide-react": "^0.378"
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUALITY REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ TypeScript strict mode — no `any` types
+✓ All images use next/image with proper width/height
+✓ No console.log in production code
+✓ Loading states on all form submissions
+✓ Error boundaries on critical components
+✓ 100% mobile responsive — test at 375px, 768px, 1280px
+✓ Accessibility: all images have alt text, forms have labels, ARIA roles
+✓ Lighthouse Performance > 90, SEO = 100
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+START COMMAND
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+After building all files:
+1. Run: npm install
+2. Run: npm run dev
+3. Verify http://localhost:3000 loads without errors
+4. Run: npm run build (must complete successfully)
+
+Build the complete project now. Start with package.json, then layout, then each component in order. Do not stop until npm run build passes.

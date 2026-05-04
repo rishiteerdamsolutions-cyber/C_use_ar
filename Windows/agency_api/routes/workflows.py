@@ -1,0 +1,244 @@
+"""
+Routes — /api/v1/workflows/*
+Run saved workflows and teach new ones via screenshots.
+"""
+
+from __future__ import annotations
+
+import base64
+import logging
+import os
+import time
+from typing import Any
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+
+from agency_api.middleware import assert_credits, require_api_key
+from agency_api.models import (
+    ENDPOINT_COSTS,
+    RunMode,
+    RunWorkflowRequest,
+    RunWorkflowResponse,
+    TeachRequest,
+    TeachResponse,
+)
+
+router = APIRouter(prefix="/workflows", tags=["Workflows"])
+logger = logging.getLogger(__name__)
+
+
+# ─── Run Workflow ─────────────────────────────────────────────────────────────
+@router.post("/run", response_model=RunWorkflowResponse,
+    summary="Run a saved workflow",
+    description=(
+        "Execute a taught workflow by name.\n\n"
+        "**fast mode** (V1) — Uses saved training coordinates. Zero vision API calls. 2 credits.\n\n"
+        "**smart mode** (V2) — Claude Vision re-checks every element live. Adapts to UI changes. 5 credits."
+    ),
+)
+async def run_workflow(
+    req:     RunWorkflowRequest,
+    key_doc: dict = Depends(require_api_key),
+) -> dict[str, Any]:
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+    cost_key = f"run_workflow_{req.mode.value}"
+    cost     = ENDPOINT_COSTS[cost_key]
+    key_id   = str(key_doc["_id"])
+
+    if not req.dry_run:
+        assert_credits(key_doc, cost)
+
+    try:
+        from agency_api.entitlements import assert_run_allowed_for_key, load_workflow_dict
+
+        wf0 = load_workflow_dict(req.workflow_name)
+        if wf0 is None:
+            raise HTTPException(status_code=404, detail=f"Workflow '{req.workflow_name}' not found")
+        assert_run_allowed_for_key(
+            key_doc=key_doc,
+            workflow_name=req.workflow_name,
+            run_mode=req.mode.value,
+            wf=wf0,
+        )
+    except PermissionError as pe:
+        raise HTTPException(status_code=403, detail=str(pe))
+
+    t0 = time.time()
+    success      = False
+    session_id   = ""
+    live_url     = ""
+    steps_run    = 0
+    success_rate = 0.0
+
+    try:
+        if req.mode == RunMode.fast:
+            from teach.runner_v1 import RunnerV1
+            runner = RunnerV1(req.workflow_name, dry_run=req.dry_run)
+        else:
+            from teach.workflow_runner import WorkflowRunner
+            runner = WorkflowRunner(req.workflow_name, dry_run=req.dry_run)
+
+        ok = runner.run(variables=req.variables)
+        success = ok
+        steps_run = runner.total_steps() if hasattr(runner, "total_steps") else 0
+        success_rate = 1.0 if ok else 0.5
+
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.error("Workflow run failed: %s", exc, exc_info=True)
+        success = False
+
+    duration = time.time() - t0
+
+    # Deduct credits and log
+    from agency_api.keys import deduct_credits
+    from agency_api.usage import log_call
+    if req.dry_run:
+        remaining = key_doc["credits_total"] - key_doc["credits_used"]
+    else:
+        _, remaining = deduct_credits(key_id, cost)
+        try:
+            from agency_api.entitlements import infer_requires_ai, load_workflow_dict
+            from agency_api.keys import increment_ai_runs_this_month
+
+            wf1 = load_workflow_dict(req.workflow_name)
+            if wf1 and infer_requires_ai(wf1, req.mode.value) and success:
+                increment_ai_runs_this_month(key_id)
+        except Exception:
+            pass
+    log_call(
+        key_id=key_id,
+        endpoint="run_workflow",
+        mode=req.mode.value,
+        credits_used=0 if req.dry_run else cost,
+        credits_remaining=remaining,
+        duration_s=duration,
+        success=success,
+        metadata={"workflow_name": req.workflow_name, "live_url": live_url},
+    )
+
+    return {
+        "workflow_name":     req.workflow_name,
+        "mode":              req.mode,
+        "success":           success,
+        "session_id":        session_id or "N/A",
+        "live_url":          live_url or None,
+        "steps_run":         steps_run,
+        "success_rate":      success_rate,
+        "duration_s":        round(duration, 2),
+        "credits_used":      0 if req.dry_run else cost,
+        "credits_remaining": remaining,
+    }
+
+
+# ─── Teach Workflow ───────────────────────────────────────────────────────────
+@router.post("/teach", response_model=TeachResponse,
+    summary="Teach a new workflow from screenshots",
+    description=(
+        "Upload numbered screenshots (1.png, 2.png…) with step instructions.\n"
+        "Claude Vision analyses each screenshot and returns a replayable workflow JSON.\n\n"
+        "**Cost:** 3 credits per screenshot."
+    ),
+)
+async def teach_workflow(
+    workflow_name: str        = Form(...),
+    instructions:  str        = Form(..., description='JSON array: ["Click Deploy","Type name",...]'),
+    screenshots:   list[UploadFile] = File(...),
+    key_doc:       dict       = Depends(require_api_key),
+) -> dict[str, Any]:
+    import json as _json
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+    key_id     = str(key_doc["_id"])
+    num_shots  = len(screenshots)
+    cost       = ENDPOINT_COSTS["teach"] * num_shots
+
+    assert_credits(key_doc, cost)
+
+    try:
+        instr_list: list[str] = _json.loads(instructions)
+    except Exception:
+        raise HTTPException(status_code=400, detail="instructions must be a valid JSON array of strings")
+
+    if len(instr_list) != num_shots:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Got {num_shots} screenshots but {len(instr_list)} instructions — must match.",
+        )
+
+    t0 = time.time()
+    success = False
+    workflow_result: dict[str, Any] = {}
+
+    try:
+        import tempfile
+        from teach.screenshot_teacher import teach_from_screenshots
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            steps = []
+            for i, (upload, instr) in enumerate(zip(screenshots, instr_list), start=1):
+                content  = await upload.read()
+                ext      = Path(upload.filename or "img.png").suffix or ".png"
+                img_path = tmp / f"{i}{ext}"
+                img_path.write_bytes(content)
+                steps.append({"screenshot": str(img_path), "instruction": instr})
+
+            cloud_mode = bool(os.environ.get("VERCEL"))
+            workflow_result = teach_from_screenshots(
+                workflow_name=workflow_name,
+                steps=steps,
+                screenshot_dir=tmp,
+                save_to_disk=not cloud_mode,
+            )
+            success = True
+
+    except Exception as exc:
+        logger.error("Teach failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Teach workflow failed")
+
+    duration = time.time() - t0
+
+    from agency_api.keys import deduct_credits
+    from agency_api.usage import log_call
+    _, remaining = deduct_credits(key_id, cost)
+    log_call(
+        key_id=key_id,
+        endpoint="teach",
+        mode=None,
+        credits_used=cost,
+        credits_remaining=remaining,
+        duration_s=duration,
+        success=success,
+        metadata={"workflow_name": workflow_name, "screenshots": num_shots},
+    )
+
+    return {
+        "workflow_name":     workflow_name,
+        "total_steps":       num_shots,
+        "workflow_json":     workflow_result,
+        "credits_used":      cost,
+        "credits_remaining": remaining,
+    }
+
+
+# ─── List workflows ───────────────────────────────────────────────────────────
+@router.get("/list",
+    summary="List all available workflows",
+)
+async def list_workflows(key_doc: dict = Depends(require_api_key)) -> dict[str, Any]:
+    # Prefer cloud-scoped Mongo workflows when available.
+    try:
+        from agency_api.trainer_service import list_workflows as list_cloud_workflows
+        owner_id = str(key_doc["_id"])
+        cloud = list_cloud_workflows(owner_id)
+        return {"workflows": [w["name"] for w in cloud]}
+    except Exception:
+        from teach.workflow_runner import list_workflows as list_local_workflows
+        return {"workflows": list_local_workflows()}

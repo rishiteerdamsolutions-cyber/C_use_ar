@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+
+  api:
+    build: .
+    container_name: agency_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      ENV:                    production
+      PORT:                   "8000"
+      WORKERS:                "2"
+      MONGODB_URI:            ${MONGODB_URI}
+      MONGODB_DB_NAME:        agency_platform
+      REDIS_HOST:             redis
+      REDIS_PORT:             "6379"
+      ANTHROPIC_API_KEY:      ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY:         ${OPENAI_API_KEY}
+      GEMINI_API_KEY:         ${GEMINI_API_KEY}
+      RAZORPAY_KEY_ID:        ${RAZORPAY_KEY_ID}
+      RAZORPAY_KEY_SECRET:    ${RAZORPAY_KEY_SECRET}
+      RAZORPAY_WEBHOOK_SECRET:${RAZORPAY_WEBHOOK_SECRET}
+      FIREBASE_CONFIG_URL:    ${FIREBASE_CONFIG_URL}
+      ALLOWED_ORIGINS:        "https://yourplatform.com,https://api.yourplatform.com"
+      RATE_LIMIT_PER_MINUTE:  "60"
+      RATE_LIMIT_PER_DAY:     "1000"
+    depends_on:
+      - redis
+    volumes:
+      - ./workflows:/app/workflows
+      - ./templates:/app/templates
+      - ./sessions:/app/sessions
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout:  10s
+      retries:  3
+
+  redis:
+    image: redis:7-alpine
+    container_name: agency_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+volumes:
+  redis_data:

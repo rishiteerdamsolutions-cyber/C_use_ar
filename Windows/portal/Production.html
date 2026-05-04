@@ -1,0 +1,1704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cusear™ — Post everywhere. Automatically.</title>
+<meta name="description" content="cusear™ handles your social media across every platform — daily, automatically. Three plans: cusear™, cuseai ar™, Hybrid ar™. Desktop app for Windows and Mac.">
+<meta property="og:title" content="cusear™ — Post everywhere. Automatically.">
+<meta property="og:description" content="Automate your social media across 5 platforms. Daily. Automatically. Confirmed via WhatsApp.">
+<meta name="theme-color" content="#07070F">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-primary: #07070F;
+  --bg-surface: #0D0D18;
+  --bg-elevated: #12121F;
+  --bg-hover: rgba(246,245,241,0.05);
+  --text-primary: #F6F5F1;
+  --text-secondary: #A8A5A0;
+  --text-muted: #6B6865;
+  --text-disabled: #3D3C3A;
+  --border-default: rgba(246,245,241,0.07);
+  --border-hover: rgba(246,245,241,0.14);
+  --border-focus: rgba(246,245,241,0.28);
+  --cusear-green: #00CFA8;
+  --cusear-green-dim: rgba(0,207,168,0.10);
+  --cusear-green-glow: rgba(0,207,168,0.15);
+  --cuseai-purple: #7B6EF6;
+  --cuseai-purple-dim: rgba(123,110,246,0.10);
+  --cuseai-purple-glow: rgba(123,110,246,0.15);
+  --hybrid-amber: #F0A500;
+  --hybrid-amber-dim: rgba(240,165,0,0.10);
+  --hybrid-amber-glow: rgba(240,165,0,0.15);
+  --error: #E5484D;
+  --success: #46A758;
+  --text-xs: 0.70rem;
+  --text-sm: 0.82rem;
+  --text-base: 1.00rem;
+  --text-lg: 1.15rem;
+  --text-xl: 1.35rem;
+  --text-2xl: 1.70rem;
+  --text-3xl: 2.20rem;
+  --text-4xl: 3.00rem;
+  --text-5xl: 4.20rem;
+  --text-6xl: 5.80rem;
+  --text-hero: clamp(3.2rem, 8vw, 6.5rem);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+  --nav-h: 60px;
+  --os-h: 38px;
+  --scroll-pad: 98px;
+  --max-w: 1180px;
+  --pad-x: 64px;
+  --section-y: 96px;
+  --section-y-m: 64px;
+  /* Outfit = crisp headlines & CTAs; Inter = readable body (premium product UI) */
+  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', ui-monospace, monospace;
+}
+
+@media (max-width: 767px) {
+  :root { --pad-x: 24px; }
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--scroll-pad);
+}
+
+body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 16px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse 90% 60% at 50% -5%, rgba(0,207,168,0.05) 0%, transparent 65%);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.hero-grid-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(246,245,241,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(246,245,241,0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 70% 55% at 50% 20%, #000 0%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 55% at 50% 20%, #000 0%, transparent 72%);
+}
+
+.hero-glow {
+  position: absolute;
+  top: -10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120%;
+  height: 60%;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse at center, rgba(0,207,168,0.06) 0%, transparent 70%);
+}
+
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 1px;
+  width: 0%;
+  background: var(--cusear-green);
+  z-index: 200;
+  transition: width 0.05s linear;
+}
+
+.wrap {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 0 var(--pad-x);
+  position: relative;
+  z-index: 1;
+}
+
+/* ——— Typography ——— */
+.font-display { font-family: var(--font-display); }
+.font-mono { font-family: var(--font-mono); font-weight: 400; }
+
+/* ——— 3D Buttons ——— */
+.btn-3d-primary {
+  background: linear-gradient(180deg, #00E8BC 0%, #00CFA8 40%, #00B090 100%);
+  color: #07070F;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  position: relative;
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.15) inset,
+    0 -1px 0 0 rgba(0,0,0,0.25) inset,
+    0 4px 0 0 #008570,
+    0 4px 8px rgba(0,0,0,0.4),
+    0 8px 24px rgba(0,207,168,0.2);
+  transform: translateY(0);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.btn-3d-primary:hover {
+  background: linear-gradient(180deg, #00F5C8 0%, #00DFB5 40%, #00C09D 100%);
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.2) inset,
+    0 -1px 0 0 rgba(0,0,0,0.25) inset,
+    0 5px 0 0 #008570,
+    0 5px 12px rgba(0,0,0,0.45),
+    0 12px 32px rgba(0,207,168,0.25);
+  transform: translateY(-1px);
+}
+.btn-3d-primary:active {
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.1) inset,
+    0 -1px 0 0 rgba(0,0,0,0.3) inset,
+    0 1px 0 0 #008570,
+    0 2px 4px rgba(0,0,0,0.3),
+    0 4px 12px rgba(0,207,168,0.15);
+  transform: translateY(3px);
+}
+.btn-3d-primary.btn-sm { padding: 8px 18px; font-size: 0.78rem; }
+.btn-3d-primary.btn-lg { padding: 16px 32px; font-size: 0.95rem; }
+
+.btn-3d-secondary {
+  background: linear-gradient(180deg, #1A1A2A 0%, #12121F 100%);
+  color: #F6F5F1;
+  border: 1px solid rgba(246,245,241,0.12);
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.06) inset,
+    0 -1px 0 0 rgba(0,0,0,0.3) inset,
+    0 3px 0 0 rgba(0,0,0,0.6),
+    0 3px 8px rgba(0,0,0,0.4);
+  transform: translateY(0);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+.btn-3d-secondary:hover {
+  background: linear-gradient(180deg, #222236 0%, #1A1A2E 100%);
+  border-color: rgba(246,245,241,0.2);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.08) inset,
+    0 -1px 0 0 rgba(0,0,0,0.3) inset,
+    0 4px 0 0 rgba(0,0,0,0.6),
+    0 6px 16px rgba(0,0,0,0.4);
+}
+.btn-3d-secondary:active {
+  transform: translateY(2px);
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.04) inset,
+    0 -1px 0 0 rgba(0,0,0,0.3) inset,
+    0 1px 0 0 rgba(0,0,0,0.6),
+    0 2px 4px rgba(0,0,0,0.3);
+}
+
+.btn-3d-cuseai {
+  background: linear-gradient(180deg, #8B80F8 0%, #7B6EF6 45%, #6355E0 100%);
+  color: #F6F5F1;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  width: 100%;
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.12) inset,
+    0 -1px 0 0 rgba(0,0,0,0.25) inset,
+    0 4px 0 0 #3D30B8,
+    0 4px 8px rgba(0,0,0,0.4),
+    0 8px 24px rgba(123,110,246,0.22);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.btn-3d-cuseai:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.18) inset,
+    0 -1px 0 0 rgba(0,0,0,0.25) inset,
+    0 5px 0 0 #3D30B8,
+    0 5px 12px rgba(0,0,0,0.45),
+    0 12px 32px rgba(123,110,246,0.28);
+}
+.btn-3d-cuseai:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.08) inset,
+    0 1px 0 0 #3D30B8,
+    0 2px 4px rgba(0,0,0,0.35);
+}
+
+.btn-3d-hybrid {
+  background: linear-gradient(180deg, #F5B520 0%, #F0A500 45%, #D08E00 100%);
+  color: #07070F;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  width: 100%;
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.2) inset,
+    0 -1px 0 0 rgba(0,0,0,0.2) inset,
+    0 4px 0 0 #A06B00,
+    0 4px 8px rgba(0,0,0,0.4),
+    0 8px 24px rgba(240,165,0,0.2);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.btn-3d-hybrid:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.25) inset,
+    0 5px 0 0 #A06B00,
+    0 5px 12px rgba(0,0,0,0.45),
+    0 12px 32px rgba(240,165,0,0.25);
+}
+.btn-3d-hybrid:active {
+  transform: translateY(3px);
+}
+
+.btn-download-unlock {
+  width: 100%;
+  background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%);
+  color: #07070F;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow:
+    0 1px 0 0 rgba(255,255,255,0.5) inset,
+    0 -1px 0 0 rgba(0,0,0,0.08) inset,
+    0 3px 0 0 #b8b8b8,
+    0 4px 10px rgba(0,0,0,0.25);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.btn-download-unlock:hover {
+  transform: translateY(-1px);
+}
+.btn-download-unlock:active {
+  transform: translateY(2px);
+}
+
+.btn-locked {
+  width: 100%;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 0.82rem;
+  cursor: not-allowed;
+}
+
+/* ——— Nav ——— */
+.site-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--nav-h);
+  z-index: 100;
+  background: rgba(7,7,15,0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border-default);
+  transition: backdrop-filter 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+}
+.site-nav.scrolled {
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border-bottom-color: rgba(246,245,241,0.1);
+}
+.site-nav-inner {
+  max-width: 100%;
+  height: 100%;
+  padding: 0 var(--pad-x);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+.nav-logo {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: -0.035em;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.nav-logo .spark { color: var(--cusear-green); }
+.nav-center {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+}
+.nav-center a {
+  font-weight: 500;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+  position: relative;
+}
+.nav-center a:hover { color: var(--text-primary); }
+.nav-center a.nav-active { color: var(--text-primary); }
+.nav-center a.nav-active::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: -6px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--cusear-green);
+}
+@media (max-width: 767px) {
+  .nav-center { display: none; }
+}
+
+/* ——— OS strip ——— */
+.os-strip {
+  position: fixed;
+  top: var(--nav-h);
+  left: 0;
+  right: 0;
+  height: var(--os-h);
+  z-index: 99;
+  background: rgba(7,7,15,0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.os-toggle {
+  display: flex;
+  background: rgba(246,245,241,0.05);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+.os-toggle button {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: var(--text-sm);
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.os-toggle button.active {
+  background: #fff;
+  color: #07070F;
+  font-weight: 600;
+}
+
+/* ——— Hero ——— */
+.hero {
+  position: relative;
+  min-height: 100vh;
+  padding-top: calc(var(--nav-h) + var(--os-h) + 42px);
+  padding-bottom: var(--space-20);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+}
+.hero .wrap { width: 100%; }
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--cusear-green-dim);
+  border: 1px solid rgba(0,207,168,0.35);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cusear-green);
+  margin-bottom: var(--space-6);
+  opacity: 0;
+  animation: heroIn 500ms 100ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.hero h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-hero);
+  line-height: 0.92;
+  letter-spacing: -0.035em;
+  color: var(--text-primary);
+  margin-bottom: var(--space-6);
+  opacity: 0;
+  animation: heroIn 500ms 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.hero h1 .line-green { color: var(--cusear-green); }
+
+.hero-sub {
+  font-weight: 400;
+  font-size: 1.1rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 520px;
+  margin: 0 auto var(--space-8);
+  opacity: 0;
+  animation: heroIn 500ms 360ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.hero-ctas {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: var(--space-8);
+  opacity: 0;
+  animation: heroIn 500ms 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.hero-proof-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.hero-proof-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.hero-proof-row .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cusear-green);
+  flex-shrink: 0;
+}
+
+@keyframes heroIn {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Scroll-reveal */
+.animate-up {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.animate-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.stagger-1 { transition-delay: 0ms; }
+.stagger-2 { transition-delay: 80ms; }
+.stagger-3 { transition-delay: 160ms; }
+.stagger-4 { transition-delay: 240ms; }
+
+/* Proof strip */
+.proof-strip {
+  width: 100%;
+  background: rgba(246,245,241,0.025);
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  padding: 18px var(--pad-x);
+}
+.proof-strip-inner {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+}
+@media (max-width: 767px) {
+  .proof-strip-inner { gap: 16px; }
+}
+.proof-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.proof-item .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cusear-green);
+  flex-shrink: 0;
+}
+
+/* Section shell */
+.section {
+  padding: var(--section-y) 0;
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 767px) {
+  .section { padding: var(--section-y-m) 0; }
+}
+
+.section-label {
+  font-size: var(--text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: var(--space-3);
+}
+.section-label.center { text-align: center; }
+
+.section h2 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.6rem;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  margin-bottom: var(--space-4);
+}
+.section h2.center { text-align: center; }
+.section .lead {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  max-width: 560px;
+}
+.section .lead.center { margin-left: auto; margin-right: auto; text-align: center; }
+
+/* Currency toggle */
+.currency-row {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.currency-toggle {
+  display: inline-flex;
+  background: rgba(246,245,241,0.05);
+  border-radius: 8px;
+  padding: 3px;
+}
+.currency-toggle button {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.currency-toggle button.active {
+  background: #fff;
+  color: #07070F;
+  font-weight: 600;
+}
+
+.price-fade { transition: opacity 0.15s ease; }
+.price-fade.is-hidden { opacity: 0; }
+
+/* Plan families */
+.plan-family {
+  margin-top: var(--space-16);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  overflow: hidden;
+}
+.plan-family-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-8);
+  border-bottom: 1px solid var(--border-default);
+}
+@media (max-width: 767px) {
+  .plan-family-header { grid-template-columns: 1fr; text-align: left; }
+}
+.family-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-weight: 400;
+}
+.family-cusear { background: var(--cusear-green-dim); color: var(--cusear-green); border: 1px solid rgba(0,207,168,0.25); }
+.family-cuseai { background: var(--cuseai-purple-dim); color: var(--cuseai-purple); border: 1px solid rgba(123,110,246,0.25); }
+.family-hybrid { background: var(--hybrid-amber-dim); color: var(--hybrid-amber); border: 1px solid rgba(240,165,0,0.25); }
+
+.plan-family-header h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  letter-spacing: -0.02em;
+}
+.plan-family-header .fam-desc {
+  font-weight: 400;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-align: right;
+}
+@media (max-width: 767px) {
+  .plan-family-header .fam-desc { text-align: left; }
+}
+
+.plan-family.cusear .plan-family-header { border-left: 2px solid var(--cusear-green); }
+.plan-family.cuseai .plan-family-header { border-left: 2px solid var(--cuseai-purple); }
+.plan-family.hybrid .plan-family-header { border-left: 2px solid var(--hybrid-amber); }
+
+.plans-grid {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  background: var(--bg-primary);
+}
+.plans-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.plans-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.plans-grid.cols-1 { grid-template-columns: 1fr; }
+@media (max-width: 1023px) {
+  .plans-grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
+  .plans-grid.cols-3 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 767px) {
+  .plans-grid.cols-4,
+  .plans-grid.cols-3 { grid-template-columns: 1fr; }
+}
+
+.plan-card {
+  position: relative;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: var(--space-6);
+  transition: background 0.22s ease, border-color 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease;
+}
+.plan-card:hover {
+  background: #17172A;
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+}
+.plan-card.featured {
+  border-color: var(--hybrid-amber);
+  box-shadow: 0 0 40px rgba(240,165,0,0.12);
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 40px rgba(240,165,0,0.08); }
+  50% { box-shadow: 0 0 48px rgba(240,165,0,0.18); }
+}
+.best-tag {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--hybrid-amber);
+  color: #07070F;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.67rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.most-pop-tag {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--cusear-green);
+  color: #07070F;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.67rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.cost-saver-tag {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--cuseai-purple);
+  color: #F6F5F1;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.67rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.family-value-pill {
+  display: inline-block;
+  margin-left: var(--space-3);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 165, 0, 0.45);
+  color: var(--hybrid-amber);
+  background: rgba(240, 165, 0, 0.1);
+  vertical-align: middle;
+}
+@media (max-width: 767px) {
+  .family-value-pill { margin-left: 0; margin-top: var(--space-2); }
+}
+.plan-tier {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+}
+.plan-price {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 2.1rem;
+  letter-spacing: -0.03em;
+  margin-bottom: 4px;
+}
+.plan-price .sym { font-size: 1.1rem; vertical-align: super; margin-right: 2px; }
+.plan-price .per { font-size: var(--text-sm); font-weight: 500; color: var(--text-muted); }
+.gst-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-4);
+}
+.plan-divider {
+  height: 1px;
+  background: var(--border-default);
+  margin: var(--space-4) 0;
+}
+.plan-posts {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+}
+.plan-meta {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--text-muted);
+  min-height: 2.8em;
+  margin-bottom: var(--space-6);
+}
+
+/* Features */
+.features-section { padding: var(--space-20) 0; }
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-top: var(--space-10);
+}
+@media (max-width: 1023px) {
+  .features-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 767px) {
+  .features-grid { grid-template-columns: 1fr; }
+}
+.feature-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: var(--space-6);
+  transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+}
+.feature-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-hover);
+  background: #17172A;
+}
+.feature-card .sym {
+  font-size: 1.2rem;
+  color: var(--cusear-green);
+  margin-bottom: var(--space-4);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.feature-card h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: var(--space-3);
+  letter-spacing: -0.02em;
+}
+.feature-card p {
+  font-weight: 400;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+/* Downloads */
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-top: var(--space-10);
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+.download-grid.is-fading { opacity: 0; }
+@media (max-width: 1023px) {
+  .download-grid { grid-template-columns: 1fr; }
+}
+.dl-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: var(--space-6);
+  transition: transform 0.22s ease, border-color 0.22s ease;
+}
+.dl-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-hover);
+}
+.dl-os {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
+}
+.dl-card h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-base);
+  margin-bottom: var(--space-2);
+}
+.dl-card p {
+  font-weight: 400;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--space-6);
+}
+.dl-note {
+  margin-top: var(--space-2);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Setup */
+.setup-section {
+  background: rgba(0,207,168,0.025);
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  padding: var(--section-y) 0;
+}
+@media (max-width: 767px) {
+  .setup-section { padding: var(--section-y-m) 0; }
+}
+.setup-inner {
+  max-width: 740px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 0 var(--pad-x);
+}
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-8);
+  margin-top: var(--space-12);
+}
+@media (max-width: 767px) {
+  .steps-grid { grid-template-columns: 1fr; }
+}
+.step-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  margin: 0 auto var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cusear-green-dim);
+  border: 1px solid rgba(0,207,168,0.4);
+  color: var(--cusear-green);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-base);
+}
+.step-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: var(--space-2);
+}
+.step-desc {
+  font-weight: 400;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* Trust */
+.trust-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-12);
+  margin-top: var(--space-10);
+}
+.trust-item {
+  text-align: center;
+  max-width: 200px;
+}
+.trust-item .ic { font-size: 1.3rem; margin-bottom: var(--space-3); }
+.trust-item p {
+  font-weight: 400;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* Footer */
+.site-footer {
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-primary);
+  padding: var(--space-12) var(--pad-x);
+}
+.footer-grid {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  gap: var(--space-10);
+}
+@media (max-width: 767px) {
+  .footer-grid { grid-template-columns: 1fr; }
+}
+.footer-col h5 {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--space-4);
+}
+.footer-col a, .footer-col button.linklike {
+  display: block;
+  font-weight: 400;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+.footer-col a:hover, .footer-col button.linklike:hover {
+  color: var(--text-primary);
+}
+.footer-brand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  margin-bottom: var(--space-3);
+}
+.footer-brand .spark { color: var(--cusear-green); }
+.footer-tag {
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.footer-bottom {
+  width: 100%;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-default);
+  padding: var(--space-5) 0 var(--space-6);
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.footer-bottom-inner {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 0 var(--pad-x);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+/* Payment modal */
+.pay-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0,0,0,0.85);
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+.pay-modal.open { display: flex; }
+.pay-modal-box {
+  width: min(900px, 100%);
+  height: min(85vh, 720px);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+.pay-modal-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+.pay-modal iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.pay-modal-fallback {
+  padding: var(--space-10);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+</style>
+</head>
+<body>
+
+<div class="scroll-progress" id="scrollProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Scroll progress for cusear™"></div>
+
+<nav class="site-nav" id="siteNav" aria-label="cusear™ primary navigation">
+  <div class="site-nav-inner">
+    <a href="#hero" class="nav-logo" aria-label="cusear™ home">
+      cusear™ <span class="spark" aria-hidden="true">⚡</span>
+    </a>
+    <div class="nav-center">
+      <a href="#plans" data-nav-section="plans">Plans</a>
+      <a href="#download" data-nav-section="download">Download</a>
+      <a href="#setup" data-nav-section="setup">Setup</a>
+    </div>
+    <button type="button" class="btn-3d-primary btn-sm" id="navGetStarted" aria-label="Get Started with cusear™">Get Started</button>
+  </div>
+</nav>
+
+<div class="os-strip" role="region" aria-label="Operating system selection for cusear™ downloads">
+  <div class="os-toggle" role="group" aria-label="Windows or Mac">
+    <button type="button" id="osWindows" data-os="windows" aria-pressed="false">Windows</button>
+    <button type="button" id="osMac" data-os="mac" aria-pressed="false">Mac</button>
+  </div>
+</div>
+
+<main>
+  <section class="hero" id="hero" data-section="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="hero-grid-bg" aria-hidden="true"></div>
+    <div class="wrap">
+      <div class="hero-badge" aria-label="ar™ product badge"><span aria-hidden="true">⚡</span> ar™</div>
+      <h1>Post everywhere.<br><span class="line-green">Automatically.</span></h1>
+      <p class="hero-sub">cusear™ handles your social media across every platform — daily, automatically, without you lifting a finger.</p>
+      <div class="hero-ctas">
+        <button type="button" class="btn-3d-primary" id="heroGetStarted" aria-label="Get Started with cusear™">Get Started</button>
+        <a href="#download" class="btn-3d-secondary" aria-label="Download free trial for cusear™">Download Free Trial</a>
+      </div>
+      <div class="hero-proof-row" aria-label="cusear™ highlights">
+        <span><span class="dot" aria-hidden="true"></span>Every post confirmed via WhatsApp</span>
+        <span><span class="dot" aria-hidden="true"></span>5 platforms. One run. Daily.</span>
+        <span><span class="dot" aria-hidden="true"></span>Works on Windows and Mac</span>
+        <span><span class="dot" aria-hidden="true"></span>Cancel anytime</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="proof-strip animate-up">
+    <div class="proof-strip-inner" id="proofStripInner">
+      <div class="proof-item"><span class="dot" aria-hidden="true"></span><span>Every post confirmed via WhatsApp</span></div>
+      <div class="proof-item"><span class="dot" aria-hidden="true"></span><span>5 platforms. One run. Daily.</span></div>
+      <div class="proof-item"><span class="dot" aria-hidden="true"></span><span>Works on Windows and Mac</span></div>
+      <div class="proof-item"><span class="dot" aria-hidden="true"></span><span>Cancel anytime</span></div>
+    </div>
+  </div>
+
+  <section class="section" id="plans" data-section="plans">
+    <div class="wrap">
+      <p class="section-label animate-up">SUBSCRIPTION PLANS</p>
+      <h2 class="animate-up stagger-1">Choose your ar™</h2>
+      <p class="lead animate-up stagger-2">Cusear Core, Hybrid, and AI — pick your tier. Reference: <strong>1 USD = ₹95</strong>.</p>
+      <div class="currency-row animate-up stagger-3">
+        <div class="currency-toggle" role="group" aria-label="Currency for cusear™ plans">
+          <button type="button" id="curInr" data-currency="inr" aria-pressed="true">₹ INR</button>
+          <button type="button" id="curUsd" data-currency="usd" aria-pressed="false">$ USD</button>
+        </div>
+      </div>
+
+      <!-- 1. Cusear Core -->
+      <div class="plan-family cusear animate-up stagger-4">
+        <div class="plan-family-header">
+          <span class="family-badge family-cusear" aria-label="Cusear Core">Cusear Core</span>
+          <h3>Cusear Core</h3>
+          <p class="fam-desc">You provide content. Cusear automates posting for 30 days.</p>
+        </div>
+        <div class="plans-grid cols-3">
+          <article class="plan-card">
+            <p class="plan-tier">Starter</p>
+            <p class="plan-price price-fade" data-inr="400" data-usd="4"><span class="sym price-sym">₹</span><span class="price-val">400</span><span class="per">/mo</span></p>
+            <p class="gst-note">+ 18% GST</p>
+            <div class="plan-divider"></div>
+            <p class="plan-posts">2 Platforms</p>
+            <p class="plan-meta">You provide content · 30-day automation</p>
+            <button type="button" class="btn-3d-primary plan-buy" data-plan="core-starter" data-family="cusear" aria-label="Get Started Cusear Core Starter">Get Started</button>
+          </article>
+          <article class="plan-card">
+            <p class="plan-tier">Pro</p>
+            <p class="plan-price price-fade" data-inr="700" data-usd="7"><span class="sym price-sym">₹</span><span class="price-val">700</span><span class="per">/mo</span></p>
+            <p class="gst-note">+ 18% GST</p>
+            <div class="plan-divider"></div>
+            <p class="plan-posts">4 Platforms</p>
+            <p class="plan-meta">You provide content · 30-day automation</p>
+            <button type="button" class="btn-3d-primary plan-buy" data-plan="core-pro" data-family="cusear" aria-label="Get Started Cusear Core Pro">Get Started</button>
+          </article>
+          <article class="plan-card">
+            <p class="plan-tier">Presence</p>
+            <p class="plan-price price-fade" data-inr="900" data-usd="9"><span class="sym price-sym">₹</span><span class="price-val">900</span><span class="per">/mo</span></p>
+            <p class="gst-note">+ 18% GST</p>
+            <div class="plan-divider"></div>
+            <p class="plan-posts">4 + Status</p>
+            <p class="plan-meta">You provide content · 30-day automation</p>
+            <button type="button" class="btn-3d-primary plan-buy" data-plan="core-presence" data-family="cusear" aria-label="Get Started Cusear Core Presence">Get Started</button>
+          </article>
+        </div>
+      </div>
+
+      <!-- 2. Cusear Hybrid -->
+      <div class="plan-family hybrid animate-up">
+        <div class="plan-family-header">
+          <span class="family-badge family-hybrid" aria-label="Cusear Hybrid">Cusear Hybrid</span>
+          <h3>Cusear Hybrid <span class="family-value-pill">Best Value</span></h3>
+          <p class="fam-desc">AI generates text daily. Cusear posts automatically.</p>
+        </div>
+        <div class="plans-grid cols-3">
+          <article class="plan-card">
+            <p class="plan-tier">Starter</p>
+            <p class="plan-price price-fade" data-inr="900" data-usd="9"><span class="sym price-sym">₹</span><span class="price-val">900</span><span class="per">/mo</span></p>
+            <p class="gst-note">+ 18% GST</p>
+            <div class="plan-divider"></div>
+            <p class="plan-posts">2 Platforms</p>
+            <p class="plan-meta">AI text daily · auto posting</p>
+            <button type="button" class="btn-3d-hybrid plan-buy" data-plan="hybrid-starter" data-family="hybrid" aria-label="Get Started Cusear Hybrid Starter">Get Started</button>
+          </article>
+          <article class="plan-card">
+            <p class="plan-tier">Pro</p>
+            <p class="plan-price price-fade" data-inr="1500" data-usd="16"><span class="sym price-sym">₹</span><span class="price-val">1,500</span><span class="per">/mo</span></p>
+            <p class="gst-note">+ 18% GST</p>
+            <div class="plan-divider"></div>
+            <p class="plan-posts">4 Platforms</p>
+            <p class="plan-meta">AI text daily · auto posting</p>
+            <button type="button" class="btn-3d-hybrid plan-buy" data-plan="hybrid-pro" data-family="hybrid" aria-label="Get Started Cusear Hybrid Pro">Get Started</button>
+          </article>
+          <article class="plan-card featured">
+            <span class="most-pop-tag" aria-label="Most popular">Most Popular</span>
+            <p class="plan-tier">Presence</p>
+            <p class="plan-price price-fade" data-inr="1800" data-usd="19"><span class="sym price-sym">₹</span><span class="price-val">1,800</span><span class="per">/mo</span></p>
+            <p class="gst-note">+ 18% GST</p>
+            <div class="plan-divider"></div>
+            <p class="plan-posts">4 + Status</p>
+            <p class="plan-meta">AI text daily · auto posting</p>
+            <button type="button" class="btn-3d-hybrid plan-buy" data-plan="hybrid-presence" data-family="hybrid" aria-label="Get Started Cusear Hybrid Presence">Get Started</button>
+          </article>
+        </div>
+      </div>
+
+      <!-- 3. Cusear AI -->
+      <div class="plan-family cuseai animate-up">
+        <div class="plan-family-header">
+          <span class="family-badge family-cuseai" aria-label="Cusear AI">Cusear AI</span>
+          <h3>Cusear AI</h3>
+          <p class="fam-desc">AI generates complete content — text, image, or video.</p>
+        </div>
+        <div class="plans-grid cols-1" style="margin-bottom: var(--space-4)">
+          <article class="plan-card">
+            <span class="cost-saver-tag" aria-label="Cost saver">Cost Saver</span>
+            <p class="plan-tier">Budget · Unified content</p>
+            <p class="plan-price price-fade" data-inr="6600" data-usd="69"><span class="sym price-sym">₹</span><span class="price-val">6,600</span><span class="per">/mo</span></p>
+            <p class="gst-note">+ 18% GST</p>
+            <div class="plan-divider"></div>
+            <p class="plan-posts">All Platforms + Status</p>
+            <p class="plan-meta">Same content once per day, reused everywhere. Generate once per day. Publish everywhere.</p>
+            <button type="button" class="btn-3d-cuseai plan-buy" data-plan="ai-budget" data-family="cuseai" aria-label="Get Started Cusear AI Budget">Get Started</button>
+          </article>
+        </div>
+        <div class="plans-grid cols-3">
+          <article class="plan-card">
+            <p class="plan-tier">Starter</p>
+            <p class="plan-price price-fade" data-inr="6600" data-usd="69"><span class="sym price-sym">₹</span><span class="price-val">6,600</span><span class="per">/mo</span></p>
+            <p class="gst-note">+ 18% GST</p>
+            <div class="plan-divider"></div>
+            <p class="plan-posts">2 Platforms</p>
+            <p class="plan-meta">Platform-specific AI content</p>
+            <button type="button" class="btn-3d-cuseai plan-buy" data-plan="ai-starter" data-family="cuseai" aria-label="Get Started Cusear AI Starter">Get Started</button>
+          </article>
+          <article class="plan-card">
+            <p class="plan-tier">Pro</p>
+            <p class="plan-price price-fade" data-inr="13200" data-usd="139"><span class="sym price-sym">₹</span><span class="price-val">13,200</span><span class="per">/mo</span></p>
+            <p class="gst-note">+ 18% GST</p>
+            <div class="plan-divider"></div>
+            <p class="plan-posts">4 Platforms</p>
+            <p class="plan-meta">Platform-specific AI content</p>
+            <button type="button" class="btn-3d-cuseai plan-buy" data-plan="ai-pro" data-family="cuseai" aria-label="Get Started Cusear AI Pro">Get Started</button>
+          </article>
+          <article class="plan-card">
+            <p class="plan-tier">Presence</p>
+            <p class="plan-price price-fade" data-inr="16500" data-usd="174"><span class="sym price-sym">₹</span><span class="price-val">16,500</span><span class="per">/mo</span></p>
+            <p class="gst-note">+ 18% GST</p>
+            <div class="plan-divider"></div>
+            <p class="plan-posts">4 + Status</p>
+            <p class="plan-meta">Platform-specific AI content</p>
+            <button type="button" class="btn-3d-cuseai plan-buy" data-plan="ai-presence" data-family="cuseai" aria-label="Get Started Cusear AI Presence">Get Started</button>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features-section" id="features" data-section="features">
+    <div class="wrap">
+      <p class="section-label animate-up">WHAT YOU GET</p>
+      <h2 class="animate-up stagger-1 center">Built for people who post seriously</h2>
+      <div class="features-grid">
+        <article class="feature-card animate-up stagger-1">
+          <div class="sym" aria-hidden="true">◇</div>
+          <h4>5 platforms. One run.</h4>
+          <p>Facebook, Instagram, LinkedIn, X, and WhatsApp Status posted in one scheduled session every day.</p>
+        </article>
+        <article class="feature-card animate-up stagger-2">
+          <div class="sym" aria-hidden="true">◆</div>
+          <h4>WhatsApp confirmation</h4>
+          <p>After every post, cusear™ sends a WhatsApp message confirming exactly what was posted and when.</p>
+        </article>
+        <article class="feature-card animate-up stagger-3">
+          <div class="sym" aria-hidden="true">○</div>
+          <h4>30 days in one session</h4>
+          <p>Give one seed topic. Get 30 days of captions, angles, and posts generated and queued automatically.</p>
+        </article>
+        <article class="feature-card animate-up stagger-4">
+          <div class="sym" aria-hidden="true">□</div>
+          <h4>Your images. AI words.</h4>
+          <p>Hybrid ar™ uses your brand images and generates platform-specific captions while keeping your visual identity intact.</p>
+        </article>
+        <article class="feature-card animate-up">
+          <div class="sym" aria-hidden="true">△</div>
+          <h4>Setup Automatically</h4>
+          <p>One click handles required permissions. No technical setup. No config files. Just run and go.</p>
+        </article>
+        <article class="feature-card animate-up">
+          <div class="sym" aria-hidden="true">▷</div>
+          <h4>Windows and Mac</h4>
+          <p>Native desktop apps for both operating systems. Downloads unlock based on your active plan.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="download" data-section="download">
+    <div class="wrap">
+      <p class="section-label animate-up">DOWNLOADS</p>
+      <h2 class="animate-up stagger-1">Get the desktop app</h2>
+      <p class="lead animate-up stagger-2">Your download unlocks automatically after purchase.</p>
+      <div class="download-grid animate-up stagger-3" id="downloadGrid" aria-live="polite" aria-label="cusear™ desktop downloads by operating system"></div>
+    </div>
+  </section>
+
+  <section class="setup-section" id="setup" data-section="setup">
+    <div class="setup-inner">
+      <p class="section-label center animate-up">GETTING STARTED</p>
+      <h2 class="animate-up stagger-1 center">Up and running in 3 steps</h2>
+      <div class="steps-grid">
+        <article class="animate-up stagger-1">
+          <div class="step-circle" aria-hidden="true">1</div>
+          <p class="step-title">Install</p>
+          <p class="step-desc">Run the installer. Done in 60 seconds.</p>
+        </article>
+        <article class="animate-up stagger-2">
+          <div class="step-circle" aria-hidden="true">2</div>
+          <p class="step-title">Connect</p>
+          <p class="step-desc">Log into your social accounts once. cusear™ remembers.</p>
+        </article>
+        <article class="animate-up stagger-3">
+          <div class="step-circle" aria-hidden="true">3</div>
+          <p class="step-title">Run</p>
+          <p class="step-desc">Click Setup Automatically. cusear™ does the rest.</p>
+        </article>
+      </div>
+      <div style="margin-top:36px" class="animate-up stagger-4">
+        <button type="button" class="btn-3d-primary btn-lg" id="setupAutoBtn" aria-label="⚡ Setup Automatically for cusear™">⚡ Setup Automatically</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="trust" data-section="trust" style="text-align:center;padding-top:80px;padding-bottom:80px">
+    <div class="wrap">
+      <p class="section-label center animate-up">WHY cusear™</p>
+      <h2 class="animate-up stagger-1 center">Built on proof, not promises</h2>
+      <div class="trust-grid animate-up stagger-2">
+        <div class="trust-item"><div class="ic" aria-hidden="true">✅</div><p>Every post confirmed via WhatsApp</p></div>
+        <div class="trust-item"><div class="ic" aria-hidden="true">🖥️</div><p>Works on Windows and Mac</p></div>
+        <div class="trust-item"><div class="ic" aria-hidden="true">↩️</div><p>Cancel anytime. No questions.</p></div>
+        <div class="trust-item"><div class="ic" aria-hidden="true">🔒</div><p>Your content stays on your device</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer" id="footer">
+  <div class="footer-grid">
+    <div>
+      <div class="footer-brand" aria-label="cusear™ footer logo">cusear™ <span class="spark" aria-hidden="true">⚡</span></div>
+      <p class="footer-tag">Post everywhere. Automatically.</p>
+      <p class="footer-tag" style="margin-top:8px">ar™ — Automation Routine</p>
+    </div>
+    <div class="footer-col">
+      <h5>PRODUCTS</h5>
+      <a href="#plans">cusear™</a>
+      <a href="#plans">cuseai ar™</a>
+      <a href="#plans">Hybrid ar™</a>
+    </div>
+    <div class="footer-col">
+      <h5>DOWNLOADS</h5>
+      <button type="button" class="linklike footer-os" data-os="windows" aria-label="Show Windows products for cusear™">⊞ Windows Products</button>
+      <button type="button" class="linklike footer-os" data-os="mac" aria-label="Show Mac products for cusear™">Mac Products</button>
+      <h5 style="margin-top:24px">LEGAL</h5>
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Refund Policy</a>
+      <a href="#">Contact</a>
+    </div>
+  </div>
+</footer>
+<div class="footer-bottom">
+  <div class="footer-bottom-inner">
+    <span>© 2026 cusear™. All rights reserved. cusear™ and ar™ are trademarks.</span>
+    <span>Made in India 🇮🇳</span>
+  </div>
+</div>
+
+<div class="pay-modal" id="payModal" role="dialog" aria-modal="true" aria-labelledby="payModalTitle" aria-hidden="true">
+  <div class="pay-modal-box">
+    <button type="button" class="pay-modal-close" id="payModalClose" aria-label="Close Cashfree checkout">×</button>
+    <iframe id="payIframe" title="Cashfree checkout for cusear™" src="about:blank"></iframe>
+    <div class="pay-modal-fallback" id="payFallback" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:var(--bg-surface)">
+      <p id="payModalTitle">Configure Cashfree payment link</p>
+      <p style="max-width:420px">Set <span class="font-mono">PAYMENT_LINKS</span> in page script for this plan id.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var nav = document.getElementById('siteNav');
+  var scrollBar = document.getElementById('scrollProgress');
+  var currentOS = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent) ? 'mac' : 'windows';
+  var currentCurrency = 'inr';
+  var unlockedFamilies = { cusear: true, cuseai: false, hybrid: false };
+
+  var PAYMENT_LINKS = {
+    'core-starter': '',
+    'core-pro': '',
+    'core-presence': '',
+    'hybrid-starter': '',
+    'hybrid-pro': '',
+    'hybrid-presence': '',
+    'ai-budget': '',
+    'ai-starter': '',
+    'ai-pro': '',
+    'ai-presence': ''
+  };
+
+  function setOS(os) {
+    currentOS = os;
+    document.getElementById('osWindows').classList.toggle('active', os === 'windows');
+    document.getElementById('osMac').classList.toggle('active', os === 'mac');
+    document.getElementById('osWindows').setAttribute('aria-pressed', os === 'windows');
+    document.getElementById('osMac').setAttribute('aria-pressed', os === 'mac');
+    renderDownloads(true);
+  }
+
+  document.getElementById('osWindows').addEventListener('click', function () { setOS('windows'); });
+  document.getElementById('osMac').addEventListener('click', function () { setOS('mac'); });
+  setOS(currentOS);
+
+  document.querySelectorAll('.footer-os').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setOS(btn.getAttribute('data-os'));
+      location.hash = 'download';
+      document.getElementById('download').scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+
+  function formatPrice(num, sym) {
+    if (sym === '₹') return Number(num).toLocaleString('en-IN');
+    return String(num);
+  }
+
+  function applyCurrency(c) {
+    currentCurrency = c;
+    document.getElementById('curInr').classList.toggle('active', c === 'inr');
+    document.getElementById('curUsd').classList.toggle('active', c === 'usd');
+    document.getElementById('curInr').setAttribute('aria-pressed', c === 'inr');
+    document.getElementById('curUsd').setAttribute('aria-pressed', c === 'usd');
+
+    var sym = c === 'inr' ? '₹' : '$';
+    document.querySelectorAll('.plan-price').forEach(function (el) {
+      el.classList.add('price-fade', 'is-hidden');
+      setTimeout(function () {
+        var v = c === 'inr' ? el.getAttribute('data-inr') : el.getAttribute('data-usd');
+        el.querySelector('.price-sym').textContent = sym;
+        el.querySelector('.price-val').textContent = formatPrice(v, sym);
+        el.classList.remove('is-hidden');
+      }, 150);
+    });
+  }
+
+  document.getElementById('curInr').addEventListener('click', function () { applyCurrency('inr'); });
+  document.getElementById('curUsd').addEventListener('click', function () { applyCurrency('usd'); });
+
+  var products = [
+    { id: 'cusear-desktop', title: 'cusear™ Desktop', family: 'cusear', winDesc: 'Automation-only desktop app for Windows.', macDesc: 'Automation-only desktop app for Mac.' },
+    { id: 'cuseai-desktop', title: 'cuseai ar™ Desktop', family: 'cuseai', winDesc: 'cuseai ar™ desktop app for Windows.', macDesc: 'cuseai ar™ desktop app for Mac.' },
+    { id: 'hybrid-desktop', title: 'Hybrid ar™ Desktop', family: 'hybrid', winDesc: 'Hybrid ar™ desktop app for Windows.', macDesc: 'Hybrid ar™ desktop app for Mac.' }
+  ];
+
+  function renderDownloads(fade) {
+    var grid = document.getElementById('downloadGrid');
+    if (fade) {
+      grid.classList.add('is-fading');
+      setTimeout(function () { doRender(); grid.classList.remove('is-fading'); }, 150);
+    } else {
+      doRender();
+    }
+    function doRender() {
+      var osLabel = currentOS === 'mac' ? 'Mac' : 'Windows';
+      grid.innerHTML = products.map(function (p) {
+        var desc = currentOS === 'mac' ? p.macDesc : p.winDesc;
+        var unlocked = unlockedFamilies[p.family];
+        var dlLabel = currentOS === 'mac' ? 'Download for Mac' : 'Download for Windows';
+        var btn = unlocked
+          ? '<button type="button" class="btn-download-unlock dl-action" data-product="' + p.id + '" aria-label="' + dlLabel + ' for ' + p.title + '">' + dlLabel + '</button>'
+          : '<button type="button" class="btn-locked" disabled aria-label="Locked download for ' + p.title + '">🔒 Locked</button>';
+        var note = unlocked ? '' : '<p class="dl-note">Subscribe to unlock this download.</p>';
+        return (
+          '<article class="dl-card">' +
+            '<p class="dl-os">' + osLabel + '</p>' +
+            '<h4>' + p.title + '</h4>' +
+            '<p>' + desc + '</p>' + btn + note +
+          '</article>'
+        );
+      }).join('');
+      grid.querySelectorAll('.dl-action').forEach(function (b) {
+        b.addEventListener('click', function () {
+          alert('Download flow for ' + b.getAttribute('data-product') + ' — connect build URL.');
+        });
+      });
+    }
+  }
+
+  renderDownloads(false);
+
+  function openPayment(planId) {
+    var url = PAYMENT_LINKS[planId];
+    var modal = document.getElementById('payModal');
+    var iframe = document.getElementById('payIframe');
+    var fb = document.getElementById('payFallback');
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.getElementById('payModalTitle').textContent = 'Cashfree checkout — ' + planId;
+    if (url) {
+      iframe.style.display = 'block';
+      fb.style.display = 'none';
+      iframe.src = url;
+    } else {
+      iframe.style.display = 'none';
+      fb.style.display = 'flex';
+    }
+  }
+
+  function closePayment() {
+    var modal = document.getElementById('payModal');
+    var iframe = document.getElementById('payIframe');
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    iframe.src = 'about:blank';
+    document.getElementById('payFallback').style.display = 'none';
+    iframe.style.display = 'block';
+  }
+
+  document.getElementById('payModalClose').addEventListener('click', closePayment);
+  document.getElementById('payModal').addEventListener('click', function (e) {
+    if (e.target.id === 'payModal') closePayment();
+  });
+
+  document.querySelectorAll('.plan-buy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var plan = btn.getAttribute('data-plan');
+      openPayment(plan);
+    });
+  });
+
+  function scrollToPlans() {
+    document.getElementById('plans').scrollIntoView({ behavior: 'smooth' });
+  }
+  document.getElementById('navGetStarted').addEventListener('click', scrollToPlans);
+  document.getElementById('heroGetStarted').addEventListener('click', scrollToPlans);
+
+  document.getElementById('setupAutoBtn').addEventListener('click', function () {
+    alert('cusear™ Setup Automatically: permission checks and workflow preparation would run here.');
+  });
+
+  window.addEventListener('scroll', function () {
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    var p = h > 0 ? (window.scrollY / h) * 100 : 0;
+    scrollBar.style.width = p + '%';
+    scrollBar.setAttribute('aria-valuenow', Math.round(p));
+    nav.classList.toggle('scrolled', window.scrollY > 100);
+    updateNavActive();
+  }, { passive: true });
+
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (en.isIntersecting) en.target.classList.add('visible');
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.animate-up').forEach(function (el) {
+    if (el.closest('#features') || el.closest('#trust')) return;
+    io.observe(el);
+  });
+
+  function updateNavActive() {
+    var offset = 98 + 24;
+    var y = window.scrollY + offset;
+    var ids = ['plans', 'download', 'setup'];
+    var current = ids[0];
+    for (var i = 0; i < ids.length; i++) {
+      var el = document.getElementById(ids[i]);
+      if (!el) continue;
+      if (el.offsetTop <= y) current = ids[i];
+    }
+    document.querySelectorAll('[data-nav-section]').forEach(function (a) {
+      a.classList.toggle('nav-active', a.getAttribute('data-nav-section') === current);
+    });
+  }
+  window.addEventListener('resize', updateNavActive);
+  updateNavActive();
+
+  var revealIo = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (en.isIntersecting) en.target.classList.add('visible');
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('#features .animate-up, #trust .animate-up').forEach(function (el) {
+    revealIo.observe(el);
+  });
+})();
+</script>
+</body>
+</html>

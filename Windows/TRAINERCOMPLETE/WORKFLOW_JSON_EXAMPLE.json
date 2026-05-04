@@ -1,0 +1,53 @@
+{
+  "workflow_name": "example_social_post",
+  "taught_at": "2026-04-26T12:00:00",
+  "total_steps": 5,
+  "steps": [
+    {
+      "step": 1,
+      "action_type": "open_chrome",
+      "description": "Open Google Chrome",
+      "x": 0,
+      "y": 0,
+      "status": "saved"
+    },
+    {
+      "step": 2,
+      "action_type": "open_url",
+      "url": "https://example.com",
+      "description": "https://example.com",
+      "x": 0,
+      "y": 0,
+      "status": "saved"
+    },
+    {
+      "step": 3,
+      "action_type": "wait",
+      "wait_seconds": 3,
+      "description": "Wait 3s",
+      "x": 0,
+      "y": 0,
+      "status": "saved"
+    },
+    {
+      "step": 4,
+      "action_type": "click",
+      "description": "Click the primary \"Sign in\" button in the header",
+      "x": 512,
+      "y": 340,
+      "screenshot": "example_social_post_step4.png",
+      "live_vision": false,
+      "status": "analysed"
+    },
+    {
+      "step": 5,
+      "action_type": "type",
+      "type_text": "Hello {{WORKFLOW_NAME}}",
+      "focus_target": "",
+      "description": "Hello example_social_post",
+      "x": 0,
+      "y": 0,
+      "status": "saved"
+    }
+  ]
+}

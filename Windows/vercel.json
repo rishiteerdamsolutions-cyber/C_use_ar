@@ -1,0 +1,5 @@
+{
+  "buildCommand": "bash scripts/vercel_build.sh",
+  "outputDirectory": "public",
+  "installCommand": "echo 'static site — no install needed'"
+}
