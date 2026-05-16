@@ -1,0 +1,52 @@
+{
+  "agents": [
+    {
+      "id": "linkedin",
+      "name": "LinkedIn Agent",
+      "platforms": ["linkedin"],
+      "plans": ["core", "hybrid", "ai_budget", "ai_pro"],
+      "description": "Posts and schedules on LinkedIn using your logged-in Chrome session.",
+      "badge": "Professional"
+    },
+    {
+      "id": "facebook",
+      "name": "Facebook Agent",
+      "platforms": ["facebook"],
+      "plans": ["core", "hybrid", "ai_budget", "ai_pro"],
+      "description": "Page and feed automation on Facebook — no Meta API required.",
+      "badge": "Social"
+    },
+    {
+      "id": "instagram",
+      "name": "Instagram Agent",
+      "platforms": ["instagram"],
+      "plans": ["core", "hybrid", "ai_budget", "ai_pro"],
+      "description": "Reels, posts, and stories from your desktop browser session.",
+      "badge": "Creator"
+    },
+    {
+      "id": "x",
+      "name": "X Agent",
+      "platforms": ["x"],
+      "plans": ["core", "hybrid", "ai_budget", "ai_pro"],
+      "description": "Compose and publish posts on X (Twitter).",
+      "badge": "Social"
+    },
+    {
+      "id": "whatsapp",
+      "name": "WhatsApp Status Agent",
+      "platforms": ["whatsapp"],
+      "plans": ["core", "hybrid", "ai_budget", "ai_pro"],
+      "description": "Status updates with optional confirmation messages.",
+      "badge": "Messaging"
+    },
+    {
+      "id": "all_platforms",
+      "name": "All Platforms Pack",
+      "platforms": ["instagram", "facebook", "linkedin", "x", "whatsapp"],
+      "plans": ["core", "hybrid", "ai_budget", "ai_pro"],
+      "description": "One routine across all five platforms — best for daily presence.",
+      "badge": "Bundle"
+    }
+  ]
+}

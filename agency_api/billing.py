@@ -169,6 +169,11 @@ def _on_payment_captured(event: dict[str, Any]) -> dict[str, Any]:
 
 
 # ─── Signature verification ───────────────────────────────────────────────────
+def verify_razorpay_webhook_signature(raw_body: bytes, signature: str) -> bool:
+    """Public wrapper for Razorpay HMAC verification (subscription + wallet webhooks)."""
+    return _verify_signature(raw_body, signature)
+
+
 def _verify_signature(raw_body: bytes, signature: str) -> bool:
     """Verify Razorpay HMAC-SHA256 webhook signature."""
     if not RAZORPAY_WEBHOOK_SECRET:

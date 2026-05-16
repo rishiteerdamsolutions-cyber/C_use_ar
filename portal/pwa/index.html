@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="description" content="Cusear™ — install the app, connect your agent, schedule social automation." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Cusear™ App</title>
+  <link rel="manifest" href="/app/manifest.webmanifest" />
+  <link rel="icon" href="/app/icons/icon-192.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/app/icons/icon-192.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/app/app.css" />
+</head>
+<body>
+  <div id="authGate" class="app-shell">
+    <header class="topbar">
+      <span class="brand">Cusear™</span>
+    </header>
+    <main>
+      <h1 class="view-title">Sign in to continue</h1>
+      <p class="view-sub" id="authMsg">Use the same Google account as checkout on pricing.</p>
+      <div class="card">
+        <p>No Mac or Windows code signing required — install this web app, then run the lightweight local agent script.</p>
+        <div class="btn-row" style="margin-top:14px">
+          <button type="button" class="btn btn-primary" id="btnGoogleLogin">Continue with Google</button>
+          <a class="btn btn-secondary" href="/pricing.html">View plans</a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="appMain" class="app-shell hidden">
+    <header class="topbar">
+      <a href="/" class="brand" style="text-decoration:none">Cusear™</a>
+      <div class="agent-pill">
+        <span id="agentDot" class="dot" aria-hidden="true"></span>
+        <span id="agentLabel">Agent offline</span>
+      </div>
+    </header>
+
+    <main>
+      <section data-view="home" class="view">
+        <h1 class="view-title">Home</h1>
+        <p class="view-sub" id="accountLine">Loading…</p>
+        <div class="card install-banner">
+          <h3>1 — Install this app</h3>
+          <p>Add Cusear to your home screen or desktop — no App Store, no notarization.</p>
+          <div class="btn-row">
+            <button type="button" class="btn btn-primary hidden" id="btnInstallPwa">Install app</button>
+            <button type="button" class="btn btn-secondary" data-nav="install">Setup agent →</button>
+          </div>
+          <p id="installIosHint" class="hidden" style="margin-top:10px"></p>
+        </div>
+        <div class="card">
+          <h3>2 — Connect agent</h3>
+          <p>Keep your Mac or PC agent running while schedules execute on your machine.</p>
+          <button type="button" class="btn btn-secondary" id="btnRefreshStatus">Refresh status</button>
+        </div>
+        <div class="card">
+          <h3>3 — Run or schedule</h3>
+          <p>Pick a workflow under Automate, or browse agents in the Store.</p>
+          <div class="btn-row">
+            <button type="button" class="btn btn-primary" data-nav="automate">Automate</button>
+            <button type="button" class="btn btn-secondary" data-nav="store">Agent store</button>
+          </div>
+        </div>
+      </section>
+
+      <section data-view="install" class="view hidden">
+        <h1 class="view-title">Install agent</h1>
+        <p class="view-sub">Scripts only — avoids Apple notarization and Windows Authenticode signing.</p>
+        <div class="card">
+          <h3>Your agent token</h3>
+          <p>Used only on your computer. Never share it publicly.</p>
+          <div class="btn-row">
+            <button type="button" class="btn btn-primary" id="btnCopyToken">Copy token</button>
+            <button type="button" class="btn btn-secondary" id="btnDownloadToken">Download agent-token.txt</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>macOS</h3>
+          <ol class="steps">
+            <li>Download <a href="/app/install/mac.command" download>mac.command</a> and <code>agent-token.txt</code> into the same folder.</li>
+            <li>First time: right-click <strong>mac.command</strong> → <strong>Open</strong> → <strong>Open</strong> (bypasses Gatekeeper without a developer account).</li>
+            <li>Clone repo to <code>~/cusear-agent</code>, install <code>requirements.txt</code>, leave the terminal window open.</li>
+          </ol>
+          <a id="btnMacInstall" class="btn btn-brand" href="/app/install/mac.command" download>Download Mac launcher</a>
+        </div>
+        <div class="card">
+          <h3>Windows</h3>
+          <ol class="steps">
+            <li>Download <a href="/app/install/windows-run-agent.bat" download>windows-run-agent.bat</a> with <code>agent-token.txt</code> in the same folder.</li>
+            <li>If SmartScreen appears: <strong>More info</strong> → <strong>Run anyway</strong> (unsigned script, not a signed installer).</li>
+            <li>Clone repo to <code>%USERPROFILE%\cusear-agent</code> and <code>pip install -r requirements.txt</code>.</li>
+          </ol>
+          <a id="btnWinInstall" class="btn btn-brand" href="/app/install/windows-run-agent.bat" download>Download Windows launcher</a>
+        </div>
+      </section>
+
+      <section data-view="store" class="view hidden">
+        <h1 class="view-title">Agent store</h1>
+        <p class="view-sub">Agents unlock by subscription plan. All run through your local connector.</p>
+        <div id="storeGrid" class="agent-grid"></div>
+        <button type="button" class="btn btn-secondary" id="btnGoPricing">Upgrade plan</button>
+      </section>
+
+      <section data-view="automate" class="view hidden">
+        <h1 class="view-title">Automate</h1>
+        <p class="view-sub">Run now or save a cloud schedule (checks every minute).</p>
+        <div class="card">
+          <div class="field">
+            <label for="wfSelect">Workflow</label>
+            <select id="wfSelect"><option value="">Choose workflow…</option></select>
+          </div>
+          <div class="field">
+            <label for="runTextLinkedin">LinkedIn text</label>
+            <textarea id="runTextLinkedin" rows="2" placeholder="Optional caption"></textarea>
+          </div>
+          <div class="field">
+            <label for="runTextFacebook">Facebook text</label>
+            <textarea id="runTextFacebook" rows="2"></textarea>
+          </div>
+          <div class="field">
+            <label for="runTextInstagram">Instagram text</label>
+            <textarea id="runTextInstagram" rows="2"></textarea>
+          </div>
+          <div class="field">
+            <label for="runTextX">X text</label>
+            <textarea id="runTextX" rows="2"></textarea>
+          </div>
+          <div class="btn-row">
+            <button type="button" class="btn btn-primary" id="btnRun">Run now</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Schedule</h3>
+          <div class="field">
+            <label for="schTime">Time</label>
+            <input id="schTime" type="time" value="09:00" />
+          </div>
+          <label>Days</label>
+          <div class="platforms" style="margin-bottom:12px">
+            <label><input type="checkbox" class="schDay" value="Mon" checked /> Mon</label>
+            <label><input type="checkbox" class="schDay" value="Tue" checked /> Tue</label>
+            <label><input type="checkbox" class="schDay" value="Wed" checked /> Wed</label>
+            <label><input type="checkbox" class="schDay" value="Thu" checked /> Thu</label>
+            <label><input type="checkbox" class="schDay" value="Fri" checked /> Fri</label>
+            <label><input type="checkbox" class="schDay" value="Sat" /> Sat</label>
+            <label><input type="checkbox" class="schDay" value="Sun" /> Sun</label>
+          </div>
+          <button type="button" class="btn btn-secondary" id="btnSaveSchedule">Save schedule</button>
+        </div>
+      </section>
+
+      <section data-view="runs" class="view hidden">
+        <h1 class="view-title">Runs</h1>
+        <p class="view-sub">Recent automation results from the cloud.</p>
+        <ul id="runsList" class="runs card"></ul>
+      </section>
+
+      <section data-view="account" class="view hidden">
+        <h1 class="view-title">Account</h1>
+        <p class="view-sub" id="accountLine2">—</p>
+        <div class="card">
+          <div class="btn-row">
+            <a class="btn btn-secondary" href="/pricing.html">Manage subscription</a>
+            <button type="button" class="btn btn-secondary" id="btnLogout">Sign out</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <nav id="bottomNav" class="bottom-nav" aria-label="Main">
+      <button type="button" class="nav-btn active" data-nav="home"><span>⌂</span>Home</button>
+      <button type="button" class="nav-btn" data-nav="install"><span>⬇</span>Install</button>
+      <button type="button" class="nav-btn" data-nav="store"><span>◎</span>Store</button>
+      <button type="button" class="nav-btn" data-nav="automate"><span>▶</span>Run</button>
+      <button type="button" class="nav-btn" data-nav="account"><span>☺</span>Account</button>
+    </nav>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/app/config.js"></script>
+  <script src="/app/app.js" defer></script>
+</body>
+</html>

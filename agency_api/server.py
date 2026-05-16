@@ -23,7 +23,8 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from agency_api.middleware import global_exception_handler, logging_middleware
-from agency_api.routes import billing, keys, templates, trainer, validator, workflows
+from agency_api.routes import billing, cloud_dashboard, keys, local_agent, payments, templates, trainer, validator, workflows
+from agency_api.scheduler_service import start_scheduler, stop_scheduler
 from whitelabel.api_routes import router as whitelabel_router
 from whitelabel.admin_panel.routes import router as admin_router
 from whitelabel.router import TenantMiddleware
@@ -67,11 +68,17 @@ async def lifespan(app: FastAPI):
         logger.info("  ⚠ Redis not available — using in-memory rate limiter")
 
     logger.info("  Docs: http://localhost:8000/docs")
+    try:
+        start_scheduler()
+        logger.info("  ✓ Cloud scheduler started")
+    except Exception as exc:
+        logger.warning("  ✗ Cloud scheduler failed to start: %s", exc)
     logger.info("━" * 55)
 
     yield   # server runs here
 
     # ── Shutdown ───────────────────────────────────────────────────────────────
+    stop_scheduler()
     logger.info("API server shutting down")
 
 
@@ -134,6 +141,9 @@ app.include_router(billing.router,      prefix=PREFIX)
 app.include_router(whitelabel_router,   prefix=PREFIX)   # /api/v1/whitelabel/...
 app.include_router(admin_router)                         # /admin/...  (tenant-aware)
 app.include_router(trainer.router)                       # /api/trainer/... (Mongo, no live run)
+app.include_router(local_agent.router)                  # /agent/ws, /agent/report (local agent)
+app.include_router(cloud_dashboard.router)              # /api/cloud/v1 (Vercel app dashboard)
+app.include_router(payments.router)                     # POST /webhook/razorpay (Razorpay subscriptions)
 
 # ─── Marketing: only ``CUSEAR WEBSITE  UX UI`` (same tree as Vercel ``public/``) + portal ───
 _REPO_ROOT = Path(__file__).resolve().parent.parent

@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cusear™ — App</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #0f172a; background: #f8fafc; }
+    body { margin: 0; min-height: 100vh; }
+    header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; background: #0f172a; color: #f8fafc; }
+    header h1 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+    #agentDot { width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; display: inline-block; margin-right: 0.5rem; }
+    #agentDot.on { background: #22c55e; }
+    main { max-width: 720px; margin: 0 auto; padding: 1.25rem; }
+    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem 1.1rem; margin-bottom: 1rem; }
+    label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.35rem; }
+    input, textarea { width: 100%; box-sizing: border-box; padding: 0.5rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; }
+    textarea { min-height: 120px; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+    button { cursor: pointer; border: none; border-radius: 8px; padding: 0.55rem 1rem; font-weight: 600; background: #2563eb; color: #fff; }
+    button.secondary { background: #64748b; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    #msg { font-size: 0.9rem; color: #64748b; }
+    #runs { list-style: none; padding: 0; margin: 0; }
+    #runs li { padding: 0.5rem 0; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+    select { width: 100%; box-sizing: border-box; padding: 0.5rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; background: #fff; }
+    .days { display:flex; flex-wrap:wrap; gap:0.5rem 0.75rem; margin-top:0.25rem; }
+    .days label { display:flex; align-items:center; gap:0.35rem; font-weight:400; margin:0; }
+    .days input { width:auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>cusear™ App</h1>
+    <div>
+      <span id="agentDot" aria-hidden="true"></span>
+      <span id="agentLabel">Offline</span>
+    </div>
+  </header>
+  <main>
+    <div class="card">
+      <p id="msg">Set API base to your Railway URL (e.g. <code>https://api.cusear.autos</code>) and paste your agent token.</p>
+      <label for="apiBase">API base (Railway)</label>
+      <input id="apiBase" type="url" placeholder="https://api.cusear.autos" autocomplete="off" />
+
+      <label for="agentToken" style="margin-top: 0.75rem">Agent token</label>
+      <input id="agentToken" type="password" autocomplete="off" placeholder="From email / Supabase row" />
+
+      <label for="sbUrl" style="margin-top: 0.75rem">Supabase URL (Realtime)</label>
+      <input id="sbUrl" type="url" placeholder="https://xxxx.supabase.co" autocomplete="off" />
+
+      <label for="sbAnonKey" style="margin-top: 0.75rem">Supabase anon key (Realtime)</label>
+      <input id="sbAnonKey" type="password" autocomplete="off" placeholder="eyJ..." />
+
+      <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap">
+        <button type="button" class="secondary" id="btnCopyToken">Copy token</button>
+        <button type="button" class="secondary" id="btnStatus">Refresh status</button>
+        <button type="button" class="secondary" id="btnRealtime">Enable Live Status</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top: 0; font-size: 1rem">Upload workflow JSON</h2>
+      <label for="wfFile">Workflow JSON file</label>
+      <input id="wfFile" type="file" accept=".json,application/json" />
+
+      <label for="wfNameUpload" style="margin-top: 0.75rem">Workflow name (optional override)</label>
+      <input id="wfNameUpload" type="text" placeholder="auto from JSON/file name" />
+
+      <label for="wfPlatformUpload" style="margin-top: 0.75rem">Platform (optional)</label>
+      <input id="wfPlatformUpload" type="text" placeholder="facebook / linkedin / windows / darwin" />
+
+      <div style="margin-top: 0.75rem">
+        <button type="button" id="btnUploadWorkflow">Upload and sync to agent</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top: 0; font-size: 1rem">Create workflow (no SQL)</h2>
+      <label for="wfCreateName">Workflow name</label>
+      <input id="wfCreateName" type="text" placeholder="WRA_Facebook_Post" />
+
+      <label for="wfCreatePlatform" style="margin-top: 0.75rem">Platform (optional)</label>
+      <input id="wfCreatePlatform" type="text" placeholder="facebook" />
+
+      <label for="wfCreateJson" style="margin-top: 0.75rem">Workflow JSON</label>
+      <textarea id="wfCreateJson" placeholder='{"workflow_name":"WRA_Facebook_Post","steps":[...]}'></textarea>
+
+      <div style="margin-top: 0.75rem">
+        <button type="button" id="btnCreateWorkflow">Create row and sync</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top: 0; font-size: 1rem">Run now</h2>
+      <label for="wfSelect">Select workflow</label>
+      <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.5rem;">
+        <select id="wfSelect">
+          <option value="">-- Refresh and choose --</option>
+        </select>
+        <button type="button" class="secondary" id="btnRefreshWorkflows">Refresh</button>
+      </div>
+
+      <label for="platform" style="margin-top: 0.75rem">Platform (optional)</label>
+      <input id="platform" type="text" placeholder="Darwin / Windows" />
+
+      <label for="runTextFacebook" style="margin-top: 0.75rem">Facebook post text (optional)</label>
+      <textarea id="runTextFacebook" placeholder="Write Facebook post text..."></textarea>
+
+      <label for="runTextInstagram" style="margin-top: 0.75rem">Instagram post text (optional)</label>
+      <textarea id="runTextInstagram" placeholder="Write Instagram post text..."></textarea>
+
+      <label for="runTextLinkedin" style="margin-top: 0.75rem">LinkedIn post text (optional)</label>
+      <textarea id="runTextLinkedin" placeholder="Write LinkedIn post text..."></textarea>
+
+      <label for="runTextX" style="margin-top: 0.75rem">X post text (optional)</label>
+      <textarea id="runTextX" placeholder="Write X post text..."></textarea>
+
+      <label for="runTextWhatsapp" style="margin-top: 0.75rem">WhatsApp status text (optional)</label>
+      <textarea id="runTextWhatsapp" placeholder="Write WhatsApp status text..."></textarea>
+
+      <label for="contentMap" style="margin-top: 0.75rem">Advanced content_map JSON override (optional)</label>
+      <textarea id="contentMap" placeholder='{"custom_key": "value"}'></textarea>
+
+      <div style="margin-top: 0.75rem">
+        <button type="button" id="btnRun">Run on connected agent</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top: 0; font-size: 1rem">Schedule builder</h2>
+      <p style="margin-top:0;color:#475569;font-size:0.9rem;">Choose workflow, time, and days. Server scheduler checks every minute.</p>
+
+      <label for="schTime">Run time (HH:MM)</label>
+      <input id="schTime" type="time" value="09:00" />
+
+      <label style="margin-top:0.75rem;">Days</label>
+      <div class="days">
+        <label><input type="checkbox" class="schDay" value="Mon" checked />Mon</label>
+        <label><input type="checkbox" class="schDay" value="Tue" checked />Tue</label>
+        <label><input type="checkbox" class="schDay" value="Wed" checked />Wed</label>
+        <label><input type="checkbox" class="schDay" value="Thu" checked />Thu</label>
+        <label><input type="checkbox" class="schDay" value="Fri" checked />Fri</label>
+        <label><input type="checkbox" class="schDay" value="Sat" />Sat</label>
+        <label><input type="checkbox" class="schDay" value="Sun" />Sun</label>
+      </div>
+
+      <label for="schContentMap" style="margin-top:0.75rem">Schedule content_map JSON (optional)</label>
+      <textarea id="schContentMap" placeholder='{"caption_key":"Scheduled post"}'></textarea>
+
+      <div style="margin-top:0.75rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button type="button" id="btnSaveSchedule">Save Schedule</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top: 0; font-size: 1rem">Recent runs</h2>
+      <ul id="runs"></ul>
+    </div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var RUN_CONTENT_KEY = "cusear.runNow.contentByPlatform.v1";
+  var REALTIME_CFG_KEY = "cusear.realtime.cfg.v1";
+  var apiBase = function () { return ($("apiBase").value || "").replace(/\/$/, ""); };
+  var token = function () { return $("agentToken").value.trim(); };
+  var realtimeClient = null;
+  var runsChannel = null;
+  var agentChannel = null;
+  var realtimeUserId = null;
+  function loadRunContentDraft() {
+    try {
+      var raw = localStorage.getItem(RUN_CONTENT_KEY);
+      if (!raw) return;
+      var v = JSON.parse(raw);
+      if (!v || typeof v !== "object") return;
+      $("runTextFacebook").value = String(v.facebook || "");
+      $("runTextInstagram").value = String(v.instagram || "");
+      $("runTextLinkedin").value = String(v.linkedin || "");
+      $("runTextX").value = String(v.x || "");
+      $("runTextWhatsapp").value = String(v.whatsapp || "");
+    } catch (e) {
+      // ignore malformed localStorage
+    }
+  }
+  function saveRunContentDraft() {
+    var payload = {
+      facebook: $("runTextFacebook").value || "",
+      instagram: $("runTextInstagram").value || "",
+      linkedin: $("runTextLinkedin").value || "",
+      x: $("runTextX").value || "",
+      whatsapp: $("runTextWhatsapp").value || ""
+    };
+    try {
+      localStorage.setItem(RUN_CONTENT_KEY, JSON.stringify(payload));
+    } catch (e) {
+      // storage may be unavailable
+    }
+  }
+  function buildRunContentMap() {
+    var out = {};
+    var fb = $("runTextFacebook").value.trim();
+    var ig = $("runTextInstagram").value.trim();
+    var li = $("runTextLinkedin").value.trim();
+    var xx = $("runTextX").value.trim();
+    var wa = $("runTextWhatsapp").value.trim();
+    if (fb) out.facebook_text = fb;
+    if (ig) out.instagram_text = ig;
+    if (li) out.linkedin_text = li;
+    if (xx) out.x_text = xx;
+    if (wa) out.whatsapp_text = wa;
+    return out;
+  }
+  function loadRealtimeCfg() {
+    try {
+      var raw = localStorage.getItem(REALTIME_CFG_KEY);
+      if (!raw) return;
+      var v = JSON.parse(raw);
+      if (!v || typeof v !== "object") return;
+      $("sbUrl").value = String(v.url || "");
+      $("sbAnonKey").value = String(v.anonKey || "");
+    } catch (e) {
+      // ignore malformed localStorage
+    }
+  }
+  function applyQueryParams() {
+    try {
+      var qs = new URLSearchParams(window.location.search || "");
+      var t = (qs.get("token") || "").trim();
+      var api = (qs.get("api") || "").trim();
+      var sbUrl = (qs.get("sb_url") || "").trim();
+      var sbAnon = (qs.get("sb_anon") || "").trim();
+      if (t) $("agentToken").value = t;
+      if (api) $("apiBase").value = api;
+      if (sbUrl) $("sbUrl").value = sbUrl;
+      if (sbAnon) $("sbAnonKey").value = sbAnon;
+    } catch (e) {
+      // ignore URL parsing errors
+    }
+  }
+  function saveRealtimeCfg() {
+    try {
+      localStorage.setItem(REALTIME_CFG_KEY, JSON.stringify({
+        url: $("sbUrl").value || "",
+        anonKey: $("sbAnonKey").value || ""
+      }));
+    } catch (e) {
+      // ignore storage issues
+    }
+  }
+  function headers() {
+    var t = token();
+    var h = { "Content-Type": "application/json" };
+    if (t) h["X-Agent-Token"] = t;
+    return h;
+  }
+  async function refreshStatus() {
+    $("msg").textContent = "";
+    if (!apiBase() || !token()) {
+      $("agentDot").classList.remove("on");
+      $("agentLabel").textContent = "Enter API base + token";
+      return;
+    }
+    try {
+      var r = await fetch(apiBase() + "/api/cloud/v1/agent/status", { headers: headers() });
+      var j = await r.json();
+      if (!r.ok) throw new Error(j.detail || r.statusText);
+      var on = !!j.connected;
+      realtimeUserId = j.user_id ? String(j.user_id) : realtimeUserId;
+      $("agentDot").classList.toggle("on", on);
+      $("agentLabel").textContent = on ? "Agent connected" : "Agent offline";
+    } catch (e) {
+      $("agentDot").classList.remove("on");
+      $("agentLabel").textContent = "Status error";
+      $("msg").textContent = String(e.message || e);
+    }
+  }
+  function teardownRealtime() {
+    try {
+      if (runsChannel && realtimeClient) realtimeClient.removeChannel(runsChannel);
+      if (agentChannel && realtimeClient) realtimeClient.removeChannel(agentChannel);
+      runsChannel = null;
+      agentChannel = null;
+      if (realtimeClient) realtimeClient.removeAllChannels();
+      realtimeClient = null;
+    } catch (e) {
+      // ignore teardown errors
+    }
+  }
+  async function enableRealtime() {
+    saveRealtimeCfg();
+    var sbUrl = $("sbUrl").value.trim();
+    var sbAnon = $("sbAnonKey").value.trim();
+    if (!sbUrl || !sbAnon) {
+      $("msg").textContent = "Enter Supabase URL + anon key to enable live status.";
+      return;
+    }
+    if (!window.supabase || !window.supabase.createClient) {
+      $("msg").textContent = "Supabase JS failed to load.";
+      return;
+    }
+    if (!realtimeUserId) {
+      await refreshStatus();
+    }
+    if (!realtimeUserId) {
+      $("msg").textContent = "Could not resolve user_id yet. Refresh status first.";
+      return;
+    }
+    teardownRealtime();
+    realtimeClient = window.supabase.createClient(sbUrl, sbAnon);
+    var uidFilter = "user_id=eq." + realtimeUserId;
+    runsChannel = realtimeClient
+      .channel("runs-live-" + realtimeUserId)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cusear_runs", filter: uidFilter }, function () {
+        refreshRuns();
+      })
+      .subscribe(function (status) {
+        if (status === "SUBSCRIBED") {
+          $("msg").textContent = "Live status enabled (runs + agent status).";
+        }
+      });
+    agentChannel = realtimeClient
+      .channel("agent-live-" + realtimeUserId)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cusear_agent_status", filter: uidFilter }, function (payload) {
+        var row = payload && payload.new ? payload.new : null;
+        if (row && typeof row.connected !== "undefined") {
+          var on = !!row.connected;
+          $("agentDot").classList.toggle("on", on);
+          $("agentLabel").textContent = on ? "Agent connected" : "Agent offline";
+        } else {
+          refreshStatus();
+        }
+      })
+      .subscribe();
+  }
+  async function refreshRuns() {
+    if (!apiBase() || !token()) return;
+    var r = await fetch(apiBase() + "/api/cloud/v1/runs/recent?limit=15", { headers: headers() });
+    var j = await r.json();
+    var ul = $("runs");
+    ul.innerHTML = "";
+    if (!r.ok) {
+      ul.innerHTML = "<li>Could not load runs</li>";
+      return;
+    }
+    (j.runs || []).forEach(function (row) {
+      var li = document.createElement("li");
+      li.textContent = (row.workflow_name || "?") + " — " + (row.status || "?") + (row.error ? " (" + row.error + ")" : "");
+      ul.appendChild(li);
+    });
+  }
+  async function refreshWorkflows() {
+    if (!apiBase() || !token()) return;
+    var select = $("wfSelect");
+    var prev = select.value;
+    select.innerHTML = '<option value="">-- Refresh and choose --</option>';
+    try {
+      var r = await fetch(apiBase() + "/api/cloud/v1/workflows", { headers: headers() });
+      var j = await r.json();
+      if (!r.ok) throw new Error(j.detail || r.statusText);
+      (j.workflows || []).forEach(function (wf) {
+        var opt = document.createElement("option");
+        opt.value = String(wf.id || "");
+        var label = String(wf.name || wf.id || "workflow");
+        if (wf.platform) label += " (" + wf.platform + ")";
+        opt.textContent = label;
+        select.appendChild(opt);
+      });
+      if (prev) select.value = prev;
+    } catch (e) {
+      $("msg").textContent = String(e.message || e);
+    }
+  }
+  $("btnStatus").addEventListener("click", function () {
+    refreshStatus().then(function () { return Promise.all([refreshRuns(), refreshWorkflows()]); });
+  });
+  $("btnRealtime").addEventListener("click", function () {
+    enableRealtime();
+  });
+  $("btnCreateWorkflow").addEventListener("click", async function () {
+    $("msg").textContent = "";
+    if (!apiBase() || !token()) {
+      $("msg").textContent = "Enter API base and token first.";
+      return;
+    }
+    var name = $("wfCreateName").value.trim();
+    if (!name) {
+      $("msg").textContent = "Enter workflow name";
+      return;
+    }
+    var wfJson = $("wfCreateJson").value.trim();
+    if (!wfJson) {
+      $("msg").textContent = "Paste workflow JSON";
+      return;
+    }
+    var parsed = null;
+    try {
+      parsed = JSON.parse(wfJson);
+    } catch (e) {
+      $("msg").textContent = "Workflow JSON is invalid.";
+      return;
+    }
+    $("btnCreateWorkflow").disabled = true;
+    try {
+      var r = await fetch(apiBase() + "/api/cloud/v1/workflows/create", {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          workflow_name: name,
+          workflow_json: parsed,
+          platform: $("wfCreatePlatform").value.trim() || null,
+          sync_to_agent: true
+        })
+      });
+      var j = await r.json();
+      if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail));
+      $("msg").textContent = "Created " + (j.workflow_name || "") + " — " + (j.sync_status || "");
+      await refreshWorkflows();
+      if (j.workflow_id) {
+        $("wfSelect").value = j.workflow_id;
+      }
+    } catch (e) {
+      $("msg").textContent = String(e.message || e);
+    } finally {
+      $("btnCreateWorkflow").disabled = false;
+    }
+  });
+  $("btnRefreshWorkflows").addEventListener("click", function () {
+    refreshWorkflows();
+  });
+  $("wfSelect").addEventListener("change", function () {
+    // dropdown is the single source of truth
+  });
+  $("btnUploadWorkflow").addEventListener("click", async function () {
+    $("msg").textContent = "";
+    var f = $("wfFile").files && $("wfFile").files[0];
+    if (!f) {
+      $("msg").textContent = "Choose a workflow JSON file first.";
+      return;
+    }
+    if (!apiBase() || !token()) {
+      $("msg").textContent = "Enter API base and token first.";
+      return;
+    }
+    $("btnUploadWorkflow").disabled = true;
+    try {
+      var fd = new FormData();
+      fd.append("file", f, f.name);
+      var n = $("wfNameUpload").value.trim();
+      if (n) fd.append("workflow_name", n);
+      var p = $("wfPlatformUpload").value.trim();
+      if (p) fd.append("platform", p);
+
+      var h = {};
+      h["X-Agent-Token"] = token();
+      var r = await fetch(apiBase() + "/api/cloud/v1/workflows/upload", {
+        method: "POST",
+        headers: h,
+        body: fd,
+      });
+      var j = await r.json();
+      if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail));
+      if (j.workflow_id) $("wfSelect").value = j.workflow_id;
+      $("msg").textContent = "Uploaded " + (j.workflow_name || "") + " — " + (j.sync_status || "");
+      await Promise.all([refreshStatus(), refreshWorkflows()]);
+    } catch (e) {
+      $("msg").textContent = String(e.message || e);
+    } finally {
+      $("btnUploadWorkflow").disabled = false;
+    }
+  });
+  $("btnRun").addEventListener("click", async function () {
+    $("msg").textContent = "";
+    var workflowId = $("wfSelect").value.trim();
+    if (!workflowId) {
+      $("msg").textContent = "Choose a workflow from My Workflows first.";
+      return;
+    }
+    var content = buildRunContentMap();
+    var raw = $("contentMap").value.trim();
+    if (raw) {
+      try {
+        var advanced = JSON.parse(raw);
+        if (!advanced || typeof advanced !== "object" || Array.isArray(advanced)) {
+          $("msg").textContent = "Advanced content_map override must be a JSON object.";
+          return;
+        }
+        Object.keys(advanced).forEach(function (k) { content[k] = advanced[k]; });
+      } catch (e) {
+        $("msg").textContent = "Advanced content_map must be valid JSON object";
+        return;
+      }
+    }
+    saveRunContentDraft();
+    $("btnRun").disabled = true;
+    try {
+      var r = await fetch(apiBase() + "/api/cloud/v1/runs/run-now", {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          workflow_id: workflowId,
+          platform: $("platform").value.trim() || null,
+          content_map: content,
+        }),
+      });
+      var j = await r.json();
+      if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail));
+      $("msg").textContent = "Queued: " + (j.run_id || "") + " — " + (j.status || "");
+      await refreshRuns();
+    } catch (e) {
+      $("msg").textContent = String(e.message || e);
+    } finally {
+      $("btnRun").disabled = false;
+    }
+  });
+  $("btnSaveSchedule").addEventListener("click", async function () {
+    $("msg").textContent = "";
+    if (!apiBase() || !token()) {
+      $("msg").textContent = "Enter API base and token first.";
+      return;
+    }
+    var workflowId = $("wfSelect").value.trim();
+    if (!workflowId) {
+      $("msg").textContent = "Choose a workflow first.";
+      return;
+    }
+    var runTime = $("schTime").value.trim();
+    if (!runTime) {
+      $("msg").textContent = "Pick a time.";
+      return;
+    }
+    var checked = Array.prototype.slice.call(document.querySelectorAll(".schDay:checked")).map(function (el) {
+      return el.value;
+    });
+    if (!checked.length) {
+      $("msg").textContent = "Pick at least one day.";
+      return;
+    }
+    var content = {};
+    var raw = $("schContentMap").value.trim();
+    if (raw) {
+      try {
+        content = JSON.parse(raw);
+      } catch (e) {
+        $("msg").textContent = "Schedule content_map must be valid JSON object.";
+        return;
+      }
+    }
+    $("btnSaveSchedule").disabled = true;
+    try {
+      var r = await fetch(apiBase() + "/api/cloud/v1/schedules/create", {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          workflow_id: workflowId,
+          run_time: runTime,
+          days: checked,
+          content_map: content,
+          active: true
+        })
+      });
+      var j = await r.json();
+      if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail));
+      $("msg").textContent = "Schedule saved: " + (j.run_time || runTime) + " on " + (j.days || checked).join(", ");
+    } catch (e) {
+      $("msg").textContent = String(e.message || e);
+    } finally {
+      $("btnSaveSchedule").disabled = false;
+    }
+  });
+  ["runTextFacebook", "runTextInstagram", "runTextLinkedin", "runTextX", "runTextWhatsapp"].forEach(function (id) {
+    $(id).addEventListener("input", saveRunContentDraft);
+  });
+  ["sbUrl", "sbAnonKey"].forEach(function (id) {
+    $(id).addEventListener("input", saveRealtimeCfg);
+  });
+  loadRunContentDraft();
+  loadRealtimeCfg();
+  applyQueryParams();
+  $("btnCopyToken").addEventListener("click", async function () {
+    var t = token();
+    if (!t) return;
+    try {
+      await navigator.clipboard.writeText(t);
+      $("msg").textContent = "Token copied.";
+    } catch (e) {
+      $("msg").textContent = "Copy failed — select and copy manually.";
+    }
+  });
+  // Polling removed in favor of Supabase Realtime.
+  refreshStatus().then(function () { return Promise.all([refreshRuns(), refreshWorkflows()]); });
+})();
+  </script>
+</body>
+</html>

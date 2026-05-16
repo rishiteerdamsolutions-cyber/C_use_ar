@@ -17,19 +17,32 @@
         <a href="pricing.html" class="active">Pricing</a>
       </div>
       <div class="nav-actions">
-        <a href="product.html" class="btn btn-secondary" style="text-decoration: none;">Download</a>
+        <a href="https://wa.me/919505009699?text=I%20want%20to%20get%20started%20with%20cusear" class="btn btn-primary" style="text-decoration: none;" target="_blank" rel="noopener noreferrer">Get started</a>
       </div>
     </div>
   </nav>
 
   <main style="padding-top: 100px;">
-    <!-- Pricing Hero -->
     <section class="subpage-hero fade-in">
       <h1 class="hero-title-large">Choose the plan that's right for you.</h1>
       <p class="hero-subtitle">Scale from individual creator to full enterprise deployment.</p>
+      <p class="usd-note" style="margin-top: 16px;">Prices in INR. Reference USD (1 USD ≈ ₹95): Core ~$9.5 · Hybrid ~$19 · AI Budget ~$69 · AI Pro ~$174/mo.</p>
     </section>
 
-    <!-- Products & Pricing -->
+    <section class="section-pad fade-in" style="padding-top: 0; max-width: 900px;">
+      <div class="card" style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:space-between;">
+        <div>
+          <h3 style="margin:0 0 8px 0; font-size: 1.1rem;">Login first, then pay securely</h3>
+          <p id="authState" style="margin:0; color: var(--text-secondary); font-size: 14px;">Not logged in.</p>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-secondary" id="btnGoogleLogin">Continue with Google</button>
+          <button type="button" class="btn btn-secondary" id="btnLogout">Logout</button>
+        </div>
+      </div>
+      <p id="checkoutMsg" style="margin:12px 4px 0; color: var(--text-secondary); font-size: 13px;"></p>
+    </section>
+
     <section id="pricing" class="products section-pad fade-in" style="padding-top: 0;">
 
       <div class="pricing-grid">
@@ -44,6 +57,9 @@
             <li>WhatsApp confirmation per post</li>
             <li>You have Personal branding media/material but busy, need automation</li>
           </ul>
+          <div class="price-card-cta">
+            <button type="button" class="btn btn-primary js-buy-plan" data-plan="core">Buy cusear™ Core →</button>
+          </div>
         </div>
         
         <div class="price-card recommended">
@@ -58,6 +74,9 @@
             <li>WhatsApp confirmation per post</li>
             <li>You have Business Branding Material, need AI Add On and automation</li>
           </ul>
+          <div class="price-card-cta">
+            <button type="button" class="btn btn-primary js-buy-plan" data-plan="hybrid">Buy cusear™ Hybrid →</button>
+          </div>
         </div>
 
         <div class="price-card recommended">
@@ -72,12 +91,15 @@
             <li>WhatsApp confirmation per post</li>
             <li>You want AI to create and grow a new brand</li>
           </ul>
+          <div class="price-card-cta">
+            <button type="button" class="btn btn-primary js-buy-plan" data-plan="ai_budget">Buy cusear™ AI Budget →</button>
+          </div>
         </div>
 
         <div class="price-card" style="border-color: var(--highlight);">
           <div class="card-badge" style="background-color: var(--highlight);">Enterprise</div>
           <div class="card-tier">cusear™ AI Pro</div>
-          <p class="card-desc">AI generates platform-specific content.</p>
+          <p class="card-desc">AI generates platform-specific content. Rolling features — see timeline below.</p>
           <div class="price">₹16,500<span>/mo</span></div>
           <ul class="feature-list">
             <li>Platform-specific content at once</li>
@@ -87,11 +109,71 @@
             <li>WhatsApp confirmation per post</li>
             <li>You are an Enterprise, multiple projects on plate, need Automation for rapid growth</li>
           </ul>
+          <div class="price-card-cta">
+            <button type="button" class="btn btn-primary js-buy-plan" data-plan="ai_pro">Buy cusear™ AI Pro →</button>
+          </div>
         </div>
+      </div>
+
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Included</th>
+              <th>Core</th>
+              <th>Hybrid</th>
+              <th>AI Budget</th>
+              <th>AI Pro</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Post to all 5 platforms</td>
+              <td class="check">✓</td>
+              <td class="check">✓</td>
+              <td class="check">✓</td>
+              <td class="check">✓</td>
+            </tr>
+            <tr>
+              <td>WhatsApp confirmation each post</td>
+              <td class="check">✓</td>
+              <td class="check">✓</td>
+              <td class="check">✓</td>
+              <td class="check">✓</td>
+            </tr>
+            <tr>
+              <td>AI writes captions</td>
+              <td>—</td>
+              <td class="check">✓</td>
+              <td class="check">✓</td>
+              <td class="check">✓</td>
+            </tr>
+            <tr>
+              <td>AI generates full draft content</td>
+              <td>—</td>
+              <td>—</td>
+              <td class="check">✓</td>
+              <td class="check">✓</td>
+            </tr>
+            <tr>
+              <td>Same content on every platform</td>
+              <td>Your copy</td>
+              <td>Your media</td>
+              <td class="check">✓</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td>Platform-specific AI content</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+              <td class="check">Phased 2026</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
-    <!-- FAQ -->
     <section class="faq section-pad fade-in">
       <h2 class="section-title">Frequently Asked Questions</h2>
       <div class="faq-grid">
@@ -104,12 +186,16 @@
           <p>No. The desktop app is designed for regular users.</p>
         </div>
         <div class="faq-item">
-          <h4>Device Requirements?</h4>
-          <p>Mac or Windows laptop/desktop. Internet connection. Device must be ON during your set time window.</p>
+          <h4>Does my computer need to be on all the time?</h4>
+          <p>No 24/7 requirement. You choose a time window (for example 5–8 PM). The machine only needs to be awake and online during that window when a run is scheduled — same as using the apps yourself. If it’s off, the job waits and we’ll notify you on WhatsApp.</p>
         </div>
         <div class="faq-item">
-          <h4>Where are prices?</h4>
-          <p>On the Pricing section—INR, optional USD for reference (1 USD = ₹95 where shown).</p>
+          <h4>Device Requirements?</h4>
+          <p>Mac or Windows laptop/desktop. Internet connection. Device must be ON during your set time window when posting is scheduled.</p>
+        </div>
+        <div class="faq-item">
+          <h4>Where are prices in USD?</h4>
+          <p>Billing is in INR. For reference, see the approximate USD line above the plans (~1 USD = ₹95).</p>
         </div>
       </div>
     </section>
@@ -134,6 +220,129 @@
     </div>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+  (function () {
+    var API_BASE = (window.CUSEAR_API_BASE || "").replace(/\/$/, "");
+    var SUPABASE_URL = window.CUSEAR_SUPABASE_URL || "";
+    var SUPABASE_ANON_KEY = window.CUSEAR_SUPABASE_ANON_KEY || "";
+    var REDIRECT_TO = window.CUSEAR_APP_URL || (window.location.origin + "/app/");
+    var authState = document.getElementById("authState");
+    var checkoutMsg = document.getElementById("checkoutMsg");
+    var btnLogin = document.getElementById("btnGoogleLogin");
+    var btnLogout = document.getElementById("btnLogout");
+    var buyButtons = document.querySelectorAll(".js-buy-plan");
+    var sb = null;
+    var session = null;
+
+    function setMessage(text, isError) {
+      checkoutMsg.textContent = text || "";
+      checkoutMsg.style.color = isError ? "#ef4444" : "var(--text-secondary)";
+    }
+
+    function setAuthState() {
+      if (session && session.user) {
+        authState.textContent = "Logged in as " + (session.user.email || "user") + ".";
+      } else {
+        authState.textContent = "Not logged in.";
+      }
+    }
+
+    function canCheckout() {
+      return !!(sb && session && session.access_token && API_BASE);
+    }
+
+    async function refreshSession() {
+      if (!sb) return;
+      var out = await sb.auth.getSession();
+      session = out && out.data ? out.data.session : null;
+      setAuthState();
+    }
+
+    async function loginGoogle() {
+      if (!sb) return;
+      await sb.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: REDIRECT_TO }
+      });
+    }
+
+    async function logout() {
+      if (!sb) return;
+      await sb.auth.signOut();
+      session = null;
+      setAuthState();
+      setMessage("Logged out.", false);
+    }
+
+    async function createCheckout(plan, btn) {
+      if (!canCheckout()) {
+        setMessage("Please login with Google first.", true);
+        return;
+      }
+      btn.disabled = true;
+      var prev = btn.textContent;
+      btn.textContent = "Creating checkout...";
+      setMessage("");
+      try {
+        var r = await fetch(API_BASE + "/api/cloud/v1/payments/create-checkout", {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + session.access_token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ plan: plan, success_url: REDIRECT_TO })
+        });
+        var j = await r.json();
+        if (!r.ok) {
+          throw new Error((j && j.detail) || "Checkout failed");
+        }
+        if (!j.checkout_url) {
+          throw new Error("Checkout URL missing from API response");
+        }
+        window.location.href = j.checkout_url;
+      } catch (e) {
+        setMessage(String(e.message || e), true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    }
+
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !API_BASE) {
+      setMessage(
+        "Checkout config missing. Set window.CUSEAR_SUPABASE_URL, window.CUSEAR_SUPABASE_ANON_KEY, and window.CUSEAR_API_BASE before this script.",
+        true
+      );
+      setAuthState();
+      return;
+    }
+
+    if (!window.supabase || !window.supabase.createClient) {
+      setMessage("Supabase JS failed to load.", true);
+      return;
+    }
+
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    refreshSession();
+    sb.auth.onAuthStateChange(function (_event, currentSession) {
+      session = currentSession || null;
+      setAuthState();
+    });
+
+    btnLogin.addEventListener("click", function () {
+      loginGoogle();
+    });
+    btnLogout.addEventListener("click", function () {
+      logout();
+    });
+    buyButtons.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        createCheckout(btn.getAttribute("data-plan"), btn);
+      });
+    });
+  })();
+  </script>
   <script src="script.js"></script>
 </body>
 </html>
