@@ -6,11 +6,12 @@ cd "$ROOT"
 rm -rf public
 mkdir -p public
 
+# Prefer the UX UI site tree (what cusear.autos used before); do not override with draft cusear-website/.
 SITE_SRC=""
-if [[ -d "cusear-website" ]]; then
-  SITE_SRC="cusear-website"
-elif [[ -d "CUSEAR WEBSITE  UX UI/cusear-website" ]]; then
+if [[ -d "CUSEAR WEBSITE  UX UI/cusear-website" ]]; then
   SITE_SRC="CUSEAR WEBSITE  UX UI/cusear-website"
+elif [[ -d "cusear-website" ]]; then
+  SITE_SRC="cusear-website"
 fi
 if [[ -n "$SITE_SRC" ]]; then
   cp -R "$SITE_SRC/." public/
