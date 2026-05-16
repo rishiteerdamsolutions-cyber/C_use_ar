@@ -22,7 +22,14 @@ from .preflight import (
 )
 from .session_steps import SessionSteps
 from .shared_state import SharedState
-from .workflow import clone_steps, expand_runtime_navigation_steps, load_workflow, renumber_steps, save_workflow
+from .workflow import (
+    WorkflowLiveEditor,
+    clone_steps,
+    expand_runtime_navigation_steps,
+    load_workflow,
+    renumber_steps,
+    save_workflow,
+)
 
 
 def _session_clone_path(paths: WraPaths, workflow_name: str) -> str:
@@ -37,6 +44,7 @@ def run_wra(
     company_endpoint: str | None = None,
     enable_mouse_guard: bool = True,
     enable_focus_mode: bool = True,
+    skip_lucky: bool = False,
 ) -> dict[str, Any]:
     """
     Orchestrator: Lucky -> Agami -> AHA™.
@@ -79,13 +87,24 @@ def run_wra(
         mouse_guard.start()
 
     try:
-        # Lucky dry run
-        lucky = Lucky(logs_dir=paths.lucky_logs_dir, company_endpoint=company_endpoint)
-        lucky_report = lucky.run(workflow)
-        if lucky_report.signal != "GREEN":
-            return {"ok": False, "stage": "lucky", "report": lucky_report.to_dict()}
+        # Lucky dry run (optional skip for Rekky teaching mode).
+        lucky_report_dict: dict[str, Any]
+        if skip_lucky:
+            lucky_report_dict = {
+                "signal": "SKIPPED",
+                "abort_reason": "",
+                "drift_map": [],
+                "total_rekky_steps": len(list(workflow.get("steps") or [])),
+                "total_lucky_steps": 0,
+            }
+        else:
+            lucky = Lucky(logs_dir=paths.lucky_logs_dir, company_endpoint=company_endpoint)
+            lucky_report = lucky.run(workflow)
+            lucky_report_dict = lucky_report.to_dict()
+            if lucky_report.signal != "GREEN":
+                return {"ok": False, "stage": "lucky", "report": lucky_report_dict}
 
-        # Create session clone (original never touched)
+        # Session clone for runtime; AHA may persist self-heal tabs back to workflow_path
         session_workflow = dict(workflow)
         session_steps = clone_steps(list(session_workflow.get("steps") or []))
         renumber_steps(session_steps, start_at=1)
@@ -95,16 +114,30 @@ def run_wra(
         session_workflow["session_source"] = os.path.abspath(workflow_path)
 
         shared = SharedState()
-        session = SessionSteps(session_steps)
+        workflow_path_abs = os.path.abspath(workflow_path)
+        live_editor = WorkflowLiveEditor(workflow_path_abs, workflow)
+
+        def _persist_aha_edits(steps: list) -> None:
+            try:
+                n = live_editor.persist_session_steps(steps)
+                if n:
+                    logger.info("[AHA] Saved %s self-heal step(s) to %s", n, workflow_path_abs)
+            except Exception as exc:
+                logger.warning("[AHA] Could not persist live workflow edits: %s", exc)
+
+        session = SessionSteps(session_steps, on_mutate=_persist_aha_edits)
         agami = Agami(
             company_endpoint=company_endpoint,
             company_logs_dir=paths.company_logs_dir,
             screenshots_dir=paths.screenshots_dir,
+            workflow_platform=str(workflow.get("platform") or "").strip() or None,
         )
         aha = AHA(
             company_endpoint=company_endpoint,
             company_logs_dir=paths.company_logs_dir,
             screenshots_dir=paths.screenshots_dir,
+            require_landed_ack=not bool(skip_lucky),
+            workflow_name=workflow_name,
         )
 
         agami_thread = threading.Thread(target=agami.walk, args=(session, shared), daemon=True)
@@ -120,20 +153,29 @@ def run_wra(
         session_path = _session_clone_path(paths, workflow_name)
         save_workflow(session_path, session_workflow)
 
+        try:
+            inserted = live_editor.persist_session_steps(session_steps)
+        except Exception:
+            inserted = 0
+
         if shared.abort:
             return {
                 "ok": False,
                 "stage": "runtime",
                 "reason": shared.abort_reason,
                 "session_path": session_path,
-                "lucky_report": lucky_report.to_dict(),
+                "lucky_report": lucky_report_dict,
+                "workflow_path": workflow_path_abs,
+                "aha_self_heal_insertions": inserted,
             }
 
         return {
             "ok": True,
             "stage": "complete",
             "session_path": session_path,
-            "lucky_report": lucky_report.to_dict(),
+            "lucky_report": lucky_report_dict,
+            "workflow_path": workflow_path_abs,
+            "aha_self_heal_insertions": inserted,
         }
 
     finally:

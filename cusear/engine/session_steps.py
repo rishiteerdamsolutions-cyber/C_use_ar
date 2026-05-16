@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from typing import Any
+from typing import Any, Callable
 
 from .workflow import WorkflowStep, insert_extra_shift_tab, insert_extra_tab
 
@@ -15,9 +15,23 @@ class SessionSteps:
     serialized through this wrapper.
     """
 
-    def __init__(self, steps: list[WorkflowStep]) -> None:
+    def __init__(
+        self,
+        steps: list[WorkflowStep],
+        *,
+        on_mutate: Callable[[list[WorkflowStep]], None] | None = None,
+    ) -> None:
         self._steps = steps
         self._lock = threading.RLock()
+        self._on_mutate = on_mutate
+
+    def _notify_mutate(self) -> None:
+        if not self._on_mutate:
+            return
+        try:
+            self._on_mutate(self._steps)
+        except Exception:
+            pass
 
     def lock(self) -> threading.RLock:
         return self._lock
@@ -37,10 +51,21 @@ class SessionSteps:
     def insert_extra_tab_at(self, index: int) -> None:
         with self._lock:
             insert_extra_tab(self._steps, index)
+            self._notify_mutate()
+
+    def insert_extra_tab_after(self, index: int) -> None:
+        """
+        Insert an Agami recovery tab *after* the currently completed step.
+        This preserves AHA step-pointer semantics (next step = inserted move).
+        """
+        with self._lock:
+            insert_extra_tab(self._steps, index + 1)
+            self._notify_mutate()
 
     def insert_extra_shift_tab_at(self, index: int) -> None:
         with self._lock:
             insert_extra_shift_tab(self._steps, index)
+            self._notify_mutate()
 
     def to_list(self) -> list[WorkflowStep]:
         return self._steps
@@ -64,4 +89,5 @@ class SessionSteps:
                 self._steps.insert(insert_at, step)
                 insert_at += 1
             renumber_steps(self._steps, start_at=1)
+            self._notify_mutate()
 

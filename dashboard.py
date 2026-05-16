@@ -113,6 +113,22 @@ if (os.environ.get("CUSEAR_DEFAULT_AR_SLUG") or "").strip():
     os.environ["AGENCY_USER_MODE"] = "consumer"
 PORT = 7788
 
+# Public Rekky API paths (Trainer UI) → legacy /wra/* handlers in this server.
+_REKKY_PUBLIC_ROUTES: dict[str, str] = {
+    "/rekky/detect": "/wra/rekky/enrich",
+    "/rekky/enrich": "/wra/rekky/enrich",
+    "/rekky/status": "/wra/rekky/status",
+    "/rekky/start": "/wra/rekky/start",
+    "/rekky/stop": "/wra/rekky/stop",
+    "/rekky/ledger": "/wra/rekky/ledger",
+    "/rekky/step/pending": "/wra/step/pending",
+    "/rekky/step/ack": "/wra/step/ack",
+}
+
+
+def _trainer_route_path(path: str) -> str:
+    return _REKKY_PUBLIC_ROUTES.get(path, path)
+
 PORTAL_ROOT = (BASE_DIR / "portal").resolve()
 # Public marketing site — **only** this folder (see ``vercel.json``). Not repo-root ``cusear-website/``.
 MARKETING_UX_ROOT = (BASE_DIR / "CUSEAR WEBSITE  UX UI").resolve()
@@ -204,7 +220,7 @@ def _send_local_file(handler: BaseHTTPRequestHandler, path: Path) -> None:
     handler.send_header("Content-Type", ctype)
     handler.send_header("Content-Length", str(len(body)))
     handler.send_header("Access-Control-Allow-Origin", "*")
-    if path.suffix.lower() in (".html", ".htm"):
+    if path.suffix.lower() in (".html", ".htm", ".js", ".css"):
         handler.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         handler.send_header("Pragma", "no-cache")
     else:
@@ -224,6 +240,7 @@ _WRA_REKKY_STATUS: dict[str, Any] = {
     "saved_path": "",
     "enrich_path": "",
     "enrich_report": {},
+    "enrich_progress": {},
 }
 
 # ── Control Center (desktop shell): status, engine log, WRA™ run monitor ─────
@@ -427,6 +444,124 @@ def _wra_monitor_update(**kwargs: Any) -> None:
         _WRA_MONITOR.update(kwargs)
 
 
+def _rekky_schedule_enrich_workflow(wf_name: str) -> None:
+    """Write focus_target / intermediate_elements into the workflow JSON (background)."""
+
+    def _go() -> None:
+        try:
+            from cusear.engine.rekky import enrich_workflow
+        except Exception:
+            return
+        fn = str(wf_name or "").strip()
+        if not fn:
+            return
+        try:
+            fp = WORKFLOWS_DIR / f"{fn}.json"
+            if fp.is_file():
+                enrich_workflow(str(fp.resolve()))
+        except Exception:
+            pass
+
+    threading.Thread(target=_go, daemon=True).start()
+
+
+def _wra_latest_log_lines(component: str, req_lines: int) -> tuple[str, list[str]]:
+    from cusear.engine.paths import WraPaths as _WraPaths
+
+    pr = _WraPaths(root=str(BASE_DIR))
+    comp_dir = {
+        "lucky": Path(pr.lucky_logs_dir),
+        "agami": Path(pr.agami_logs_dir),
+        "aha": Path(pr.logs_dir) / "aha",
+    }[component]
+    comp_dir.mkdir(parents=True, exist_ok=True)
+    logs = sorted(comp_dir.glob("*.log"), key=lambda x: x.stat().st_mtime, reverse=True)
+    if not logs:
+        return "", []
+    fp = logs[0]
+    txt = fp.read_text(encoding="utf-8", errors="ignore")
+    lines = txt.splitlines()[-req_lines:]
+    return str(fp), lines
+
+
+def _wra_rekky_ledger_snapshot(req_lines: int = 600, workflow_name: str = "") -> dict[str, Any]:
+    req_lines = max(50, min(2000, int(req_lines or 600)))
+    wanted = str(workflow_name or "").strip()
+    with _WRA_MONITOR_LOCK:
+        mon = dict(_WRA_MONITOR)
+    active_workflow = str(mon.get("workflow_name") or "").strip()
+
+    # Scope by workflow name when we know which run the user cares about.
+    # (Do not require running=True — ledger reads the latest AHA log so rows stay visible after the run.)
+    if wanted and active_workflow and wanted != active_workflow:
+        return {"aha_path": "", "agami_path": "", "rows": [], "count": 0}
+
+    aha_path, aha_lines = _wra_latest_log_lines("aha", req_lines)
+    rows: dict[int, dict[str, Any]] = {}
+
+    def _row(step: int) -> dict[str, Any]:
+        if step not in rows:
+            rows[step] = {
+                "step": step,
+                "action_type": "",
+                "status": "",
+                "actual_tag": "",
+                "actual_text": "",
+                "actual_role": "",
+                "expected_tag": "",
+                "expected_text": "",
+                "expected_role": "",
+                "source": "",
+            }
+        return rows[step]
+
+    def _rx(txt: str, pat: str) -> str:
+        m = re.search(pat, txt)
+        return (m.group(1) if m else "").strip()
+
+    for ln in aha_lines:
+        if "PAYLOAD_EXECUTE step=" not in ln:
+            continue
+        step_s = _rx(ln, r"step=(\d+)")
+        if not step_s:
+            continue
+        step = int(step_s)
+        row = _row(step)
+        action = _rx(ln, r"action=([^\s]+)")
+        if action:
+            row["action_type"] = action
+        if "RESULT=done" in ln:
+            row["status"] = "done"
+        elif "RESULT=started" in ln and row["status"] != "done":
+            row["status"] = "running"
+        row["source"] = "AHA"
+
+    for ln in aha_lines:
+        if "ELEMENT_SNAPSHOT step=" not in ln:
+            continue
+        step_s = _rx(ln, r"step=(\d+)")
+        if not step_s:
+            continue
+        step = int(step_s)
+        row = _row(step)
+        row["actual_tag"] = _rx(ln, r"actual_tag='([^']*)'")
+        row["actual_text"] = _rx(ln, r"actual_text='([^']*)'")
+        row["actual_role"] = _rx(ln, r"actual_role='([^']*)'")
+        row["expected_tag"] = _rx(ln, r"expected_tag='([^']*)'")
+        row["expected_text"] = _rx(ln, r"expected_text='([^']*)'")
+        row["expected_role"] = _rx(ln, r"expected_role='([^']*)'")
+        if row["status"] != "done":
+            row["status"] = "captured"
+        row["source"] = "AHA->Rekky"
+
+    return {
+        "aha_path": aha_path,
+        "agami_path": "",
+        "rows": [rows[k] for k in sorted(rows)],
+        "count": len(rows),
+    }
+
+
 def _control_recent_runs(limit: int = 10) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     try:
@@ -469,7 +604,15 @@ def _infer_workflow_engine(d: dict[str, Any]) -> str:
     )
     # Legacy trainer-only steps (no Rekky enrich button unless hybrid below resolves to WRA).
     _LEGACY_TRAINER = frozenset(
-        ("click", "ai_type", "minimize", "open_cursor", "best_ai_capture_slot_from_clipboard")
+        (
+            "click",
+            "ai_type",
+            "minimize",
+            "open_cursor",
+            "testing_council_paste_clipboard",
+            "testing_council_copy_prompt",
+            "best_ai_capture_slot_from_clipboard",
+        )
     )
 
     has_wra_nav = any(isinstance(s, dict) and _at(s) in _WRA_ACTIONS for s in steps)
@@ -625,7 +768,7 @@ def _trainer_parse_hotkey_keys_json(raw: str) -> tuple[list[str], Optional[str]]
 
 
 def _trainer_hotkey_keys_for_run(step: dict) -> list[str]:
-    """Resolve hotkey key list from saved step (prefers hotkey_keys, else description)."""
+    """Resolve hotkey key list from saved step (strict: hotkey_keys only)."""
     hk = step.get("hotkey_keys")
     if isinstance(hk, list) and hk:
         out: list[str] = []
@@ -639,15 +782,7 @@ def _trainer_hotkey_keys_for_run(step: dict) -> list[str]:
             out.append(t)
         if out:
             return out[:_TRAINER_HOTKEY_MAX_KEYS]
-    desc = str(step.get("description") or "").strip()
-    if not desc:
-        return []
-    parts = re.split(r"[\s,+]+", desc.replace("⌘", "command"))
-    keys = [p.strip().lower() for p in parts if p.strip()]
-    if keys and keys[0] == "hotkey":
-        keys = keys[1:]
-    keys = [_TRAINER_HOTKEY_TOKEN_ALIASES.get(k, k) for k in keys]
-    return keys[:_TRAINER_HOTKEY_MAX_KEYS]
+    return []
 
 
 def _trainer_automation_run_index_for_grid_nav(runtime_vars: Optional[dict]) -> int:
@@ -959,6 +1094,46 @@ def _trainer_use_live_vision_click(step: dict, x: int, y: int, *, allow_ai: bool
         return True
     return False
 
+
+_COPY_RESPONSE_BUTTON_ACTION = "copy_response_button"
+_COPY_RESPONSE_BUTTON_DESCRIPTION = (
+    "Find and click the visible copy button/icon for the latest AI response. "
+    "The icon may look like two overlapping squares, a clipboard, or a small copy glyph. "
+    "If there are multiple copy icons, choose the bottom-most one next to the newest response. "
+    "Do not click share, thumbs up/down, regenerate, edit, menu, or send."
+)
+
+
+def _trainer_is_copy_response_button_action(action: object) -> bool:
+    return str(action or "").strip().lower() == _COPY_RESPONSE_BUTTON_ACTION
+
+
+def _trainer_copy_response_button_description(description: object = "") -> str:
+    text = str(description or "").strip()
+    if not text:
+        return _COPY_RESPONSE_BUTTON_DESCRIPTION
+    if "overlapping squares" in text.lower() or "copy glyph" in text.lower():
+        return text
+    return (
+        f"{text}. Treat this as a copy-response-button task: find the visible copy icon/button "
+        "for the latest AI response. The icon may look like two overlapping squares, a clipboard, "
+        "or a small copy glyph. If multiple copy icons exist, choose the bottom-most/newest response. "
+        "Do not click share, thumbs up/down, regenerate, edit, menu, or send."
+    )
+
+
+def _trainer_prepare_copy_response_button_step(step: dict, description: object = "") -> str:
+    """
+    Copy-response button is a named live-vision click preset: screenshot current
+    screen, locate the visible copy icon/button, then click the returned x/y.
+    """
+    desc = _trainer_copy_response_button_description(description)
+    step["description"] = desc
+    step["live_vision"] = True
+    step["x"] = int(step.get("x") or 0)
+    step["y"] = int(step.get("y") or 0)
+    return desc
+
 # Serialize all workflow JSON read-modify-write (concurrent Add Step clicks used to drop steps).
 _WORKFLOW_IO_LOCK = threading.Lock()
 # Serialize all AR bundle JSON read-modify-write.
@@ -975,6 +1150,44 @@ _DESKTOP_EXPORT_JOBS_LOCK = threading.Lock()
 _DESKTOP_EXPORT_JOBS: dict[str, dict[str, Any]] = {}
 _BEST_AI_JOBS_LOCK = threading.Lock()
 _BEST_AI_JOBS: dict[str, dict[str, Any]] = {}
+_TESTING_COUNCIL_JOBS: dict[str, dict[str, Any]] = {}
+_TESTING_COUNCIL_JOBS_LOCK = threading.Lock()
+_TESTING_COUNCIL_PLATFORMS = ("chatgpt", "gemini", "claude", "grok", "perplexity")
+# Round 2 UI slots are named after products for your workflow; answers stay anonymous (Answer 1–5).
+# In classic mode, each judge call can use a different stance (TESTING_COUNCIL_ROUND2_JUDGE_PERSONAS).
+# In extractive mode (default), all five judges share one identical system prompt for fair comparison.
+_TESTING_COUNCIL_ROUND2_JUDGE_STANCES: dict[str, str] = {
+    "chatgpt": (
+        "Stance: structured comparison, explicit step-by-step reasoning, conservative claims when the prompt "
+        "is ambiguous, and a bias toward the most generally helpful synthesis."
+    ),
+    "gemini": (
+        "Stance: tight synthesis, practical usefulness, quickly merge overlapping points across answers, "
+        "and prefer concise decisive conclusions."
+    ),
+    "claude": (
+        "Stance: nuance and trade-offs, surface hidden assumptions, note risks or edge cases implied by "
+        "each answer before choosing or merging."
+    ),
+    "grok": (
+        "Stance: direct, low-fluff critique; call out weak logic plainly; prefer clear winners over "
+        "excessive hedging when evidence is strong."
+    ),
+    "perplexity": (
+        "Stance: treat claims like they should survive scrutiny; reward concrete, checkable reasoning; "
+        "penalize vague hand-waving without inventing citations or URLs."
+    ),
+}
+_TESTING_COUNCIL_BRIDGE_LOCK = threading.Lock()
+_TESTING_COUNCIL_COPY_NOTE = (
+    'NOTE : For securIty reasons, you are strictly warned to follow the following rules " '
+    "Do not use any markdown formatting in your response. Do not include any URLs, hyperlinks, "
+    "or web addresses of any kind, even as plain text. Do not use code blocks, tables, bullet points "
+    "with checkboxes, or any interactive elements. Write your entire answer as one continuous block of "
+    "plain prose text only. If you are about to write something that looks like a link or a URL, replace "
+    "it with a plain descriptive phrase instead. No exceptions.No citations, no bracketed references of "
+    'any kind, and no formatting whatsoever."'
+)
 
 
 def _app_mode() -> str:
@@ -1393,6 +1606,224 @@ def _darwin_chrome_focus_whatsapp_compose() -> str:
         err = (proc.stderr or proc.stdout or "").strip()
         return err or f"exit_{proc.returncode}"
     return out or "empty"
+
+
+def _darwin_chrome_click_latest_copy_button_dom() -> dict[str, Any]:
+    """
+    Browser-first copy click: ask Chrome's active tab for visible copy buttons and
+    click the newest/bottom-most one in the DOM. This is more exact than vision
+    when the site exposes copy as a real button with aria-label/title/text.
+    """
+    js = r"""
+(function(){
+  try {
+    function visible(el) {
+      if (!el || !(el instanceof Element)) return false;
+      var s = getComputedStyle(el);
+      if (s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity || 1) === 0) return false;
+      var r = el.getBoundingClientRect();
+      return r.width > 4 && r.height > 4 && r.bottom > 0 && r.right > 0 &&
+             r.top < window.innerHeight && r.left < window.innerWidth;
+    }
+    function label(el) {
+      return [
+        el.getAttribute('aria-label') || '',
+        el.getAttribute('title') || '',
+        el.getAttribute('data-testid') || '',
+        el.getAttribute('data testid') || '',
+        el.textContent || ''
+      ].join(' ').trim();
+    }
+    function score(el) {
+      var t = label(el).toLowerCase();
+      var r = el.getBoundingClientRect();
+      var s = 0;
+      if (/\bcopy\b/.test(t)) s += 100;
+      if (t.indexOf('clipboard') >= 0) s += 35;
+      if (t.indexOf('response') >= 0 || t.indexOf('message') >= 0) s += 20;
+      if (el.matches('button,[role="button"]')) s += 20;
+      if (r.top > window.innerHeight * 0.35) s += 10;
+      s += Math.max(0, Math.min(30, r.top / Math.max(1, window.innerHeight) * 30));
+      return s;
+    }
+    var nodes = Array.from(document.querySelectorAll(
+      'button,[role="button"],[aria-label],[title],[data-testid]'
+    )).filter(visible).filter(function(el) {
+      var t = label(el).toLowerCase();
+      return /\bcopy\b/.test(t) || t.indexOf('clipboard') >= 0 || t.indexOf('copy-response') >= 0;
+    });
+    if (!nodes.length) {
+      return JSON.stringify({ok:false, reason:'no_visible_copy_button', url:location.href});
+    }
+    nodes.sort(function(a,b) {
+      var ds = score(b) - score(a);
+      if (ds) return ds;
+      return b.getBoundingClientRect().top - a.getBoundingClientRect().top;
+    });
+    var el = nodes[0];
+    var r = el.getBoundingClientRect();
+    el.scrollIntoView({block:'center', inline:'center'});
+    el.focus && el.focus();
+    el.click();
+    return JSON.stringify({
+      ok:true,
+      reason:'clicked_dom_copy_button',
+      url:location.href,
+      label:label(el).slice(0,160),
+      x:Math.round(r.left + r.width / 2),
+      y:Math.round(r.top + r.height / 2),
+      candidates:nodes.length
+    });
+  } catch (e) {
+    return JSON.stringify({ok:false, reason:String(e), url:location.href});
+  }
+})()
+"""
+    body = (
+        'tell application "Google Chrome"\n'
+        "    activate\n"
+        "    delay 0.2\n"
+        f"    set jsStr to {json.dumps(js)}\n"
+        "    tell active tab of front window\n"
+        "        set r to execute javascript jsStr\n"
+        "    end tell\n"
+        "end tell\n"
+        "return r\n"
+    )
+    proc = subprocess.run(
+        ["osascript", "-"],
+        input=body,
+        capture_output=True,
+        text=True,
+        timeout=25,
+    )
+    if proc.returncode != 0:
+        err = (proc.stderr or proc.stdout or "").strip()
+        return {"ok": False, "reason": err or f"osascript_exit_{proc.returncode}"}
+    raw = (proc.stdout or "").strip()
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else {"ok": False, "reason": "bad_json", "raw": raw}
+    except Exception:
+        return {"ok": False, "reason": "bad_json", "raw": raw}
+
+
+def _darwin_chrome_latest_response_text_dom() -> dict[str, Any]:
+    """
+    Read the latest assistant/answer text from the active Chrome tab.
+    This keeps the workflow on the free web UI while avoiding fragile copy-icon clicks.
+    """
+    js = r"""
+(function(){
+  try {
+    function visible(el) {
+      if (!el || !(el instanceof Element)) return false;
+      var s = getComputedStyle(el);
+      if (s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity || 1) === 0) return false;
+      var r = el.getBoundingClientRect();
+      return r.width > 20 && r.height > 12 && r.bottom > 0 && r.right > 0 &&
+             r.top < window.innerHeight && r.left < window.innerWidth;
+    }
+    function cleanText(t) {
+      return String(t || '')
+        .replace(/\n{3,}/g, '\n\n')
+        .replace(/[ \t]+\n/g, '\n')
+        .trim();
+    }
+    function rejectText(t) {
+      var low = String(t || '').toLowerCase();
+      if (low.length < 20) return true;
+      if (low.indexOf('message chatgpt') >= 0) return true;
+      if (low.indexOf('chatgpt can make mistakes') >= 0 && low.length < 220) return true;
+      if (/^(copy|share|regenerate|thumbs up|thumbs down|send|stop)$/i.test(low.trim())) return true;
+      return false;
+    }
+    var selectors = [
+      '[data-message-author-role="assistant"] .markdown',
+      '[data-message-author-role="assistant"]',
+      '[data-testid*="conversation-turn"] [data-message-author-role="assistant"]',
+      'article',
+      'main [role="listitem"]',
+      'main .markdown',
+      'main p'
+    ];
+    var seen = new Set();
+    var candidates = [];
+    var order = 0;
+    selectors.forEach(function(sel) {
+      Array.from(document.querySelectorAll(sel)).forEach(function(el) {
+        order += 1;
+        var assistantSelector = sel.indexOf('data-message-author-role') >= 0 ||
+          (el.closest && el.closest('[data-message-author-role="assistant"]'));
+        if (seen.has(el)) return;
+        if (!assistantSelector && !visible(el)) return;
+        seen.add(el);
+        var text = cleanText(el.innerText || el.textContent || '');
+        if (rejectText(text)) return;
+        var r = el.getBoundingClientRect();
+        candidates.push({
+          text:text,
+          top:r.top,
+          bottom:r.bottom,
+          height:r.height,
+          selector:sel,
+          assistant:!!assistantSelector,
+          order:order
+        });
+      });
+    });
+    if (!candidates.length) {
+      return JSON.stringify({ok:false, reason:'no_response_text_in_dom', url:location.href});
+    }
+    candidates.sort(function(a,b) {
+      if (a.assistant !== b.assistant) return b.assistant ? 1 : -1;
+      if (a.assistant && b.assistant) return b.order - a.order;
+      var d = b.bottom - a.bottom;
+      if (Math.abs(d) > 30) return d;
+      return b.text.length - a.text.length;
+    });
+    var best = candidates[0];
+    return JSON.stringify({
+      ok:true,
+      reason:'latest_response_text',
+      url:location.href,
+      text:best.text,
+      chars:best.text.length,
+      selector:best.selector,
+      candidates:candidates.length
+    });
+  } catch (e) {
+    return JSON.stringify({ok:false, reason:String(e), url:location.href});
+  }
+})()
+"""
+    body = (
+        'tell application "Google Chrome"\n'
+        "    activate\n"
+        "    delay 0.2\n"
+        f"    set jsStr to {json.dumps(js)}\n"
+        "    tell active tab of front window\n"
+        "        set r to execute javascript jsStr\n"
+        "    end tell\n"
+        "end tell\n"
+        "return r\n"
+    )
+    proc = subprocess.run(
+        ["osascript", "-"],
+        input=body,
+        capture_output=True,
+        text=True,
+        timeout=25,
+    )
+    if proc.returncode != 0:
+        err = (proc.stderr or proc.stdout or "").strip()
+        return {"ok": False, "reason": err or f"osascript_exit_{proc.returncode}"}
+    raw = (proc.stdout or "").strip()
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else {"ok": False, "reason": "bad_json", "raw": raw}
+    except Exception:
+        return {"ok": False, "reason": "bad_json", "raw": raw}
 
 
 def _darwin_whatsapp_notify_keys_system_events(
@@ -5183,6 +5614,775 @@ def _best_ai_bridge_mutate(mutator: Callable[[dict[str, Any]], None]) -> dict[st
         return dict(data)
 
 
+def _testing_council_bridge_path() -> Path:
+    d = agency_root() / "sessions" / "testing_council"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "ui_bridge.json"
+
+
+def _testing_council_compose_bucket(prompt: str, context: str, purpose: str) -> str:
+    parts: list[str] = []
+    prompt = str(prompt or "").strip()
+    context = str(context or "").strip()
+    purpose = str(purpose or "").strip()
+    if prompt:
+        parts.append(f"Prompt:\n{prompt}")
+    if context:
+        parts.append(f"Context:\n{context}")
+    if purpose:
+        parts.append(f"Purpose:\n{purpose}")
+    parts.append(_TESTING_COUNCIL_COPY_NOTE)
+    return "\n\n".join(parts).strip()
+
+
+def _testing_council_default_round2() -> dict[str, Any]:
+    return {
+        judge: {
+            "judge": judge,
+            "answers": {platform: "" for platform in _TESTING_COUNCIL_PLATFORMS},
+            "judgement": "",
+        }
+        for judge in _TESTING_COUNCIL_PLATFORMS
+    }
+
+
+def _testing_council_default_round3() -> dict[str, Any]:
+    return {
+        "judge": "independent_api_judge",
+        "judgements": {judge: "" for judge in _TESTING_COUNCIL_PLATFORMS},
+        "review": "",
+    }
+
+
+def _testing_council_default_bridge() -> dict[str, Any]:
+    return {
+        "prompt": "",
+        "context": "",
+        "purpose": "",
+        "note": _TESTING_COUNCIL_COPY_NOTE,
+        "bucket": _testing_council_compose_bucket("", "", ""),
+        "slots": {k: "" for k in _TESTING_COUNCIL_PLATFORMS},
+        "round2": _testing_council_default_round2(),
+        "round3": _testing_council_default_round3(),
+        "run": {"status": "idle", "stage": "", "message": "", "job_id": "", "error": "", "updated_at": ""},
+        "rev": 0,
+        "updated_at": "",
+    }
+
+
+def _testing_council_bridge_read_unlocked() -> dict[str, Any]:
+    path = _testing_council_bridge_path()
+    base = _testing_council_default_bridge()
+    if not path.exists():
+        return base
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return base
+    if not isinstance(raw, dict):
+        return base
+    base["prompt"] = str(raw.get("prompt") or "")
+    base["context"] = str(raw.get("context") or "")
+    base["purpose"] = str(raw.get("purpose") or "")
+    base["note"] = _TESTING_COUNCIL_COPY_NOTE
+    base["bucket"] = _testing_council_compose_bucket(
+        base["prompt"],
+        base["context"],
+        base["purpose"],
+    )
+    src_slots = raw.get("slots")
+    if isinstance(src_slots, dict):
+        for key in _TESTING_COUNCIL_PLATFORMS:
+            value = src_slots.get(key)
+            base["slots"][key] = str(value) if value is not None else ""
+    src_round2 = raw.get("round2")
+    if isinstance(src_round2, dict):
+        for judge in _TESTING_COUNCIL_PLATFORMS:
+            row = src_round2.get(judge)
+            if not isinstance(row, dict):
+                continue
+            base["round2"][judge]["judge"] = str(row.get("judge") or judge)
+            answers = row.get("answers")
+            if isinstance(answers, dict):
+                for platform in _TESTING_COUNCIL_PLATFORMS:
+                    value = answers.get(platform)
+                    base["round2"][judge]["answers"][platform] = str(value) if value is not None else ""
+            base["round2"][judge]["judgement"] = str(row.get("judgement") or "")
+    src_round3 = raw.get("round3")
+    if isinstance(src_round3, dict):
+        base["round3"]["judge"] = str(src_round3.get("judge") or "independent_api_judge")
+        judgements = src_round3.get("judgements")
+        if isinstance(judgements, dict):
+            for judge in _TESTING_COUNCIL_PLATFORMS:
+                value = judgements.get(judge)
+                base["round3"]["judgements"][judge] = str(value) if value is not None else ""
+        base["round3"]["review"] = str(src_round3.get("review") or "")
+    src_run = raw.get("run")
+    if isinstance(src_run, dict):
+        base["run"] = {
+            "status": str(src_run.get("status") or "idle"),
+            "stage": str(src_run.get("stage") or ""),
+            "message": str(src_run.get("message") or ""),
+            "job_id": str(src_run.get("job_id") or ""),
+            "error": str(src_run.get("error") or ""),
+            "updated_at": str(src_run.get("updated_at") or ""),
+        }
+    try:
+        base["rev"] = int(raw.get("rev") or 0)
+    except (TypeError, ValueError):
+        base["rev"] = 0
+    base["updated_at"] = str(raw.get("updated_at") or "")
+    return base
+
+
+def _testing_council_bridge_write_unlocked(data: dict[str, Any]) -> None:
+    _testing_council_bridge_path().write_text(
+        json.dumps(data, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _testing_council_bridge_get() -> dict[str, Any]:
+    with _TESTING_COUNCIL_BRIDGE_LOCK:
+        return _testing_council_bridge_read_unlocked()
+
+
+def _testing_council_bridge_mutate(mutator: Callable[[dict[str, Any]], None]) -> dict[str, Any]:
+    with _TESTING_COUNCIL_BRIDGE_LOCK:
+        data = _testing_council_bridge_read_unlocked()
+        mutator(data)
+        try:
+            data["rev"] = int(data.get("rev") or 0) + 1
+        except (TypeError, ValueError):
+            data["rev"] = 1
+        data["updated_at"] = _utc_now_z()
+        _testing_council_bridge_write_unlocked(data)
+        return dict(data)
+
+
+def _testing_council_job_set(job_id: str, **updates: Any) -> dict[str, Any]:
+    with _TESTING_COUNCIL_JOBS_LOCK:
+        job = dict(_TESTING_COUNCIL_JOBS.get(job_id) or {})
+        job.update(updates)
+        job["job_id"] = job_id
+        job["updated_at"] = _utc_now_z()
+        _TESTING_COUNCIL_JOBS[job_id] = job
+        return dict(job)
+
+
+def _testing_council_bridge_status(job_id: str, status: str, stage: str, message: str, error: str = "") -> None:
+    def _mut(d: dict[str, Any]) -> None:
+        d["run"] = {
+            "status": status,
+            "stage": stage,
+            "message": message,
+            "job_id": job_id,
+            "error": error,
+            "updated_at": _utc_now_z(),
+        }
+
+    _testing_council_bridge_mutate(_mut)
+    _testing_council_job_set(job_id, status=status, stage=stage, message=message, error=error)
+
+
+def _testing_council_job_stop_requested(job_id: str) -> bool:
+    with _TESTING_COUNCIL_JOBS_LOCK:
+        return bool((_TESTING_COUNCIL_JOBS.get(job_id) or {}).get("stop_requested"))
+
+
+def _testing_council_round1_workflow_name(requested: str = "") -> str:
+    candidates = [
+        str(requested or "").strip(),
+        (os.environ.get("TESTING_COUNCIL_ROUND1_WORKFLOW") or "").strip(),
+        "Judgement",
+        "Testing council",
+        "Testing Council",
+        "testing_council",
+    ]
+    for name in candidates:
+        if name and (WORKFLOWS_DIR / f"{name}.json").exists():
+            return name
+    raise RuntimeError(
+        "Testing council Start needs a saved Round 1 workflow. Set TESTING_COUNCIL_ROUND1_WORKFLOW "
+        "or save a workflow named 'Testing council'."
+    )
+
+
+def _testing_council_effective_max_tokens(provider: str, max_tokens: int | None) -> int:
+    """Cap completion size to reduce TPM / payload errors on free tiers unless overridden."""
+    if max_tokens is not None:
+        return max(64, min(int(max_tokens), 32000))
+    raw = (os.environ.get("TESTING_COUNCIL_MAX_OUTPUT_TOKENS") or "").strip()
+    if raw:
+        try:
+            return max(64, min(int(raw), 32000))
+        except (TypeError, ValueError):
+            pass
+    if provider == "groq":
+        return 1024
+    if provider in ("gemini", "google", "google_gemini"):
+        return 2048
+    return 4096
+
+
+def _testing_council_transient_api_message(message: str) -> bool:
+    m = message.lower()
+    needles = (
+        " 429",
+        " 413",
+        "429:",
+        "413:",
+        "rate_limit",
+        "rate limit",
+        "tokens per minute",
+        "tpm",
+        "too many requests",
+        " 503",
+        "over capacity",
+        "overload",
+        "temporarily unavailable",
+        "try again",
+    )
+    return any(n in m for n in needles)
+
+
+def _testing_council_api_retry_settings() -> tuple[int, float]:
+    try:
+        max_retries = int((os.environ.get("TESTING_COUNCIL_API_RETRIES") or "6").strip() or "6")
+    except (TypeError, ValueError):
+        max_retries = 6
+    max_retries = max(1, min(max_retries, 12))
+    try:
+        base_delay = float((os.environ.get("TESTING_COUNCIL_RETRY_BASE_DELAY_SEC") or "12").strip() or "12")
+    except (TypeError, ValueError):
+        base_delay = 12.0
+    base_delay = max(1.0, min(base_delay, 120.0))
+    return max_retries, base_delay
+
+
+def _testing_council_judge_spacing_sleep() -> None:
+    try:
+        sec = float((os.environ.get("TESTING_COUNCIL_JUDGE_DELAY_SEC") or "0").strip() or 0)
+    except (TypeError, ValueError):
+        sec = 0.0
+    if sec > 0:
+        time.sleep(min(sec, 300.0))
+
+
+def _testing_council_openai_client():
+    base = (os.environ.get("TESTING_COUNCIL_OPENAI_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or "").strip()
+    key = (os.environ.get("TESTING_COUNCIL_OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY") or "").strip()
+    if not key and ("127.0.0.1:11434" in base or "localhost:11434" in base):
+        key = "ollama"
+    if not key:
+        raise RuntimeError(
+            "Testing council needs an API key: set TESTING_COUNCIL_OPENAI_API_KEY (e.g. ollama for local) "
+            "or OPENAI_API_KEY in .env.local."
+        )
+    from openai import OpenAI
+
+    kwargs: dict[str, Any] = {"api_key": key}
+    if base:
+        kwargs["base_url"] = base
+    return OpenAI(**kwargs)
+
+
+def _testing_council_api_text(system_prompt: str, user_prompt: str, *, model: str, max_tokens: int | None = None) -> str:
+    provider = (os.environ.get("TESTING_COUNCIL_API_PROVIDER") or "openai").strip().lower()
+    eff_max = _testing_council_effective_max_tokens(provider, max_tokens)
+    max_retries, base_delay = _testing_council_api_retry_settings()
+
+    if provider == "groq":
+        key = (os.environ.get("GROQ_API_KEY") or "").strip()
+        if not key:
+            raise RuntimeError("GROQ_API_KEY is not set — add it to .env.local for Testing council.")
+        import urllib.error
+        import urllib.request
+
+        clean_model = (model or "llama-3.1-8b-instant").strip() or "llama-3.1-8b-instant"
+        payload = {
+            "model": clean_model,
+            "messages": [
+                {"role": "system", "content": system_prompt.strip()},
+                {"role": "user", "content": user_prompt.strip()},
+            ],
+            "temperature": 0.2,
+            "max_completion_tokens": eff_max,
+        }
+        last_err: RuntimeError | None = None
+        for attempt in range(max_retries):
+            req = urllib.request.Request(
+                "https://api.groq.com/openai/v1/chat/completions",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {key}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "User-Agent": "autonomous-web-agency/1.0",
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                body = exc.read().decode("utf-8", errors="replace")
+                err = RuntimeError(f"Groq API error {exc.code}: {body[:500]}")
+                last_err = err
+                msg = str(err)
+                if attempt < max_retries - 1 and _testing_council_transient_api_message(msg):
+                    time.sleep(base_delay * (1.4**attempt))
+                    continue
+                raise err from exc
+            except Exception as exc:
+                err = RuntimeError(f"Groq API request failed: {exc}")
+                last_err = err
+                msg = str(err)
+                if attempt < max_retries - 1 and _testing_council_transient_api_message(msg):
+                    time.sleep(base_delay * (1.4**attempt))
+                    continue
+                raise err from exc
+            choices = data.get("choices") if isinstance(data, dict) else None
+            text = ""
+            if choices and isinstance(choices, list):
+                msg0 = choices[0].get("message") if isinstance(choices[0], dict) else None
+                if isinstance(msg0, dict):
+                    text = str(msg0.get("content") or "").strip()
+            if not text:
+                err = RuntimeError("Groq returned empty text for Testing council.")
+                last_err = err
+                if attempt < max_retries - 1:
+                    time.sleep(base_delay * (1.4**attempt))
+                    continue
+                raise err
+            return text
+        if last_err:
+            raise last_err
+        raise RuntimeError("Groq API request failed after retries.")
+
+    if provider in ("gemini", "google", "google_gemini"):
+        key = (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or "").strip()
+        if not key:
+            raise RuntimeError("GEMINI_API_KEY is not set — add it to .env.local for Testing council.")
+        import urllib.error
+        import urllib.request
+
+        clean_model = (model or "gemini-1.5-flash").strip()
+        if clean_model.startswith("models/"):
+            clean_model = clean_model.split("/", 1)[1]
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            + quote(clean_model, safe="")
+            + ":generateContent?key="
+            + quote(key, safe="")
+        )
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": (
+                                system_prompt.strip()
+                                + "\n\n"
+                                + user_prompt.strip()
+                            )
+                        }
+                    ],
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.2,
+                "maxOutputTokens": eff_max,
+            },
+        }
+        last_err: RuntimeError | None = None
+        for attempt in range(max_retries):
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                body = exc.read().decode("utf-8", errors="replace")
+                err = RuntimeError(f"Gemini API error {exc.code}: {body[:500]}")
+                last_err = err
+                msg = str(err)
+                if attempt < max_retries - 1 and _testing_council_transient_api_message(msg):
+                    time.sleep(base_delay * (1.4**attempt))
+                    continue
+                raise err from exc
+            except Exception as exc:
+                err = RuntimeError(f"Gemini API request failed: {exc}")
+                last_err = err
+                msg = str(err)
+                if attempt < max_retries - 1 and _testing_council_transient_api_message(msg):
+                    time.sleep(base_delay * (1.4**attempt))
+                    continue
+                raise err from exc
+            parts = (
+                ((data.get("candidates") or [{}])[0].get("content") or {}).get("parts")
+                if isinstance(data, dict)
+                else None
+            )
+            text = "".join(str(part.get("text") or "") for part in (parts or []) if isinstance(part, dict)).strip()
+            if not text:
+                err = RuntimeError("Gemini returned empty text for Testing council.")
+                last_err = err
+                if attempt < max_retries - 1:
+                    time.sleep(base_delay * (1.4**attempt))
+                    continue
+                raise err
+            return text
+        if last_err:
+            raise last_err
+        raise RuntimeError("Gemini API request failed after retries.")
+
+    client = _testing_council_openai_client()
+    last_exc: BaseException | None = None
+    for attempt in range(max_retries):
+        try:
+            msg = client.chat.completions.create(
+                model=model,
+                max_tokens=eff_max,
+                temperature=0.2,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
+            text = (msg.choices[0].message.content or "").strip()
+            if not text:
+                err = RuntimeError("Testing council API judge returned empty text.")
+                last_exc = err
+                if attempt < max_retries - 1:
+                    time.sleep(base_delay * (1.4**attempt))
+                    continue
+                raise err
+            return text
+        except Exception as exc:
+            last_exc = exc
+            err_text = str(exc)
+            code = getattr(exc, "status_code", None)
+            transient = code in (413, 429, 500, 503) or _testing_council_transient_api_message(err_text)
+            if not transient or attempt == max_retries - 1:
+                raise RuntimeError(f"OpenAI-compatible API failed for Testing council: {exc}") from exc
+            time.sleep(base_delay * (1.4**attempt))
+    if last_exc:
+        raise RuntimeError(f"OpenAI-compatible API failed for Testing council: {last_exc}") from last_exc
+    raise RuntimeError("OpenAI-compatible API failed for Testing council.")
+
+
+def _testing_council_answer_bundle(prompt: str, context: str, purpose: str, answers: dict[str, str]) -> str:
+    try:
+        max_chars = int(os.environ.get("TESTING_COUNCIL_MAX_ANSWER_CHARS") or "0")
+    except (TypeError, ValueError):
+        max_chars = 0
+    neutral_answers = []
+    for idx, platform in enumerate(_TESTING_COUNCIL_PLATFORMS, start=1):
+        answer = str(answers.get(platform) or "").strip()
+        if max_chars > 0 and len(answer) > max_chars:
+            answer = answer[:max_chars].rstrip() + "\n[truncated for testing]"
+        neutral_answers.append(f"Answer {idx}:\n{answer}")
+    return (
+        f"Prompt:\n{prompt.strip()}\n\n"
+        f"Context:\n{context.strip()}\n\n"
+        f"Purpose:\n{purpose.strip()}\n\n"
+        "Raw answers to judge, deliberately shown without platform names:\n\n"
+        + "\n\n".join(neutral_answers)
+    )
+
+
+def _testing_council_judgement_bundle(prompt: str, context: str, purpose: str, judgements: dict[str, str]) -> str:
+    try:
+        max_chars = int(os.environ.get("TESTING_COUNCIL_MAX_JUDGEMENT_CHARS") or "0")
+    except (TypeError, ValueError):
+        max_chars = 0
+    neutral_judgements = []
+    for idx, judge in enumerate(_TESTING_COUNCIL_PLATFORMS, start=1):
+        judgement = str(judgements.get(judge) or "").strip()
+        if max_chars > 0 and len(judgement) > max_chars:
+            judgement = judgement[:max_chars].rstrip() + "\n[truncated for testing]"
+        neutral_judgements.append(f"Judgement {idx}:\n{judgement}")
+    return (
+        f"Prompt:\n{prompt.strip()}\n\n"
+        f"Context:\n{context.strip()}\n\n"
+        f"Purpose:\n{purpose.strip()}\n\n"
+        "Round 2 judge decisions, deliberately shown without judge/platform names:\n\n"
+        + "\n\n".join(neutral_judgements)
+    )
+
+
+def _testing_council_judge_prompt_style() -> str:
+    """extractive = information-preserving council prompts (default). classic = short legacy prompts."""
+    v = (os.environ.get("TESTING_COUNCIL_JUDGE_PROMPT_STYLE") or "extractive").strip().lower()
+    if v in ("classic", "legacy", "simple", "old"):
+        return "classic"
+    return "extractive"
+
+
+def _testing_council_round2_extractive_system_prompt() -> str:
+    return (
+        "You are an independent double-blind evaluator for the Testing Council. The user message contains the "
+        "prompt, context, purpose, and five anonymous answers labeled Answer 1 through Answer 5 only. You do not "
+        "know which product produced which answer. Do not name or guess vendors. Ignore packaging such as "
+        "verbosity, confidence tone, or formatting polish when judging substance.\n\n"
+        "Your task is NOT to pick a single winner and NOT to output one merged final answer in this round. "
+        "Your task is to extract, challenge, score, and preserve information so rare technical insights are not "
+        "lost to consensus or readability bias.\n\n"
+        "Rules: Do not optimize only for consensus. Do not assume the majority is always correct. "
+        "Do not rank primarily on how readable an answer is. Flag likely hallucinations or nonexistent APIs.\n\n"
+        "For EACH of Answer 1, Answer 2, Answer 3, Answer 4, and Answer 5, use clearly labeled plain-text "
+        "subsections in this exact order (same headings for every answer):\n"
+        "CORE STRENGTHS\n"
+        "WEAKNESSES\n"
+        "UNIQUE INSIGHTS\n"
+        "HIDDEN ASSUMPTIONS\n"
+        "MISSING MECHANISMS\n"
+        "FAILURE MODES\n"
+        "PRACTICALITY SCORE (1-10)\n"
+        "TECHNICAL DEPTH SCORE (1-10)\n"
+        "CORRECTNESS CONFIDENCE (1-10)\n"
+        "MUST-PRESERVE CONCEPTS\n\n"
+        "After all five answers, add one section titled CROSS-ANSWER OBSERVATIONS with these labeled lists:\n"
+        "REPEATED IDEAS\n"
+        "CONFLICTING IDEAS\n"
+        "RARE BUT HIGH-VALUE INSIGHTS\n"
+        "POTENTIAL HALLUCINATIONS OR DUBIOUS CLAIMS\n"
+        "INFORMATION THAT MUST SURVIVE INTO LATER ROUNDS\n\n"
+        "Do not declare an overall winner. Do not produce the final merged solution here. "
+        "Preserve signal over consensus. Use plain text only (no markdown tables, no URLs, no code fences)."
+    )
+
+
+def _testing_council_round3_extractive_system_prompt() -> str:
+    return (
+        "You are the final Testing Council synthesizer. The user message contains the original prompt, context, "
+        "purpose, and five anonymous Round 2 judge reports labeled Judgement 1 through Judgement 5. "
+        "You are not selecting the most popular wording and you are not averaging opinions. "
+        "Correctness and implementability matter more than smooth consensus. Information preservation matters "
+        "more than elegant compression.\n\n"
+        "Work in this order. First, briefly analyze: ideas supported by multiple judges versus ideas appearing "
+        "only once that may still be critical; disagreements among judges; assumptions with weak evidence; "
+        "information that may have been lost or over-compressed in judging; whether any judge may have rewarded "
+        "presentation over correctness; cases where a minority insight should override majority consensus.\n\n"
+        "Second, output a section titled MERGED REASONING MAP with these labeled blocks in plain text:\n"
+        "CORE AGREED CONCEPTS\n"
+        "UNIQUE CONCEPTS WORTH PRESERVING\n"
+        "CONFLICTS AND HOW YOU RESOLVE THEM\n"
+        "RISKS AND FAILURE SCENARIOS\n"
+        "UNKNOWNS AND LOW-CONFIDENCE AREAS\n\n"
+        "Third, produce the final synthesized answer that addresses the original prompt fully. It must be "
+        "specific enough for a skilled engineer to act on: prefer concrete mechanisms, schema shapes, query "
+        "patterns, state transitions, retries, idempotency, recovery, and observability over vague advice. "
+        "Integrate Round 2 patches and fixes where sound. Preserve minority insights when justified. "
+        "Explicitly resolve contradictions with reasoning. State uncertainty plainly where confidence is low. "
+        "Do not introduce unsupported claims.\n\n"
+        "End with exactly these three lines, each on its own line, using plain text:\n"
+        "Confidence score: X/10\n"
+        "Potential blind spots: ...\n"
+        "What further review is needed: ...\n\n"
+        "Use plain text section labels only. No markdown tables, no URLs, no code fences."
+    )
+
+
+def _testing_council_round2_system_prompt_for_judge(judge: str) -> str:
+    """Round 2 system prompt. Extractive mode uses one identical prompt for all judges (per external council advice)."""
+    if _testing_council_judge_prompt_style() == "extractive":
+        return _testing_council_round2_extractive_system_prompt()
+    if (os.environ.get("TESTING_COUNCIL_ROUND2_JUDGE_PERSONAS") or "1").strip().lower() in ("0", "false", "no", "off"):
+        return (
+            "You are a Testing Council Round 2 API judge. Compare the five anonymous answers against the prompt, "
+            "context, and purpose. Pick the best answer or synthesize a stronger one. Return plain prose only."
+        )
+    base = (
+        "You are one of five independent Round 2 judges in the Testing Council. You see the prompt, context, purpose, "
+        "and five anonymous answers labeled only as Answer 1 through Answer 5. You do not know which real-world "
+        "product produced which answer. Never name or guess an external vendor for any numbered answer. Never claim "
+        "you are a specific commercial product. Apply your assigned stance only as a judging style. "
+        "Either pick the single strongest answer, or synthesize one improved answer using only what appears in the "
+        "five answers. Return plain prose only."
+    )
+    stance = _TESTING_COUNCIL_ROUND2_JUDGE_STANCES.get(judge, "")
+    if not stance:
+        return base
+    return base + "\n\nAssigned judging stance (style only):\n" + stance
+
+
+def _testing_council_round3_final_system_prompt() -> str:
+    if _testing_council_judge_prompt_style() == "extractive":
+        return _testing_council_round3_extractive_system_prompt()
+    return (
+        "You are the independent final Testing Council judge. Review the five anonymous Round 2 judgements, "
+        "decide the strongest final answer, and provide the final perfect answer in plain prose only."
+    )
+
+
+def _testing_council_run_round2_phase(job_id: str) -> dict[str, str]:
+    bridge = _testing_council_bridge_get()
+    prompt = str(bridge.get("prompt") or "").strip()
+    context = str(bridge.get("context") or "").strip()
+    purpose = str(bridge.get("purpose") or "").strip()
+    slots = {k: str((bridge.get("slots") or {}).get(k) or "").strip() for k in _TESTING_COUNCIL_PLATFORMS}
+    missing = [k for k, v in slots.items() if not v]
+    if not prompt:
+        raise RuntimeError("Round 2 needs Prompt in Testing council.")
+    if missing:
+        raise RuntimeError("Round 2 needs all Round 1 answer slots filled: " + ", ".join(missing))
+
+    def _clone_round1(d: dict[str, Any]) -> None:
+        d.setdefault("round2", _testing_council_default_round2())
+        for judge in _TESTING_COUNCIL_PLATFORMS:
+            d["round2"].setdefault(
+                judge,
+                {"judge": judge, "answers": {k: "" for k in _TESTING_COUNCIL_PLATFORMS}, "judgement": ""},
+            )
+            d["round2"][judge]["judge"] = judge
+            d["round2"][judge]["answers"] = dict(slots)
+
+    _testing_council_bridge_mutate(_clone_round1)
+    _testing_council_bridge_status(job_id, "running", "round2", "Round 2 API judges started.")
+
+    round2_model_default = (os.environ.get("TESTING_COUNCIL_ROUND2_MODEL") or "gpt-4o-mini").strip() or "gpt-4o-mini"
+    user_bundle = _testing_council_answer_bundle(prompt, context, purpose, slots)
+    judgements: dict[str, str] = {}
+    judges = list(_TESTING_COUNCIL_PLATFORMS)
+    for idx, judge in enumerate(judges):
+        if idx > 0:
+            _testing_council_judge_spacing_sleep()
+        if _stop_requested() or _testing_council_job_stop_requested(job_id):
+            raise RuntimeError("Testing council stopped by user")
+        _testing_council_bridge_status(job_id, "running", "round2", f"Round 2: {judge} API judge running.")
+        env_name = f"TESTING_COUNCIL_ROUND2_{judge.upper()}_MODEL"
+        model = (os.environ.get(env_name) or round2_model_default).strip() or round2_model_default
+        system_prompt = _testing_council_round2_system_prompt_for_judge(judge)
+        judgement = _testing_council_api_text(system_prompt, user_bundle, model=model)
+        judgements[judge] = judgement
+
+        def _round2_mut(d: dict[str, Any], judge_id: str = judge, text: str = judgement) -> None:
+            d.setdefault("round2", _testing_council_default_round2())
+            d["round2"].setdefault(
+                judge_id,
+                {"judge": judge_id, "answers": {k: "" for k in _TESTING_COUNCIL_PLATFORMS}, "judgement": ""},
+            )
+            d["round2"][judge_id]["judge"] = judge_id
+            d["round2"][judge_id]["answers"] = dict(slots)
+            d["round2"][judge_id]["judgement"] = text
+
+        _testing_council_bridge_mutate(_round2_mut)
+
+    def _clone_round2(d: dict[str, Any]) -> None:
+        d.setdefault("round3", _testing_council_default_round3())
+        d["round3"]["judgements"] = dict(judgements)
+
+    _testing_council_bridge_mutate(_clone_round2)
+    return judgements
+
+
+def _testing_council_run_round3_phase(job_id: str) -> str:
+    bridge = _testing_council_bridge_get()
+    prompt = str(bridge.get("prompt") or "").strip()
+    context = str(bridge.get("context") or "").strip()
+    purpose = str(bridge.get("purpose") or "").strip()
+    round2 = bridge.get("round2") if isinstance(bridge.get("round2"), dict) else {}
+    judgements = {
+        judge: str(((round2.get(judge) or {}).get("judgement") if isinstance(round2.get(judge), dict) else "") or "").strip()
+        for judge in _TESTING_COUNCIL_PLATFORMS
+    }
+    missing = [k for k, v in judgements.items() if not v]
+    if not prompt:
+        raise RuntimeError("Round 3 needs Prompt in Testing council.")
+    if missing:
+        raise RuntimeError("Round 3 needs all Round 2 judgement slots filled: " + ", ".join(missing))
+
+    def _clone_round2(d: dict[str, Any]) -> None:
+        d.setdefault("round3", _testing_council_default_round3())
+        d["round3"]["judgements"] = dict(judgements)
+
+    _testing_council_bridge_mutate(_clone_round2)
+    _testing_council_bridge_status(job_id, "running", "round3", "Round 3 independent API judge running.")
+    if _stop_requested() or _testing_council_job_stop_requested(job_id):
+        raise RuntimeError("Testing council stopped by user")
+    _testing_council_judge_spacing_sleep()
+
+    round3_model = (
+        os.environ.get("TESTING_COUNCIL_ROUND3_MODEL")
+        or os.environ.get("TESTING_COUNCIL_FINAL_MODEL")
+        or "gpt-4o"
+    ).strip() or "gpt-4o"
+    final_system = _testing_council_round3_final_system_prompt()
+    final_text = _testing_council_api_text(
+        final_system,
+        _testing_council_judgement_bundle(prompt, context, purpose, judgements),
+        model=round3_model,
+    )
+
+    def _final_mut(d: dict[str, Any]) -> None:
+        d.setdefault("round3", _testing_council_default_round3())
+        d["round3"]["judge"] = "independent_api_judge"
+        d["round3"]["judgements"] = dict(judgements)
+        d["round3"]["review"] = final_text
+
+    _testing_council_bridge_mutate(_final_mut)
+    return final_text
+
+
+def _testing_council_phase_worker(job_id: str, phase: str) -> None:
+    try:
+        _RUN_STOP_EVENT.clear()
+        _testing_council_job_set(job_id, status="running", stage=phase, started_at=_utc_now_z(), stop_requested=False)
+        if phase == "round2":
+            judgements = _testing_council_run_round2_phase(job_id)
+            _testing_council_bridge_status(job_id, "done", "round2", "Round 2 completed. Judgements are ready.")
+            _testing_council_job_set(job_id, finished_at=_utc_now_z(), result_count=len(judgements))
+            return
+        if phase == "round3":
+            final_text = _testing_council_run_round3_phase(job_id)
+            _testing_council_bridge_status(job_id, "done", "round3", "Round 3 completed. Final answer is ready.")
+            _testing_council_job_set(job_id, finished_at=_utc_now_z(), result_chars=len(final_text))
+            return
+        raise RuntimeError(f"Unknown Testing council phase: {phase}")
+    except Exception as exc:
+        err = str(exc)
+        if "stopped by user" in err.lower():
+            _testing_council_bridge_status(job_id, "stopped", "stopped", "Testing council stopped by user.")
+        else:
+            _testing_council_bridge_status(job_id, "error", phase, "Testing council phase failed.", err)
+        _testing_council_job_set(job_id, finished_at=_utc_now_z())
+
+
+def _testing_council_run_worker(job_id: str, workflow_name: str, prompt: str, context: str, purpose: str) -> None:
+    try:
+        _testing_council_bridge_status(job_id, "running", "round1", "Round 1 automation started.")
+        _testing_council_job_set(job_id, workflow_name=workflow_name, started_at=_utc_now_z())
+        results = run_workflow(
+            workflow_name,
+            dry_run=False,
+            run_mode="smart",
+            run_source="testing_council_start",
+        )
+        if _stop_requested() or _testing_council_job_stop_requested(job_id):
+            _testing_council_bridge_status(job_id, "stopped", "stopped", "Testing council stopped by user.")
+            _testing_council_job_set(job_id, finished_at=_utc_now_z())
+            return
+        failed = [r for r in results if str(r.get("status") or "") == "error"]
+        if failed:
+            raise RuntimeError(f"Round 1 workflow failed at {len(failed)} step(s).")
+
+        _testing_council_run_round2_phase(job_id)
+        final_text = _testing_council_run_round3_phase(job_id)
+        _testing_council_bridge_status(job_id, "done", "complete", "Testing council completed. Final answer is ready.")
+        _testing_council_job_set(job_id, finished_at=_utc_now_z(), result_chars=len(final_text))
+    except Exception as exc:
+        err = str(exc)
+        _testing_council_bridge_status(job_id, "error", "error", "Testing council failed.", err)
+        _testing_council_job_set(job_id, finished_at=_utc_now_z())
+
+
 def _desktop_export_worker(
     job_id: str,
     agency: Path,
@@ -5808,6 +7008,26 @@ def _stop_requested() -> bool:
     return _RUN_STOP_EVENT.is_set()
 
 
+def _sleep_interruptible(seconds: float, *, chunk: float = 0.05) -> None:
+    """
+    Sleep in small slices so /run/stop can interrupt quickly.
+    Raises RuntimeError when a stop is requested.
+    """
+    total = max(0.0, float(seconds or 0.0))
+    if total <= 0:
+        if _stop_requested():
+            raise RuntimeError("Run stopped by user")
+        return
+    slice_s = max(0.01, min(float(chunk or 0.05), 0.25))
+    slept = 0.0
+    while slept < total:
+        if _stop_requested():
+            raise RuntimeError("Run stopped by user")
+        part = min(slice_s, total - slept)
+        time.sleep(part)
+        slept += part
+
+
 def _make_step_result(
     *,
     step_num: Any,
@@ -5849,6 +7069,30 @@ def _make_step_result(
         out["error"] = error
     if detail:
         out["detail"] = detail
+    return out
+
+
+def _audit_step(
+    step_num: int,
+    action: str,
+    status: str,
+    started_at_z: str,
+    finished_at_z: str,
+    *,
+    error: str = "",
+    detail: str = "",
+) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "step": int(step_num),
+        "action": str(action),
+        "status": str(status),
+        "started_at": str(started_at_z),
+        "finished_at": str(finished_at_z),
+    }
+    if error:
+        out["error"] = str(error)
+    if detail:
+        out["detail"] = str(detail)
     return out
 
 
@@ -5953,6 +7197,9 @@ def run_workflow(
         x      = step.get("x") or step.get("trained_x", 0)
         y      = step.get("y") or step.get("trained_y", 0)
         desc   = step.get("description", f"Step {step.get('step','')}")
+        if _trainer_is_copy_response_button_action(action):
+            desc = _trainer_prepare_copy_response_button_step(step, desc)
+            x, y = step.get("x", 0), step.get("y", 0)
         skip_rng, skip_why = _trainer_step_skipped_automation_run_range(step, runtime_vars)
         if skip_rng:
             tag = "[DRY RUN] " if dry_run else ""
@@ -6019,6 +7266,8 @@ def run_workflow(
                     f"  [DRY RUN] Step {step.get('step')}: press_automation_grid_nav "
                     f"run#{run_i} {gc}×{gr} grid → {summary} — {desc}"
                 )
+            elif _trainer_is_copy_response_button_action(action):
+                print(f"  [DRY RUN] Step {step.get('step')}: copy_response_button — LIVE VISION (fresh screen + API) — {desc}")
             elif action == "click" and _trainer_use_live_vision_click(step, int(x or 0), int(y or 0), allow_ai=allow_ai):
                 print(f"  [DRY RUN] Step {step.get('step')}: click — LIVE VISION (fresh screen + API) — {desc}")
             elif action == "ai_type" and not allow_ai:
@@ -6137,6 +7386,19 @@ def run_workflow(
                     f"  [DRY RUN] Step {step.get('step')}: ai_image — "
                     f"{pv or '(empty prompt)'} (infographic 4:5, saved as 1080x1350 in Downloads)"
                 )
+            elif action == "hotkey_ctrl_shift_tab":
+                print(f"  [DRY RUN] Step {step.get('step')}: hotkey_ctrl_shift_tab — Ctrl+Shift+Tab")
+            elif action == "hotkey_ctrl_shift":
+                print(f"  [DRY RUN] Step {step.get('step')}: hotkey_ctrl_shift — Ctrl+Shift")
+            elif action == "scroll_to_page_bottom":
+                print(f"  [DRY RUN] Step {step.get('step')}: scroll_to_page_bottom — End key (page bottom)")
+            elif action == "click_at":
+                try:
+                    _cax = int(step.get("click_x") if step.get("click_x") is not None else 0)
+                    _cay = int(step.get("click_y") if step.get("click_y") is not None else 0)
+                except (TypeError, ValueError):
+                    _cax, _cay = 0, 0
+                print(f"  [DRY RUN] Step {step.get('step')}: click_at — ({_cax},{_cay}) — {desc}")
             elif action == "hotkey":
                 hk = _trainer_hotkey_keys_for_run(step)
                 combo = "+".join(hk) if hk else "(no keys)"
@@ -6151,6 +7413,17 @@ def run_workflow(
                 print(
                     f"  [DRY RUN] Step {step.get('step')}: best_ai_capture_slot_from_clipboard — "
                     f"clipboard → bridge slot {_bs}"
+                )
+            elif action == "testing_council_paste_clipboard":
+                _tc = str(step.get("testing_council_container") or "?").strip().lower()
+                print(
+                    f"  [DRY RUN] Step {step.get('step')}: testing_council_paste_clipboard — "
+                    f"clipboard → Testing council container {_tc}"
+                )
+            elif action == "testing_council_copy_prompt":
+                print(
+                    f"  [DRY RUN] Step {step.get('step')}: testing_council_copy_prompt — "
+                    "Testing council bucket → clipboard"
                 )
             elif action == "best_ai_run_synthesizer":
                 print(
@@ -6251,6 +7524,65 @@ def run_workflow(
                 print(
                     f"  ✓ Step {step.get('step')}: Best AI — captured clipboard → bridge slot {slot} "
                     f"({len(text)} chars; Trainer polls ui_bridge.json)"
+                )
+                results.append(
+                    _make_step_result(
+                        step_num=step.get("step"),
+                        action=action,
+                        status="ok",
+                        started_at_z=started_at_z,
+                    )
+                )
+                continue
+
+            if action == "testing_council_paste_clipboard":
+                container = str(step.get("testing_council_container") or "").strip().lower()
+                if container not in _TESTING_COUNCIL_PLATFORMS:
+                    raise RuntimeError(
+                        "testing_council_paste_clipboard: invalid container "
+                        "(must be chatgpt, gemini, claude, grok, or perplexity)"
+                    )
+                text = _read_clipboard_text().strip()
+                if not text:
+                    raise RuntimeError(
+                        "testing_council_paste_clipboard: clipboard is empty "
+                        "(copy the platform answer before this step)"
+                    )
+
+                def _tc_mut(d: dict[str, Any]) -> None:
+                    d.setdefault("slots", {k: "" for k in _TESTING_COUNCIL_PLATFORMS})
+                    d["slots"][container] = text
+
+                _testing_council_bridge_mutate(_tc_mut)
+                print(
+                    f"  ✓ Step {step.get('step')}: Testing council — pasted clipboard → {container} "
+                    f"container ({len(text)} chars)"
+                )
+                results.append(
+                    _make_step_result(
+                        step_num=step.get("step"),
+                        action=action,
+                        status="ok",
+                        started_at_z=started_at_z,
+                    )
+                )
+                continue
+
+            if action == "testing_council_copy_prompt":
+                council = _testing_council_bridge_get()
+                bucket = str(council.get("bucket") or "").strip()
+                if not bucket:
+                    bucket = _testing_council_compose_bucket(
+                        str(council.get("prompt") or ""),
+                        str(council.get("context") or ""),
+                        str(council.get("purpose") or ""),
+                    )
+                if not bucket.strip():
+                    raise RuntimeError("testing_council_copy_prompt: bucket is empty")
+                _copy_text_to_clipboard(bucket)
+                print(
+                    f"  ✓ Step {step.get('step')}: Testing council — copied prompt bucket "
+                    f"to clipboard ({len(bucket)} chars)"
                 )
                 results.append(
                     _make_step_result(
@@ -6614,12 +7946,12 @@ def run_workflow(
             pyautogui.FAILSAFE = True
             if _stop_requested():
                 raise RuntimeError("Run stopped by user")
-            time.sleep(0.6)
-            # Defensive: before most actions, clear any stuck nav/modifier key state
-            # left behind by prior automation.
-            if action not in _TRAINER_TAB_COUNT_ACTIONS:
-                _release_modifier_keys(pyautogui)
-                _release_nav_keys(pyautogui)
+            _sleep_interruptible(0.6)
+            # Defensive: always clear stuck modifier/nav keys before each step.
+            # This avoids accidental browser shortcuts (e.g. Cmd+F) when a key-up
+            # event was missed in a previous step.
+            _release_modifier_keys(pyautogui)
+            _release_nav_keys(pyautogui)
             if action == "minimize":
                 import platform
                 if platform.system() == "Darwin":
@@ -6630,10 +7962,16 @@ def run_workflow(
             elif action == "maximize":
                 import platform
                 if platform.system() == "Darwin":
-                    pyautogui.hotkey("ctrl", "command", "f")   # fullscreen on Mac
+                    # Avoid Ctrl+Cmd+F key chord here: if modifier release is missed by the OS,
+                    # the trailing "f" can open browser Find (Cmd+F). Safer to skip synthetic
+                    # fullscreen hotkeys for reliability during social posting runs.
+                    print(
+                        f"  ✓ Step {step.get('step')}: Maximize requested on macOS — "
+                        "skipped hotkey for safety (prevents accidental browser Find)"
+                    )
                 else:
                     pyautogui.hotkey("win", "up")              # maximize on Windows
-                print(f"  ✓ Step {step.get('step')}: Maximized window")
+                    print(f"  ✓ Step {step.get('step')}: Maximized window")
             elif action == "open_chrome":
                 import platform
                 sys_name = platform.system()
@@ -6643,7 +7981,7 @@ def run_workflow(
                     subprocess.Popen(["cmd", "/c", "start", "", "chrome"])
                 else:  # Linux
                     subprocess.Popen(["google-chrome"])
-                time.sleep(1.5)
+                _sleep_interruptible(1.5)
                 print(f"  ✓ Step {step.get('step')}: Opened Chrome")
                 _trainer_activate_chrome_before_whatsapp_keys("after open_chrome")
             elif action == "close_chrome":
@@ -6681,7 +8019,7 @@ def run_workflow(
                     raise RuntimeError(
                         "Could not open Cursor. Ensure Cursor is installed (and cursor CLI is available on Linux/Windows)."
                     )
-                time.sleep(1.2)
+                _sleep_interruptible(1.2)
                 print(f"  ✓ Step {step.get('step')}: Opened Cursor")
             elif action == "press_enter":
                 _trainer_avoid_pyautogui_failsafe(pyautogui)
@@ -6704,6 +8042,24 @@ def run_workflow(
                 _release_nav_keys(pyautogui)
                 pyautogui.press("home")
                 print(f"  ✓ Step {step.get('step')}: Pressed Home — {desc}")
+            elif action == "hotkey_ctrl_shift_tab":
+                _trainer_avoid_pyautogui_failsafe(pyautogui)
+                _release_modifier_keys(pyautogui)
+                _release_nav_keys(pyautogui)
+                pyautogui.hotkey("ctrl", "shift", "tab")
+                print(f"  ✓ Step {step.get('step')}: Ctrl+Shift+Tab — {desc}")
+            elif action == "hotkey_ctrl_shift":
+                _trainer_avoid_pyautogui_failsafe(pyautogui)
+                _release_modifier_keys(pyautogui)
+                _release_nav_keys(pyautogui)
+                pyautogui.hotkey("ctrl", "shift")
+                print(f"  ✓ Step {step.get('step')}: Ctrl+Shift — {desc}")
+            elif action == "scroll_to_page_bottom":
+                _trainer_avoid_pyautogui_failsafe(pyautogui)
+                _release_modifier_keys(pyautogui)
+                _release_nav_keys(pyautogui)
+                pyautogui.press("end")
+                print(f"  ✓ Step {step.get('step')}: Pressed End (scroll to page bottom) — {desc}")
             elif action == "press_space":
                 _trainer_whatsapp_web_nav_maybe_activate_chrome(runtime_vars, "press_space")
                 _trainer_avoid_pyautogui_failsafe(pyautogui)
@@ -6799,7 +8155,7 @@ def run_workflow(
                     pyautogui.hotkey("command", "c")
                 else:
                     pyautogui.hotkey("ctrl", "c")
-                time.sleep(0.28)
+                _sleep_interruptible(0.28)
                 print(f"  ✓ Step {step.get('step')}: Copy (selection → clipboard) — {desc}")
             elif action == "paste":
                 import platform as _plat
@@ -6824,7 +8180,7 @@ def run_workflow(
                     pyautogui.hotkey("command", "v")
                 else:
                     pyautogui.hotkey("ctrl", "v")
-                time.sleep(0.35)
+                _sleep_interruptible(0.35)
                 print(f"  ✓ Step {step.get('step')}: Paste (clipboard → focus) — {desc}")
             elif action == "open_url":
                 raw = _resolve_runtime_tokens(str(step.get("url") or ""), name, runtime_vars).strip()
@@ -6836,7 +8192,7 @@ def run_workflow(
                 reuse = _open_url_reuse_chrome_from_step(step)
                 _open_url_prefer_chrome(url, new_chrome_window=not reuse)
                 _trainer_note_whatsapp_web_send_open(url)
-                time.sleep(1.0)
+                _sleep_interruptible(1.0)
                 wtag = " (reuse Chrome window)" if reuse else ""
                 print(f"  ✓ Step {step.get('step')}: Open URL{wtag} — {url}")
             elif action == "open_whatsapp":
@@ -6844,7 +8200,7 @@ def run_workflow(
                 reuse = _open_url_reuse_chrome_from_step(step)
                 _open_url_prefer_chrome(url, new_chrome_window=not reuse)
                 _trainer_note_whatsapp_web_send_open(url)
-                time.sleep(1)
+                _sleep_interruptible(1)
                 wtag = " (reuse Chrome window)" if reuse else ""
                 print(f"  ✓ Step {step.get('step')}: Open WhatsApp Web{wtag} — {url}")
             elif action == "completion_link":
@@ -6911,7 +8267,7 @@ def run_workflow(
                     pyautogui.hotkey("command", "t")
                 else:
                     pyautogui.hotkey("ctrl", "t")
-                time.sleep(0.25)
+                _sleep_interruptible(0.25)
                 raw = _resolve_runtime_tokens(str(step.get("url") or ""), name, runtime_vars).strip()
                 if raw:
                     url = raw
@@ -7032,7 +8388,7 @@ def run_workflow(
                     (os.environ.get("TRAINER_TYPE_FOCUS_DELAY") or "0").strip() or "0"
                 )
                 if _type_focus_delay > 0:
-                    time.sleep(_type_focus_delay)
+                    _sleep_interruptible(_type_focus_delay)
 
                 if darwin and os.environ.get("TRAINER_ACTIVATE_APP_BEFORE_TYPE", "").strip().lower() in (
                     "1",
@@ -7040,7 +8396,7 @@ def run_workflow(
                     "yes",
                 ):
                     _activate_trainer_target_app_if_configured()
-                    time.sleep(0.45)
+                    _sleep_interruptible(0.45)
 
                 if focus_target:
                     if not allow_ai:
@@ -7054,7 +8410,7 @@ def run_workflow(
                     else:
                         try:
                             cap_path = SCREENSHOTS_DIR / "_runtime_vision_last.png"
-                            time.sleep(float(os.environ.get("TRAINER_LIVE_VISION_DELAY", "0.35") or "0.35"))
+                            _sleep_interruptible(float(os.environ.get("TRAINER_LIVE_VISION_DELAY", "0.35") or "0.35"))
                             _capture_screen_png(cap_path)
                             focus_coords = _analyse_click_with_retries(cap_path, focus_target)
                             fx = int(focus_coords.get("x") or 0)
@@ -7065,7 +8421,7 @@ def run_workflow(
                                 )
                             else:
                                 pyautogui.click(fx, fy)
-                                time.sleep(float((os.environ.get("TRAINER_TYPE_FOCUS_CLICK_DELAY") or "0.25").strip() or "0.25"))
+                                _sleep_interruptible(float((os.environ.get("TRAINER_TYPE_FOCUS_CLICK_DELAY") or "0.25").strip() or "0.25"))
                                 print(
                                     f"  ◆ Step {step.get('step')}: Focused type field via live vision at ({fx},{fy}) "
                                     f"conf={focus_coords.get('confidence', '?')} — {focus_target}"
@@ -7086,14 +8442,14 @@ def run_workflow(
                             )
                         except (TypeError, ValueError):
                             _w_comp = 0.45
-                        time.sleep(max(0.0, min(3.0, _w_comp)))
+                        _sleep_interruptible(max(0.0, min(3.0, _w_comp)))
                     elif _fd_res != "skipped":
                         print(
                             f"      ⚠ WhatsApp compose focus returned {_fd_res!r} — "
                             "Cmd+V may not land in the message field; add a Click / focus_target on “Type a message”, "
                             "or set TRAINER_WHATSAPP_FOCUS_COMPOSE=0 if you focus manually before this step."
                         )
-                        time.sleep(0.15)
+                        _sleep_interruptible(0.15)
 
                 old_pause = getattr(pyautogui, "PAUSE", 0.1)
                 try:
@@ -7208,8 +8564,86 @@ def run_workflow(
                     )
                 pyautogui.hotkey(*key_list)
                 print(f"  ✓ Step {step.get('step')}: Hotkey {'+'.join(key_list)}")
+            elif action == "click_at":
+                _activate_trainer_target_app_if_configured()
+                _trainer_avoid_pyautogui_failsafe(pyautogui)
+                _release_modifier_keys(pyautogui)
+                _release_nav_keys(pyautogui)
+                try:
+                    cxa = int(step.get("click_x") if step.get("click_x") is not None else -1)
+                    cya = int(step.get("click_y") if step.get("click_y") is not None else -1)
+                except (TypeError, ValueError) as c_err:
+                    raise RuntimeError("click_at step needs integer click_x and click_y") from c_err
+                if cxa < 0 or cya < 0:
+                    raise RuntimeError("click_at requires non-negative click_x and click_y")
+                pyautogui.click(cxa, cya)
+                print(f"  ✓ Step {step.get('step')}: Click at ({cxa},{cya}) — {desc}")
+                results.append(
+                    _make_step_result(
+                        step_num=step.get("step"),
+                        action=action,
+                        status="ok",
+                        started_at_z=started_at_z,
+                    )
+                )
+                continue
             else:  # click
                 _activate_trainer_target_app_if_configured()
+                if _trainer_is_copy_response_button_action(action) and platform.system() == "Darwin":
+                    before_clip = _read_clipboard_text()
+                    dom_res = _darwin_chrome_click_latest_copy_button_dom()
+                    if dom_res.get("ok"):
+                        time.sleep(float(os.environ.get("TRAINER_COPY_RESPONSE_CLIPBOARD_DELAY", "0.8") or "0.8"))
+                        after_clip = _read_clipboard_text()
+                        if after_clip.strip() and after_clip != before_clip:
+                            print(
+                                "  ✓ Step "
+                                f"{step.get('step')}: Browser DOM clicked copy button "
+                                f"(viewport={dom_res.get('x')},{dom_res.get('y')}, "
+                                f"candidates={dom_res.get('candidates', '?')})"
+                            )
+                            print(f"      ✓ Clipboard updated ({len(after_clip)} chars).")
+                            results.append(
+                                _make_step_result(
+                                    step_num=step.get("step"),
+                                    action=action,
+                                    status="ok",
+                                    started_at_z=started_at_z,
+                                )
+                            )
+                            continue
+                        print(
+                            "      ⚠ Browser DOM found and clicked a copy button, but the clipboard did not update. "
+                            "Trying direct response-text copy from DOM."
+                        )
+                    text_res = _darwin_chrome_latest_response_text_dom()
+                    if text_res.get("ok") and str(text_res.get("text") or "").strip():
+                        copied_text = str(text_res.get("text") or "").strip()
+                        _copy_text_to_clipboard(copied_text)
+                        after_clip = _read_clipboard_text()
+                        if after_clip.strip() == copied_text:
+                            print(
+                                "  ✓ Step "
+                                f"{step.get('step')}: Browser DOM copied latest response text "
+                                f"({len(copied_text)} chars, selector={text_res.get('selector', '?')}, "
+                                f"candidates={text_res.get('candidates', '?')})"
+                            )
+                            results.append(
+                                _make_step_result(
+                                    step_num=step.get("step"),
+                                    action=action,
+                                    status="ok",
+                                    started_at_z=started_at_z,
+                                )
+                            )
+                            continue
+                        raise RuntimeError(
+                            "Browser DOM found latest response text, but system clipboard verification failed."
+                        )
+                    print(
+                        f"      ⚠ Browser DOM copy lookup failed: {dom_res.get('reason', dom_res)}; "
+                        f"text lookup failed: {text_res.get('reason', text_res)}; trying live vision."
+                    )
                 ix, iy = int(x or 0), int(y or 0)
                 low_desc = (desc or "").strip().lower()
                 use_mouse_cursor = (
@@ -7301,6 +8735,11 @@ def run_workflow(
                                 )
                                 break
                     if ix == 0 and iy == 0:
+                        if _trainer_is_copy_response_button_action(action):
+                            raise ValueError(
+                                "Copy response button was not detected on the current screen. "
+                                "Scroll until the copy icon is clearly visible, then run this step again."
+                            )
                         if saved_ix != 0 or saved_iy != 0:
                             ix, iy = saved_ix, saved_iy
                             print(
@@ -7323,7 +8762,25 @@ def run_workflow(
                         "Click has no saved coordinates — enable “Live screen at run” for this step, "
                         "set TRAINER_LIVE_VISION_CLICKS=1, or re-save the step with a vision API key"
                     )
+                before_clip = _read_clipboard_text() if _trainer_is_copy_response_button_action(action) else ""
                 pyautogui.click(ix, iy)
+                if _trainer_is_copy_response_button_action(action):
+                    time.sleep(float(os.environ.get("TRAINER_COPY_RESPONSE_CLIPBOARD_DELAY", "0.8") or "0.8"))
+                    after_clip = _read_clipboard_text()
+                    if not after_clip.strip():
+                        raise RuntimeError(
+                            "Copy response button was clicked, but the clipboard is still empty. "
+                            f"Detected click coordinate: ({ix},{iy}). "
+                            "Make sure the copy icon is visible and the browser/app has focus."
+                        )
+                    if after_clip == before_clip:
+                        raise RuntimeError(
+                            "Copy response button was clicked, but the clipboard text did not change. "
+                            f"Detected click coordinate: ({ix},{iy}). "
+                            "The detected coordinate was probably not the real copy icon."
+                        )
+                    else:
+                        print(f"      ✓ Clipboard updated ({len(after_clip)} chars).")
                 if not use_live:
                     print(f"  ✓ Step {step.get('step')}: Clicked ({ix},{iy}) — {desc}")
             results.append(
@@ -7378,12 +8835,19 @@ def run_workflow(
     return results
 
 
-def run_wra_workflow(name: str, *, dry_run: bool, run_source: str) -> list[dict[str, Any]]:
-    """
-    WRA Engine v2 runner (Lucky → Agami → AHA™) wired into Trainer.
+def _wra_live_skip_lucky() -> bool:
+    """Live Trainer runs execute saved steps; Lucky is optional preflight (WRA trial tab / dry_run)."""
+    if _env_truthy("TRAINER_REQUIRE_LUCKY", "0"):
+        return False
+    return True
 
-    - dry_run=True  : run Lucky only (validation)
-    - dry_run=False : run full orchestrator (Lucky then Agami/AHA)
+
+def run_wra_workflow(name: str, *, dry_run: bool, run_source: str, skip_lucky: bool = False) -> list[dict[str, Any]]:
+    """
+    WRA Engine v2 runner wired into Trainer.
+
+    - dry_run=True  : Lucky validation only (use Dry run checkbox or WRA → Lucky tab)
+    - dry_run=False : Agami + AHA execute workflow steps (Lucky skipped unless TRAINER_REQUIRE_LUCKY=1)
     """
     path = WORKFLOWS_DIR / f"{name}.json"
     if not path.exists():
@@ -7397,6 +8861,12 @@ def run_wra_workflow(name: str, *, dry_run: bool, run_source: str) -> list[dict[
         raise
 
     started_at = _utc_now_z()
+    try:
+        from cusear.engine.step_bridge import reset_run
+
+        reset_run()
+    except Exception:
+        pass
     _wra_monitor_update(
         running=True,
         workflow_name=name,
@@ -7440,10 +8910,15 @@ def run_wra_workflow(name: str, *, dry_run: bool, run_source: str) -> list[dict[
                 )
             ]
 
-        # Live run: full orchestrator
+        # Live run: full orchestrator (optional Lucky skip for Rekky teaching mode)
         from cusear.engine.wra_engine import run_wra as _run_wra
 
-        _wra_monitor_update(lucky="PASSED", agami="HEALING", aha="WAITING")
+        _wra_monitor_update(
+            lucky="SKIPPED" if skip_lucky else "PASSED",
+            agami="HEALING",
+            aha="WAITING",
+            signals=[{"t": started_at, "msg": "MOVE", "detail": "rekky_teach_mode" if skip_lucky else "run started"}],
+        )
         out = _run_wra(
             repo_root=str(BASE_DIR),
             workflow_path=str(path),
@@ -7451,6 +8926,7 @@ def run_wra_workflow(name: str, *, dry_run: bool, run_source: str) -> list[dict[
             company_endpoint=(os.environ.get("COMPANY_ENDPOINT") or "").strip() or None,
             enable_mouse_guard=True,
             enable_focus_mode=True,
+            skip_lucky=bool(skip_lucky),
         )
         finished_at = _utc_now_z()
         ok = bool(out.get("ok"))
@@ -7458,7 +8934,11 @@ def run_wra_workflow(name: str, *, dry_run: bool, run_source: str) -> list[dict[
         reason = str(out.get("reason") or "")
         _wra_monitor_update(
             running=False,
-            lucky="PASSED" if (out.get("lucky_report") or {}).get("signal") == "GREEN" else "FAILED",
+            lucky=(
+                "SKIPPED"
+                if (out.get("lucky_report") or {}).get("signal") == "SKIPPED"
+                else ("PASSED" if (out.get("lucky_report") or {}).get("signal") == "GREEN" else "FAILED")
+            ),
             agami="IDLE" if ok else "ABORT",
             aha="DONE" if ok else "TIMEOUT",
             last_result=out,
@@ -7469,11 +8949,15 @@ def run_wra_workflow(name: str, *, dry_run: bool, run_source: str) -> list[dict[
             _audit_step(
                 1,
                 "wra_lucky",
-                "ok" if (out.get("lucky_report") or {}).get("signal") == "GREEN" else "error",
+                (
+                    "skipped"
+                    if (out.get("lucky_report") or {}).get("signal") == "SKIPPED"
+                    else ("ok" if (out.get("lucky_report") or {}).get("signal") == "GREEN" else "error")
+                ),
                 started_at,
                 finished_at,
                 error=str((out.get("lucky_report") or {}).get("abort_reason") or ""),
-                detail="Lucky dry-run completed",
+                detail="Lucky skipped for Rekky teaching mode" if skip_lucky else "Lucky dry-run completed",
             ),
             _audit_step(
                 2,
@@ -7495,6 +8979,13 @@ def run_wra_workflow(name: str, *, dry_run: bool, run_source: str) -> list[dict[
             signals=[{"t": finished_at, "msg": "DONE", "detail": str(exc)}],
         )
         raise
+    finally:
+        try:
+            from cusear.engine.step_bridge import clear_pending
+
+            clear_pending()
+        except Exception:
+            pass
 
 
 _CLICK_VISION_PROMPT = (
@@ -7621,6 +9112,16 @@ def _analyse_click_with_retries(image_path: Path, description: str) -> dict:
     target_txt = quoted[0].strip() if quoted else ""
     desc_l = (description or "").lower()
     prompts = [description]
+    if "copy" in desc_l and any(k in desc_l for k in ("icon", "button", "glyph", "clipboard", "response")):
+        prompts.append(
+            (
+                f"{description}\n"
+                "This target may be icon-only with no text label. Look specifically for copy controls: "
+                "two overlapping rectangles/squares, duplicate-page icon, clipboard icon, or a small copy glyph. "
+                "Prefer the copy control in the action toolbar of the newest/bottom-most AI response. "
+                "Return the center of that icon button, not the response text and not any nearby share/menu/feedback button."
+            )
+        )
     if target_txt:
         prompts.append(
             (
@@ -7686,7 +9187,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
-        p = parsed.path
+        p = _trainer_route_path(parsed.path)
         qs = parse_qs(parsed.query or "")
         if p in ("/trainer", "/trainer/") or p == "/trainer.html":
             tp = _trainer_html_path()
@@ -7800,8 +9301,16 @@ class Handler(BaseHTTPRequestHandler):
                 no_cache=True,
             )
         elif p == "/wra/rekky/status":
+            try:
+                from cusear.engine.step_bridge import pending_snapshot
+
+                bridge = pending_snapshot()
+            except Exception:
+                bridge = {"pending": False}
             with _WRA_REKKY_LOCK:
-                self._json(dict(_WRA_REKKY_STATUS), no_cache=True)
+                payload = dict(_WRA_REKKY_STATUS)
+                payload["step_bridge"] = bridge
+                self._json(payload, no_cache=True)
         elif p == "/control/status":
             ok_chrome = _control_chrome_ok()
             ok_net, tot_net = _control_platform_reachability()
@@ -7834,16 +9343,70 @@ class Handler(BaseHTTPRequestHandler):
         elif p == "/control/open-logs-folder":
             # Desktop clients: returns path only (reveal in shell is OS-specific).
             self._json({"path": str((BASE_DIR / "logs").resolve())}, no_cache=True)
+        elif p == "/wra/step/pending":
+            try:
+                from cusear.engine.step_bridge import pending_snapshot
+
+                self._json(pending_snapshot(), no_cache=True)
+            except Exception as exc:
+                self._json({"error": str(exc), "pending": False}, 500, no_cache=True)
         elif p == "/wra/monitor":
             with _WRA_MONITOR_LOCK:
                 mon = dict(_WRA_MONITOR)
             mon["run_lock_busy"] = bool(_RUN_WORKFLOW_LOCK.locked())
+            try:
+                from cusear.engine.step_bridge import pending_snapshot
+
+                mon["step_bridge"] = pending_snapshot()
+            except Exception:
+                mon["step_bridge"] = {"pending": False}
             self._json(mon, no_cache=True)
         elif p == "/wra/last-lucky-report":
             self._json({"report": dict(_LAST_LUCKY_REPORT) if _LAST_LUCKY_REPORT else None}, no_cache=True)
         elif p == "/wra/lucky/job":
             with _LUCKY_JOB_LOCK:
                 self._json(dict(_LUCKY_JOB_STATUS), no_cache=True)
+        elif p == "/wra/rekky/ledger":
+            try:
+                req_lines = int((qs.get("lines") or ["600"])[0] or 600)
+            except ValueError:
+                req_lines = 600
+            workflow_name = str((qs.get("workflow") or [""])[0] or "").strip()
+            try:
+                snap = _wra_rekky_ledger_snapshot(req_lines=req_lines, workflow_name=workflow_name)
+                self._json(snap, no_cache=True)
+            except Exception as exc:
+                self._json({"error": str(exc)}, 500, no_cache=True)
+        elif p == "/wra/logs/latest":
+            comp = str((qs.get("component") or [""])[0] or "").strip().lower()
+            if comp not in ("lucky", "agami", "aha"):
+                self._json({"error": "component must be lucky, agami, or aha"}, 400, no_cache=True)
+                return
+            try:
+                from cusear.engine.paths import WraPaths as _WraPaths
+
+                pr = _WraPaths(root=str(BASE_DIR))
+                comp_dir = {
+                    "lucky": Path(pr.lucky_logs_dir),
+                    "agami": Path(pr.agami_logs_dir),
+                    "aha": Path(pr.aha_logs_dir),
+                }[comp]
+                comp_dir.mkdir(parents=True, exist_ok=True)
+                logs = sorted(comp_dir.glob("*.log"), key=lambda x: x.stat().st_mtime, reverse=True)
+                if not logs:
+                    self._json({"component": comp, "path": "", "lines": []}, no_cache=True)
+                    return
+                fp = logs[0]
+                try:
+                    req_lines = int((qs.get("lines") or ["200"])[0] or 200)
+                except ValueError:
+                    req_lines = 200
+                req_lines = max(10, min(2000, req_lines))
+                txt = fp.read_text(encoding="utf-8", errors="ignore")
+                lines = txt.splitlines()[-req_lines:]
+                self._json({"component": comp, "path": str(fp), "lines": lines}, no_cache=True)
+            except Exception as exc:
+                self._json({"error": str(exc)}, 500, no_cache=True)
         elif p == "/trainer/automation-summary":
             self._json(_trainer_automation_auto_run_summary(), no_cache=True)
         elif p == "/best-ai/job":
@@ -7859,6 +9422,16 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"job": job}, no_cache=True)
         elif p == "/best-ai/ui-bridge":
             self._json(_best_ai_bridge_get(), no_cache=True)
+        elif p == "/testing-council/ui-bridge":
+            self._json(_testing_council_bridge_get(), no_cache=True)
+        elif p == "/testing-council/start-status":
+            job_id = str((qs.get("job_id") or [""])[0] or "").strip()
+            with _TESTING_COUNCIL_JOBS_LOCK:
+                job = dict(_TESTING_COUNCIL_JOBS.get(job_id) or {}) if job_id else {}
+            if not job:
+                self._json({"error": "job not found"}, 404, no_cache=True)
+                return
+            self._json({"job": job, "bridge": _testing_council_bridge_get()}, no_cache=True)
         elif p == "/bundles":
             bundles = _list_bundles()
             locked_slug = _cusear_default_ar_slug() if _is_consumer_mode() else ""
@@ -8304,7 +9877,7 @@ class Handler(BaseHTTPRequestHandler):
         import traceback
 
         global _CONTROL_ENGINE_STOP_REQUESTED
-        p       = self.path.split("?")[0]
+        p       = _trainer_route_path(self.path.split("?")[0])
         length  = int(self.headers.get("Content-Length", 0))
         body    = self.rfile.read(length)
         ct      = self.headers.get("Content-Type", "")
@@ -8457,6 +10030,14 @@ class Handler(BaseHTTPRequestHandler):
                 shell_cmd = shell_cmd_f.strip() if isinstance(shell_cmd_f, str) else ""
                 if action_type == "shell" and not shell_cmd:
                     self._json({"error": "shell_command required for shell action"}, 400); return
+                if action_type == "click_at":
+                    try:
+                        _tcx = int(str(fields.get("click_x", "")).strip())
+                        _tcy = int(str(fields.get("click_y", "")).strip())
+                    except ValueError:
+                        self._json({"error": "click_at requires integer click_x and click_y"}, 400); return
+                    if _tcx < 0 or _tcy < 0:
+                        self._json({"error": "click_at coordinates must be >= 0"}, 400); return
 
                 cal_layer_raw = fields.get("calendar_upload_layer", "")
                 calendar_upload_layer = (
@@ -8485,12 +10066,27 @@ class Handler(BaseHTTPRequestHandler):
                 if action_type == "best_ai_capture_slot_from_clipboard":
                     if best_ai_slot_v not in ("chatgpt", "gemini", "claude"):
                         self._json({"error": "best_ai_slot must be chatgpt, gemini, or claude"}, 400); return
+                testing_council_container_f = fields.get("testing_council_container", "")
+                testing_council_container_v = (
+                    str(testing_council_container_f).strip().lower()
+                    if isinstance(testing_council_container_f, str)
+                    else ""
+                )
+                if action_type == "testing_council_paste_clipboard":
+                    if testing_council_container_v not in _TESTING_COUNCIL_PLATFORMS:
+                        self._json(
+                            {"error": "testing_council_container must be chatgpt, gemini, claude, grok, or perplexity"},
+                            400,
+                        ); return
 
                 live_vis = str(fields.get("live_vision", "")).strip().lower() in ("1", "true", "yes")
                 screenshots_early = fields.get("screenshot", [])
                 add_wait_after = str(fields.get("add_wait_after", "1")).strip().lower() not in ("0", "false", "no")
                 direct_jump = str(fields.get("direct_jump", "0")).strip().lower() in ("1", "true", "yes")
                 direct_jump_shots = fields.get("direct_jump_screenshot", [])
+                if _trainer_is_copy_response_button_action(action_type):
+                    description = _trainer_copy_response_button_description(description)
+                    live_vis = True
                 if action_type == "click" and not screenshots_early and live_vis and not description:
                     self._json(
                         {"error": "Describe what to click — live vision uses this text at run time"},
@@ -8589,6 +10185,10 @@ class Handler(BaseHTTPRequestHandler):
                         step["description"] = "Generate WhatsApp completion link from this run"
                     elif action_type == "completion_message":
                         step["description"] = "Output completion text (same as link body); copy message; no browser"
+                    elif _trainer_is_copy_response_button_action(action_type):
+                        step["description"] = _trainer_copy_response_button_description(description)
+                        step["live_vision"] = True
+                        step["status"] = "live_vision_run"
                     elif action_type == "completion_clipboard_refresh":
                         step["description"] = (
                             "Re-copy completion body from memory to clipboard (after Type URL wiped it)"
@@ -8670,6 +10270,28 @@ class Handler(BaseHTTPRequestHandler):
                         step["description"] = (
                             (note[:120] + f" — {combo}")[:220] if note else f"Hotkey {combo}"
                         )
+                    elif action_type == "hotkey_ctrl_shift_tab":
+                        note = description.strip()
+                        step["description"] = (
+                            (note + " — Ctrl+Shift+Tab")[:220] if note else "Ctrl+Shift+Tab (previous tab)"
+                        )
+                    elif action_type == "hotkey_ctrl_shift":
+                        note = description.strip()
+                        step["description"] = (note + " — Ctrl+Shift")[:220] if note else "Ctrl+Shift"
+                    elif action_type == "scroll_to_page_bottom":
+                        note = description.strip()
+                        step["description"] = (
+                            (note + " — End (page bottom)")[:220] if note else "Scroll to page bottom (End key)"
+                        )
+                    elif action_type == "click_at":
+                        tcx = int(str(fields.get("click_x", "0")).strip())
+                        tcy = int(str(fields.get("click_y", "0")).strip())
+                        step["click_x"] = tcx
+                        step["click_y"] = tcy
+                        note = description.strip()
+                        step["description"] = (
+                            (f"{note} — ({tcx},{tcy})")[:220] if note else f"Click at screen ({tcx},{tcy})"
+                        )
                     elif action_type == "best_ai_copy_query_bundle":
                         step["description"] = "Best AI: copy saved topic + platform instructions → clipboard"
                     elif action_type == "best_ai_capture_slot_from_clipboard":
@@ -8677,8 +10299,43 @@ class Handler(BaseHTTPRequestHandler):
                         step["description"] = f"Best AI: clipboard → Trainer slot ({best_ai_slot_v})"
                     elif action_type == "best_ai_run_synthesizer":
                         step["description"] = "Best AI: run OpenAI synthesizer (bridge slots → result)"
+                    elif action_type == "testing_council_paste_clipboard":
+                        step["testing_council_container"] = testing_council_container_v
+                        step["description"] = f"Testing council: clipboard → {testing_council_container_v} container"
+                    elif action_type == "testing_council_copy_prompt":
+                        step["description"] = "Testing council: copy prompt bucket to clipboard"
+                    elif action_type in (
+                        "press_enter",
+                        "press_home",
+                        "press_space",
+                        "minimize",
+                        "maximize",
+                        "open_chrome",
+                        "close_chrome",
+                        "open_cursor",
+                        "copy",
+                        "paste",
+                    ):
+                        _simple_key_defaults = {
+                            "press_enter": "Press Enter key",
+                            "press_home": "Press Home key",
+                            "press_space": "Press Space key",
+                            "minimize": "Minimize active window",
+                            "maximize": "Maximize active window",
+                            "open_chrome": "Open Google Chrome",
+                            "close_chrome": "Close Google Chrome (quit browser)",
+                            "open_cursor": "Open Cursor app",
+                            "copy": "Copy selection to clipboard",
+                            "paste": "Paste from clipboard",
+                        }
+                        note = description.strip()
+                        step["description"] = (
+                            note[:220]
+                            if note
+                            else _simple_key_defaults.get(action_type, action_type)
+                        )
 
-                    if action_type == "click" or (action_type == "press_tab" and direct_jump):
+                    if action_type == "click" or _trainer_is_copy_response_button_action(action_type) or (action_type == "press_tab" and direct_jump):
                         step["live_vision"] = live_vis
                         screenshots = direct_jump_shots if (action_type == "press_tab" and direct_jump) else fields.get("screenshot", [])
                         if screenshots:
@@ -8766,6 +10423,17 @@ class Handler(BaseHTTPRequestHandler):
                             print(
                                 f"  ✓ Step {step_num} saved: hotkey "
                                 f"{'+'.join(step.get('hotkey_keys') or [])}"
+                            )
+                        elif action_type == "hotkey_ctrl_shift_tab":
+                            print(f"  ✓ Step {step_num} saved: hotkey_ctrl_shift_tab")
+                        elif action_type == "hotkey_ctrl_shift":
+                            print(f"  ✓ Step {step_num} saved: hotkey_ctrl_shift")
+                        elif action_type == "scroll_to_page_bottom":
+                            print(f"  ✓ Step {step_num} saved: scroll_to_page_bottom")
+                        elif action_type == "click_at":
+                            print(
+                                f"  ✓ Step {step_num} saved: click_at "
+                                f"({step.get('click_x')},{step.get('click_y')})"
                             )
                         elif action_type == "best_ai_copy_query_bundle":
                             print(f"  ✓ Step {step_num} saved: best_ai_copy_query_bundle")
@@ -8899,6 +10567,14 @@ class Handler(BaseHTTPRequestHandler):
                             self._json({"error": "wait_seconds must be between 0 and 120"}, 400); return
                     if action_type == "shell" and not shell_cmd:
                         self._json({"error": "shell_command required for shell action"}, 400); return
+                    if action_type == "click_at":
+                        try:
+                            _tcx_u = int(str(fields.get("click_x", old.get("click_x", "0"))).strip())
+                            _tcy_u = int(str(fields.get("click_y", old.get("click_y", "0"))).strip())
+                        except ValueError:
+                            self._json({"error": "click_at requires integer click_x and click_y"}, 400); return
+                        if _tcx_u < 0 or _tcy_u < 0:
+                            self._json({"error": "click_at coordinates must be >= 0"}, 400); return
 
                     cal_layer_raw_u = fields.get("calendar_upload_layer", old.get("calendar_upload_layer", ""))
                     calendar_upload_layer_u = (
@@ -8937,6 +10613,21 @@ class Handler(BaseHTTPRequestHandler):
                     if action_type == "best_ai_capture_slot_from_clipboard":
                         if best_ai_slot_v_u not in ("chatgpt", "gemini", "claude"):
                             self._json({"error": "best_ai_slot must be chatgpt, gemini, or claude"}, 400); return
+                    testing_council_container_f_u = fields.get(
+                        "testing_council_container",
+                        old.get("testing_council_container", ""),
+                    )
+                    testing_council_container_v_u = (
+                        str(testing_council_container_f_u).strip().lower()
+                        if isinstance(testing_council_container_f_u, str)
+                        else ""
+                    )
+                    if action_type == "testing_council_paste_clipboard":
+                        if testing_council_container_v_u not in _TESTING_COUNCIL_PLATFORMS:
+                            self._json(
+                                {"error": "testing_council_container must be chatgpt, gemini, claude, grok, or perplexity"},
+                                400,
+                            ); return
 
                     step = {
                         "step": step_num,
@@ -9081,6 +10772,28 @@ class Handler(BaseHTTPRequestHandler):
                         step["description"] = (
                             (note[:120] + f" — {combo}")[:220] if note else f"Hotkey {combo}"
                         )
+                    elif action_type == "hotkey_ctrl_shift_tab":
+                        note = description.strip()
+                        step["description"] = (
+                            (note + " — Ctrl+Shift+Tab")[:220] if note else "Ctrl+Shift+Tab (previous tab)"
+                        )
+                    elif action_type == "hotkey_ctrl_shift":
+                        note = description.strip()
+                        step["description"] = (note + " — Ctrl+Shift")[:220] if note else "Ctrl+Shift"
+                    elif action_type == "scroll_to_page_bottom":
+                        note = description.strip()
+                        step["description"] = (
+                            (note + " — End (page bottom)")[:220] if note else "Scroll to page bottom (End key)"
+                        )
+                    elif action_type == "click_at":
+                        tcx_u = int(str(fields.get("click_x", old.get("click_x", "0"))).strip())
+                        tcy_u = int(str(fields.get("click_y", old.get("click_y", "0"))).strip())
+                        step["click_x"] = tcx_u
+                        step["click_y"] = tcy_u
+                        note = description.strip()
+                        step["description"] = (
+                            (f"{note} — ({tcx_u},{tcy_u})")[:220] if note else f"Click at screen ({tcx_u},{tcy_u})"
+                        )
                     elif action_type == "best_ai_copy_query_bundle":
                         step["description"] = "Best AI: copy saved topic + platform instructions → clipboard"
                     elif action_type == "best_ai_capture_slot_from_clipboard":
@@ -9088,6 +10801,11 @@ class Handler(BaseHTTPRequestHandler):
                         step["description"] = f"Best AI: clipboard → Trainer slot ({best_ai_slot_v_u})"
                     elif action_type == "best_ai_run_synthesizer":
                         step["description"] = "Best AI: run OpenAI synthesizer (bridge slots → result)"
+                    elif action_type == "testing_council_paste_clipboard":
+                        step["testing_council_container"] = testing_council_container_v_u
+                        step["description"] = f"Testing council: clipboard → {testing_council_container_v_u} container"
+                    elif action_type == "testing_council_copy_prompt":
+                        step["description"] = "Testing council: copy prompt bucket to clipboard"
 
                     if action_type == "click":
                         live_vis = bool(old.get("live_vision"))
@@ -9153,7 +10871,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"error": str(e)}, 500)
 
         # ── DELETE ONE STEP ───────────────────────────────────────────────────
-        elif p.startswith("/workflow/") and "/step/" in p:
+        elif p.startswith("/workflow/") and "/step/" in p and not p.endswith("/duplicate"):
             # handled in do_DELETE
             self._json({"error": "use DELETE method"}, 405)
 
@@ -9860,6 +11578,45 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"error": str(e)}, 500)
 
         # ── REORDER STEPS (Step Builder drag-and-drop; renumbers step field 1..n) ─
+        elif p.startswith("/workflow/") and p.endswith("/duplicate") and "/step/" in p:
+            try:
+                m = re.match(r"^/workflow/(.+)/step/(\d+)/duplicate$", p)
+                if not m:
+                    self._json({"error": "invalid duplicate path"}, 400)
+                    return
+                wf_name = unquote(m.group(1)).strip("/")
+                step_num = int(m.group(2))
+                fp = WORKFLOWS_DIR / f"{wf_name}.json"
+                if not fp.is_file():
+                    self._json({"error": "workflow not found"}, 404)
+                    return
+                with _WORKFLOW_IO_LOCK:
+                    wf = json.loads(fp.read_text(encoding="utf-8"))
+                    steps = wf.get("steps")
+                    if not isinstance(steps, list):
+                        self._json({"error": "invalid workflow steps"}, 400)
+                        return
+                    src_idx = next(
+                        (i for i, s in enumerate(steps) if int((s or {}).get("step", 0)) == step_num),
+                        None,
+                    )
+                    if src_idx is None:
+                        self._json({"error": "step not found"}, 404)
+                        return
+                    cloned = json.loads(json.dumps(steps[src_idx]))
+                    insert_idx = src_idx + 1
+                    steps.insert(insert_idx, cloned)
+                    for i, st in enumerate(steps, 1):
+                        if isinstance(st, dict):
+                            st["step"] = i
+                    wf["steps"] = steps
+                    wf["total_steps"] = len(steps)
+                    fp.write_text(json.dumps(wf, indent=2), encoding="utf-8")
+                self._json({"success": True, "step": insert_idx + 1, "total_steps": len(steps)})
+            except Exception as e:
+                traceback.print_exc()
+                self._json({"error": str(e)}, 500)
+
         elif p.startswith("/workflow/") and p.endswith("/reorder"):
             try:
                 wf_name = unquote(p[len("/workflow/") : -len("/reorder")]).strip("/")
@@ -10030,6 +11787,15 @@ class Handler(BaseHTTPRequestHandler):
         # ── STOP CURRENT RUN ──────────────────────────────────────────────────
         elif p == "/run/stop":
             _RUN_STOP_EVENT.set()
+            # Best-effort immediate key-state cleanup to avoid sticky modifiers
+            # causing unintended shortcuts (for example Cmd+F in the browser).
+            try:
+                import pyautogui  # type: ignore
+
+                _release_modifier_keys(pyautogui)
+                _release_nav_keys(pyautogui)
+            except Exception:
+                pass
             self._json({"success": True, "status": "stop_requested"})
 
         elif p == "/consumer/prompts":
@@ -10252,6 +12018,219 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"success": True, **_best_ai_bridge_get()})
             except json.JSONDecodeError:
                 self._json({"error": "invalid JSON"}, 400)
+            except Exception as e:
+                traceback.print_exc()
+                self._json({"error": str(e)}, 500)
+
+        elif p == "/testing-council/ui-bridge":
+            try:
+                if "application/json" not in (ct or "").lower():
+                    self._json({"error": "Content-Type must be application/json"}, 400)
+                    return
+                payload = json.loads(body.decode("utf-8") or "{}")
+                if not isinstance(payload, dict):
+                    self._json({"error": "invalid payload"}, 400)
+                    return
+                if bool(payload.get("refresh_clear")):
+
+                    def _refresh_clear_mut(d: dict[str, Any]) -> None:
+                        d["prompt"] = ""
+                        d["context"] = ""
+                        d["purpose"] = ""
+                        d["note"] = _TESTING_COUNCIL_COPY_NOTE
+                        d["bucket"] = _testing_council_compose_bucket("", "", "")
+                        d["slots"] = {k: "" for k in _TESTING_COUNCIL_PLATFORMS}
+                        d["round2"] = _testing_council_default_round2()
+                        d["round3"] = _testing_council_default_round3()
+                        d["run"] = {
+                            "status": "idle",
+                            "stage": "",
+                            "message": "",
+                            "job_id": "",
+                            "error": "",
+                            "updated_at": _utc_now_z(),
+                        }
+
+                    _testing_council_bridge_mutate(_refresh_clear_mut)
+                    self._json({"success": True, **_testing_council_bridge_get()})
+                    return
+                raw_slots = payload.get("slots")
+                if raw_slots is not None and not isinstance(raw_slots, dict):
+                    self._json({"error": "slots must be an object"}, 400)
+                    return
+                raw_round2 = payload.get("round2")
+                if raw_round2 is not None and not isinstance(raw_round2, dict):
+                    self._json({"error": "round2 must be an object"}, 400)
+                    return
+                raw_round3 = payload.get("round3")
+                if raw_round3 is not None and not isinstance(raw_round3, dict):
+                    self._json({"error": "round3 must be an object"}, 400)
+                    return
+
+                def _tc_mut(d: dict[str, Any]) -> None:
+                    if "prompt" in payload:
+                        d["prompt"] = str(payload.get("prompt") or "")
+                    if "context" in payload:
+                        d["context"] = str(payload.get("context") or "")
+                    if "purpose" in payload:
+                        d["purpose"] = str(payload.get("purpose") or "")
+                    d["note"] = _TESTING_COUNCIL_COPY_NOTE
+                    d["bucket"] = _testing_council_compose_bucket(
+                        str(d.get("prompt") or ""),
+                        str(d.get("context") or ""),
+                        str(d.get("purpose") or ""),
+                    )
+                    d.setdefault("slots", {k: "" for k in _TESTING_COUNCIL_PLATFORMS})
+                    if isinstance(raw_slots, dict):
+                        for key in _TESTING_COUNCIL_PLATFORMS:
+                            if key in raw_slots:
+                                d["slots"][key] = str(raw_slots.get(key) or "")
+                    d.setdefault("round2", _testing_council_default_round2())
+                    if isinstance(raw_round2, dict):
+                        for judge in _TESTING_COUNCIL_PLATFORMS:
+                            row = raw_round2.get(judge)
+                            if not isinstance(row, dict):
+                                continue
+                            d["round2"].setdefault(
+                                judge,
+                                {
+                                    "judge": judge,
+                                    "answers": {k: "" for k in _TESTING_COUNCIL_PLATFORMS},
+                                    "judgement": "",
+                                },
+                            )
+                            d["round2"][judge]["judge"] = str(row.get("judge") or judge)
+                            d["round2"][judge].setdefault("answers", {k: "" for k in _TESTING_COUNCIL_PLATFORMS})
+                            answers = row.get("answers")
+                            if isinstance(answers, dict):
+                                for platform in _TESTING_COUNCIL_PLATFORMS:
+                                    if platform in answers:
+                                        d["round2"][judge]["answers"][platform] = str(answers.get(platform) or "")
+                            if "judgement" in row:
+                                d["round2"][judge]["judgement"] = str(row.get("judgement") or "")
+                    d.setdefault("round3", _testing_council_default_round3())
+                    if isinstance(raw_round3, dict):
+                        d["round3"]["judge"] = str(raw_round3.get("judge") or d["round3"].get("judge") or "independent_api_judge")
+                        d["round3"].setdefault("judgements", {k: "" for k in _TESTING_COUNCIL_PLATFORMS})
+                        judgements = raw_round3.get("judgements")
+                        if isinstance(judgements, dict):
+                            for judge in _TESTING_COUNCIL_PLATFORMS:
+                                if judge in judgements:
+                                    d["round3"]["judgements"][judge] = str(judgements.get(judge) or "")
+                        if "review" in raw_round3:
+                            d["round3"]["review"] = str(raw_round3.get("review") or "")
+                    if bool(payload.get("reset_run")):
+                        d["run"] = {
+                            "status": "idle",
+                            "stage": "",
+                            "message": "",
+                            "job_id": "",
+                            "error": "",
+                            "updated_at": _utc_now_z(),
+                        }
+
+                _testing_council_bridge_mutate(_tc_mut)
+                self._json({"success": True, **_testing_council_bridge_get()})
+            except json.JSONDecodeError:
+                self._json({"error": "invalid JSON"}, 400)
+            except Exception as e:
+                traceback.print_exc()
+                self._json({"error": str(e)}, 500)
+
+        elif p == "/testing-council/start":
+            try:
+                if "application/json" not in (ct or "").lower():
+                    self._json({"error": "Content-Type must be application/json"}, 400)
+                    return
+                payload = json.loads(body.decode("utf-8") or "{}")
+                if not isinstance(payload, dict):
+                    self._json({"error": "invalid payload"}, 400)
+                    return
+                prompt = str(payload.get("prompt") or "").strip()
+                context = str(payload.get("context") or "").strip()
+                purpose = str(payload.get("purpose") or "").strip()
+                if not prompt:
+                    self._json({"error": "Prompt is required before Start."}, 400)
+                    return
+                workflow_name = _testing_council_round1_workflow_name(str(payload.get("workflow_name") or ""))
+
+                def _start_mut(d: dict[str, Any]) -> None:
+                    d["prompt"] = prompt
+                    d["context"] = context
+                    d["purpose"] = purpose
+                    d["note"] = _TESTING_COUNCIL_COPY_NOTE
+                    d["bucket"] = _testing_council_compose_bucket(prompt, context, purpose)
+                    d["slots"] = {k: "" for k in _TESTING_COUNCIL_PLATFORMS}
+                    d["round2"] = _testing_council_default_round2()
+                    d["round3"] = _testing_council_default_round3()
+
+                _testing_council_bridge_mutate(_start_mut)
+                job_id = secrets.token_hex(12)
+                _testing_council_job_set(
+                    job_id,
+                    status="queued",
+                    stage="queued",
+                    message="Testing council queued.",
+                    error="",
+                    workflow_name=workflow_name,
+                )
+                _testing_council_bridge_status(job_id, "queued", "queued", "Testing council queued.")
+                threading.Thread(
+                    target=_testing_council_run_worker,
+                    args=(job_id, workflow_name, prompt, context, purpose),
+                    daemon=True,
+                ).start()
+                self._json({"success": True, "job_id": job_id, "workflow_name": workflow_name, **_testing_council_bridge_get()})
+            except json.JSONDecodeError:
+                self._json({"error": "invalid JSON"}, 400)
+            except Exception as e:
+                traceback.print_exc()
+                self._json({"error": str(e)}, 500)
+
+        elif p in ("/testing-council/start-round2", "/testing-council/start-round3"):
+            try:
+                phase = "round2" if p.endswith("start-round2") else "round3"
+                job_id = secrets.token_hex(12)
+                _testing_council_job_set(
+                    job_id,
+                    status="queued",
+                    stage=phase,
+                    message=f"Testing council {phase} queued.",
+                    error="",
+                    phase=phase,
+                )
+                _testing_council_bridge_status(job_id, "queued", phase, f"Testing council {phase} queued.")
+                threading.Thread(
+                    target=_testing_council_phase_worker,
+                    args=(job_id, phase),
+                    daemon=True,
+                ).start()
+                self._json({"success": True, "job_id": job_id, "phase": phase, **_testing_council_bridge_get()})
+            except Exception as e:
+                traceback.print_exc()
+                self._json({"error": str(e)}, 500)
+
+        elif p == "/testing-council/stop":
+            try:
+                _RUN_STOP_EVENT.set()
+                bridge = _testing_council_bridge_get()
+                job_id = str(((bridge.get("run") or {}).get("job_id")) or "").strip()
+                if job_id:
+                    _testing_council_job_set(job_id, stop_requested=True)
+                _testing_council_bridge_status(
+                    job_id or "",
+                    "stopped",
+                    "stopped",
+                    "Testing council stopped by user.",
+                )
+                try:
+                    import pyautogui  # type: ignore
+
+                    _release_modifier_keys(pyautogui)
+                    _release_nav_keys(pyautogui)
+                except Exception:
+                    pass
+                self._json({"success": True, "status": "stopped", **_testing_council_bridge_get()})
             except Exception as e:
                 traceback.print_exc()
                 self._json({"error": str(e)}, 500)
@@ -10515,7 +12494,8 @@ class Handler(BaseHTTPRequestHandler):
                 name    = data.get("workflow_name", "")
                 dry_run = data.get("dry_run", False)
                 mode    = str(data.get("mode", "smart") or "smart").strip().lower()
-                if mode not in ("fast", "smart", "wra"):
+                rekky_post_enrich = bool(data.get("rekky_post_enrich", False))
+                if mode not in ("fast", "smart", "wra", "wra_rekky"):
                     mode = "smart"
                 if not name:
                     self._json({"error": "workflow_name required"}, 400); return
@@ -10524,10 +12504,30 @@ class Handler(BaseHTTPRequestHandler):
                 _RUN_STOP_EVENT.clear()
                 try:
                     if mode == "wra":
-                        results = run_wra_workflow(name, dry_run=bool(dry_run), run_source="manual_run")
+                        results = run_wra_workflow(
+                            name,
+                            dry_run=bool(dry_run),
+                            run_source="manual_run",
+                            skip_lucky=_wra_live_skip_lucky() if not dry_run else False,
+                        )
+                    elif mode == "wra_rekky":
+                        # Alias to standard WRA run so Start Rekky matches normal Run behavior.
+                        results = run_wra_workflow(
+                            name,
+                            dry_run=bool(dry_run),
+                            run_source="manual_run_rekky",
+                            skip_lucky=_wra_live_skip_lucky() if not dry_run else False,
+                        )
                     else:
                         results = run_workflow(name, dry_run=dry_run, run_mode=mode, run_source="manual_run")
                     audit_path = save_run_audit(name, bool(dry_run), results)
+                    if (
+                        rekky_post_enrich
+                        and not dry_run
+                        and mode in ("wra", "wra_rekky")
+                        and not any(s.get("status") == "error" for s in (results or []))
+                    ):
+                        _rekky_schedule_enrich_workflow(name)
                     if not _stop_requested():
                         _send_whatsapp_run_notification(
                             name,
@@ -10679,13 +12679,22 @@ class Handler(BaseHTTPRequestHandler):
             wf_name = str(payload.get("workflow_name") or "").strip()
             platform_name = str(payload.get("platform") or "").strip()
             url = str(payload.get("url") or "").strip()
-            per_keypress = payload.get("per_keypress")
-            if per_keypress is None:
-                batch_tabs = bool(payload.get("batch_tabs", False))
-            else:
-                batch_tabs = not bool(per_keypress)
+            overwrite_existing = bool(payload.get("overwrite_existing", False))
             if not wf_name or not platform_name or not url:
                 self._json({"error": "workflow_name, platform, url are required"}, 400)
+                return
+            target_fp = WORKFLOWS_DIR / f"{wf_name}.json"
+            if target_fp.is_file() and not overwrite_existing:
+                self._json(
+                    {
+                        "error": (
+                            f'Workflow "{wf_name}" already exists. '
+                            "Rekky recording is blocked to protect existing steps. "
+                            "Use a new workflow name for recording."
+                        )
+                    },
+                    409,
+                )
                 return
             with _WRA_REKKY_LOCK:
                 if _WRA_REKKY_STATUS.get("running"):
@@ -10714,7 +12723,6 @@ class Handler(BaseHTTPRequestHandler):
                             url=url,
                             workflows_dir=str(WORKFLOWS_DIR),
                             stop_event=_WRA_REKKY_STOP,
-                            batch_tabs=batch_tabs,
                         )
                         saved = str(WORKFLOWS_DIR / f"{wf.get('workflow_name')}.json")
                         with _WRA_REKKY_LOCK:
@@ -10737,6 +12745,63 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 _WRA_REKKY_STOP.set()
             self._json({"success": True, "running": False})
+        elif p == "/wra/stop_all":
+            try:
+                _WRA_REKKY_STOP.set()
+            except Exception:
+                pass
+            try:
+                _LUCKY_CANCEL.set()
+            except Exception:
+                pass
+            try:
+                _RUN_STOP_EVENT.set()
+            except Exception:
+                pass
+            try:
+                from cusear.engine.step_bridge import abort_run
+
+                abort_run("stopped by user")
+            except Exception:
+                pass
+            try:
+                import pyautogui  # type: ignore
+
+                _release_modifier_keys(pyautogui)
+                _release_nav_keys(pyautogui)
+            except Exception:
+                pass
+            self._json({"success": True, "stopped": True})
+
+        elif p == "/wra/step/ack":
+            if self.command != "POST":
+                self._json({"error": "POST required"}, 405)
+                return
+            try:
+                payload = json.loads(body or b"{}")
+            except Exception:
+                self._json({"error": "invalid JSON"}, 400)
+                return
+            token = str(payload.get("token") or "").strip()
+            if not token:
+                self._json({"error": "token required"}, 400)
+                return
+            try:
+                from cusear.engine.step_bridge import acknowledge, pending_snapshot
+
+                snap = pending_snapshot()
+                phase = str(snap.get("bridge_phase") or "")
+                mapped = payload.get("mapped_step")
+                mapped_step = mapped if isinstance(mapped, dict) else None
+                ok = acknowledge(token, mapped_step=mapped_step)
+                if ok:
+                    print(
+                        f'  Rekky step ack ✓ phase={phase or "?"} token={token[:8]}',
+                        flush=True,
+                    )
+                self._json({"success": ok, "token": token, "bridge_phase": phase})
+            except Exception as exc:
+                self._json({"error": str(exc)}, 500)
 
         elif p == "/wra/rekky/enrich":
             if self.command != "POST":
@@ -10775,8 +12840,43 @@ class Handler(BaseHTTPRequestHandler):
                 def _run_enrich():
                     try:
                         from cusear.engine.rekky import enrich_workflow
+                        from cusear.engine.step_bridge import (
+                            clear_pending,
+                            pending_snapshot,
+                            reset_run,
+                            set_progress_listener,
+                        )
 
-                        rep = enrich_workflow(wf_path_str)
+                        reset_run()
+
+                        def _enrich_progress(p: dict[str, Any]) -> None:
+                            with _WRA_REKKY_LOCK:
+                                ep = dict(p)
+                                ep["step_bridge"] = pending_snapshot()
+                                _WRA_REKKY_STATUS["enrich_progress"] = ep
+                                _WRA_REKKY_STATUS["step_bridge"] = ep["step_bridge"]
+
+                        def _bridge_listener(snap: dict[str, Any]) -> None:
+                            with _WRA_REKKY_LOCK:
+                                if not _WRA_REKKY_STATUS.get("running"):
+                                    return
+                                _WRA_REKKY_STATUS["step_bridge"] = dict(snap)
+                                ep = dict(_WRA_REKKY_STATUS.get("enrich_progress") or {})
+                                if snap.get("pending"):
+                                    ep["bridge_phase"] = snap.get("bridge_phase")
+                                    ep["current_step"] = snap.get("current_step")
+                                    ep["total_steps"] = snap.get("total_steps")
+                                    ep["action_type"] = snap.get("action_type")
+                                    ep["step_number"] = snap.get("step_number")
+                                elif ep.get("bridge_phase") in ("executed", "detect"):
+                                    ep["bridge_phase"] = "mapped"
+                                _WRA_REKKY_STATUS["enrich_progress"] = ep
+
+                        set_progress_listener(_bridge_listener)
+                        try:
+                            rep = enrich_workflow(wf_path_str, progress_cb=_enrich_progress)
+                        finally:
+                            set_progress_listener(None)
                         with _WRA_REKKY_LOCK:
                             _WRA_REKKY_STATUS.update(
                                 {
@@ -10784,12 +12884,28 @@ class Handler(BaseHTTPRequestHandler):
                                     "mode": "",
                                     "saved_path": wf_path_str,
                                     "enrich_report": rep,
+                                    "enrich_progress": {},
                                     "error": "",
                                 }
                             )
                     except Exception as exc:
                         with _WRA_REKKY_LOCK:
-                            _WRA_REKKY_STATUS.update({"running": False, "mode": "", "error": str(exc), "enrich_report": {}})
+                            _WRA_REKKY_STATUS.update(
+                                {
+                                    "running": False,
+                                    "mode": "",
+                                    "error": str(exc),
+                                    "enrich_report": {},
+                                    "enrich_progress": {},
+                                }
+                            )
+                    finally:
+                        try:
+                            from cusear.engine.step_bridge import clear_pending
+
+                            clear_pending()
+                        except Exception:
+                            pass
 
                 threading.Thread(target=_run_enrich, daemon=True).start()
 
@@ -11548,6 +13664,18 @@ def run_trainer_server() -> None:
             "  Tip: TRAINER_ACTIVATE_APP='Google Chrome'  → activate Chrome before each Click (not before Type; "
             "Type uses current focus). Set TRAINER_ACTIVATE_APP_BEFORE_TYPE=1 to also activate before Type."
         )
+    try:
+        from cusear.engine.constants import rekky_detect_timing_snapshot
+
+        _snap = rekky_detect_timing_snapshot()
+        print(
+            f"  Rekky Detect timing: profile={_snap.get('profile')} · "
+            f"tab={_snap.get('tab_interval')}s capture={_snap.get('capture_wait')}s "
+            f"dom={_snap.get('dom_settle')}s between_steps={_snap.get('between_steps')}s · "
+            f"polls={_snap.get('capture_poll_attempts')} retries={_snap.get('capture_max_attempts')}"
+        )
+    except Exception:
+        pass
     print(f"{'━'*50}\n")
     if os.environ.get("TRAINER_NO_OPEN_BROWSER", "").strip().lower() not in ("1", "true", "yes"):
         try:

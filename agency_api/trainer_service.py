@@ -23,6 +23,32 @@ _ROOT = Path(__file__).resolve().parent.parent
 
 # Browser / public trainer without a key (shared bucket; set TRAINER_REQUIRE_API_KEY=1 to disable)
 ANONYMOUS_OWNER = "anonymous"
+TESTING_COUNCIL_PLATFORMS = ("chatgpt", "gemini", "claude", "grok", "perplexity")
+_COPY_RESPONSE_BUTTON_ACTION = "copy_response_button"
+_COPY_RESPONSE_BUTTON_DESCRIPTION = (
+    "Find and click the visible copy button/icon for the latest AI response. "
+    "The icon may look like two overlapping squares, a clipboard, or a small copy glyph. "
+    "If there are multiple copy icons, choose the bottom-most one next to the newest response. "
+    "Do not click share, thumbs up/down, regenerate, edit, menu, or send."
+)
+
+
+def _is_copy_response_button_action(action: object) -> bool:
+    return str(action or "").strip().lower() == _COPY_RESPONSE_BUTTON_ACTION
+
+
+def _copy_response_button_description(description: object = "") -> str:
+    text = str(description or "").strip()
+    if not text:
+        return _COPY_RESPONSE_BUTTON_DESCRIPTION
+    if "overlapping squares" in text.lower() or "copy glyph" in text.lower():
+        return text
+    return (
+        f"{text}. Treat this as a copy-response-button task: find the visible copy icon/button "
+        "for the latest AI response. The icon may look like two overlapping squares, a clipboard, "
+        "or a small copy glyph. If multiple copy icons exist, choose the bottom-most/newest response. "
+        "Do not click share, thumbs up/down, regenerate, edit, menu, or send."
+    )
 
 
 def _ensure_dash_imports():
@@ -189,6 +215,14 @@ def process_teach_step(owner_id: str, raw_body: bytes, content_type: str) -> dic
     if action_type == "best_ai_capture_slot_from_clipboard":
         if best_ai_slot_v not in ("chatgpt", "gemini", "claude"):
             raise ValueError("best_ai_slot must be chatgpt, gemini, or claude")
+    testing_council_container_v = (
+        str(fields.get("testing_council_container", "")).strip().lower()
+        if isinstance(fields.get("testing_council_container", ""), str)
+        else ""
+    )
+    if action_type == "testing_council_paste_clipboard":
+        if testing_council_container_v not in TESTING_COUNCIL_PLATFORMS:
+            raise ValueError("testing_council_container must be chatgpt, gemini, claude, grok, or perplexity")
     if action_type == "wait":
         try:
             _w = float(str(fields.get("wait_seconds", "2") or "2").strip())
@@ -199,6 +233,9 @@ def process_teach_step(owner_id: str, raw_body: bytes, content_type: str) -> dic
 
     live_vis = str(fields.get("live_vision", "")).strip().lower() in ("1", "true", "yes")
     screenshots_early = fields.get("screenshot", [])
+    if _is_copy_response_button_action(action_type):
+        description = _copy_response_button_description(description)
+        live_vis = True
     if action_type == "click" and not screenshots_early and live_vis and not description:
         raise ValueError("Describe what to click — live vision uses this text at run time")
     if action_type == "click" and not screenshots_early and not live_vis:
@@ -228,6 +265,10 @@ def process_teach_step(owner_id: str, raw_body: bytes, content_type: str) -> dic
     elif action_type == "upload":
         note = description.strip()
         step["description"] = (note or "Upload (manual)")[:220]
+    elif _is_copy_response_button_action(action_type):
+        step["description"] = _copy_response_button_description(description)
+        step["live_vision"] = True
+        step["status"] = "live_vision_run"
     elif action_type == "open_url":
         step["url"] = open_url
         step["description"] = open_url if len(open_url) <= 120 else open_url[:117] + "..."
@@ -261,6 +302,11 @@ def process_teach_step(owner_id: str, raw_body: bytes, content_type: str) -> dic
         step["description"] = f"Best AI: clipboard → Trainer slot ({best_ai_slot_v})"
     elif action_type == "best_ai_run_synthesizer":
         step["description"] = "Best AI: run OpenAI synthesizer (bridge slots → result)"
+    elif action_type == "testing_council_paste_clipboard":
+        step["testing_council_container"] = testing_council_container_v
+        step["description"] = f"Testing council: clipboard → {testing_council_container_v} container"
+    elif action_type == "testing_council_copy_prompt":
+        step["description"] = "Testing council: copy prompt bucket to clipboard"
     elif action_type == "hotkey":
         from dashboard import _trainer_parse_hotkey_keys_json
 
@@ -273,7 +319,7 @@ def process_teach_step(owner_id: str, raw_body: bytes, content_type: str) -> dic
         combo = "+".join(hk_list)
         step["description"] = (f"{note[:120]} — {combo}")[:220] if note else f"Hotkey {combo}"
 
-    if action_type == "click":
+    if action_type == "click" or _is_copy_response_button_action(action_type):
         step["live_vision"] = live_vis
         screenshots = fields.get("screenshot", [])
         if screenshots:
@@ -337,3 +383,52 @@ def run_dry(owner_id: str, name: str) -> list[dict[str, Any]]:
         action = s.get("action_type") or s.get("action", "click")
         results.append({"step": s.get("step"), "action": action, "status": "dry_run"})
     return results
+
+
+def _slugify_product_name(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
+    return slug or "cusear-product"
+
+
+def export_workflow_product(
+    owner_id: str,
+    workflow_name: str,
+    *,
+    product_name: str | None = None,
+    product_slug: str | None = None,
+    version: str = "1.0.0",
+    plan: str | None = None,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """
+    Export a trainer workflow into a website-publishable product package.
+
+    The package intentionally contains the complete workflow_json so lightweight
+    agents can sync/run it without trainer access.
+    """
+    wf = get_workflow(owner_id, workflow_name)
+    if not wf:
+        raise FileNotFoundError(f"Workflow '{workflow_name}' not found")
+
+    name = (product_name or workflow_name).strip() or workflow_name
+    slug = _slugify_product_name(product_slug or name)
+    now = datetime.datetime.utcnow().isoformat() + "Z"
+    plan_norm = (plan or "").strip().lower().replace("-", "_") or None
+
+    package: dict[str, Any] = {
+        "kind": "cusear_ar_product",
+        "schema_version": "1",
+        "exported_at": now,
+        "product": {
+            "name": name,
+            "slug": slug,
+            "version": (version or "1.0.0").strip() or "1.0.0",
+            "plan": plan_norm,
+            "notes": (notes or "").strip() or None,
+        },
+        "workflow": {
+            "workflow_name": str(wf.get("workflow_name") or workflow_name),
+            "workflow_json": wf,
+        },
+    }
+    return package

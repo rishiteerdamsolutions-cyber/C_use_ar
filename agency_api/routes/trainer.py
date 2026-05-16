@@ -191,3 +191,35 @@ async def trainer_run(request: Request, owner_id: TrainerOwner) -> Any:
     except Exception as exc:
         logger.exception("trainer run")
         return JSONResponse(status_code=500, content={"error": "trainer run failed"})
+
+
+@router.post("/workflow/{wf_name}/export-product")
+async def trainer_export_product(wf_name: str, request: Request, owner_id: TrainerOwner) -> Any:
+    """
+    Export a trainer workflow as a product package JSON that can be hosted/downloaded.
+    """
+    name = unquote(wf_name)
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            payload = {}
+    except Exception:
+        payload = {}
+    try:
+        from agency_api.trainer_service import export_workflow_product
+
+        out = export_workflow_product(
+            owner_id,
+            name,
+            product_name=str(payload.get("product_name") or "").strip() or None,
+            product_slug=str(payload.get("product_slug") or "").strip() or None,
+            version=str(payload.get("version") or "1.0.0").strip() or "1.0.0",
+            plan=str(payload.get("plan") or "").strip() or None,
+            notes=str(payload.get("notes") or "").strip() or None,
+        )
+        return {"ok": True, "package": out}
+    except FileNotFoundError as exc:
+        return JSONResponse(status_code=404, content={"error": str(exc)})
+    except Exception as exc:
+        logger.exception("trainer export product")
+        return JSONResponse(status_code=500, content={"error": "trainer export failed"})

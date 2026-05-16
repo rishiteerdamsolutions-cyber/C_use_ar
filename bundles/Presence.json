@@ -18,7 +18,7 @@
     "mode": "daily",
     "interval_minutes": 5,
     "interval_hours": 24,
-    "daily_time": "02:05",
+    "daily_time": "17:33",
     "weekly_times": {
       "mon": "",
       "tue": "",
@@ -29,22 +29,22 @@
       "sun": ""
     }
   },
-  "scheduler_run_count": 2,
-  "last_run_at": "2026-05-02T06:05:38.999353Z",
+  "scheduler_run_count": 4,
+  "last_run_at": "2026-05-15T12:04:05.255672Z",
   "next_run_at": "",
   "last_run_results": [
     {
       "child": "Facebook_Post",
       "status": "error",
-      "started_at": "2026-05-02T06:04:55.963521Z",
-      "finished_at": "2026-05-02T06:05:38.999178Z",
-      "error": "can't register atexit after shutdown"
+      "started_at": "2026-05-15T12:03:03.963499Z",
+      "finished_at": "2026-05-15T12:04:05.255167Z",
+      "error": "Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************VwoA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}"
     },
     {
       "child": "Instagram_Post",
       "status": "stopped",
-      "started_at": "2026-05-02T06:05:38.999200Z",
-      "finished_at": "2026-05-02T06:05:38.999202Z",
+      "started_at": "2026-05-15T12:04:05.255200Z",
+      "finished_at": "2026-05-15T12:04:05.255202Z",
       "error": "Stopped by user"
     }
   ]

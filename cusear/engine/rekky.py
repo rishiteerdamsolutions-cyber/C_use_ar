@@ -1,3 +1,16 @@
+"""
+WRA™ roles (operator model)
+
+- **AHA** — Runs workflow steps in real time (live executor).
+- **Rekky** — Keyboard recording only: steps plus focused-element attributes into JSON
+  (`start_rekky_recording`); optional replay enrichment via `enrich_workflow`.
+- **Lucky** — Dry-run before Agami: replays navigation and checks the live UI against
+  Rekky-backed anchors stored in the workflow.
+- **Agami** — One step ahead of AHA: MOVE/drift/healing so AHA stays aligned.
+
+Live WRA runs use ``cusear.engine.wra_engine.run_wra`` (Lucky → Agami → AHA). Rekky capture is separate.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -41,6 +54,32 @@ def score_anchor_quality(element: dict[str, Any]) -> str:
     if len(text) < 30:
         return "MEDIUM"
     return "WEAK"
+
+
+def _build_anchor_bundle(base: dict[str, Any]) -> list[dict[str, Any]]:
+    """
+    Build redundant anchor variants so matching can survive UI label/role churn.
+    """
+    tag = str(base.get("tagName", "") or "")
+    text = str(base.get("text", "") or "")
+    _id = str(base.get("id", "") or "")
+    role = str(base.get("role", "") or "")
+    quality = str(base.get("anchor_quality", "") or "WEAK")
+
+    variants: list[dict[str, Any]] = [
+        {"tagName": tag, "text": text, "id": _id, "role": role, "anchor_quality": quality},
+        {"tagName": tag, "text": text, "id": "", "role": role, "anchor_quality": quality},
+        {"tagName": tag, "text": "", "id": _id, "role": role, "anchor_quality": quality},
+    ]
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for v in variants:
+        key = json.dumps(v, sort_keys=True)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(v)
+    return out
 
 
 def _rekky_run_macos_keyloop(
@@ -167,352 +206,20 @@ def _rekky_run_generic_keyboard(
     keyboard.unhook_all()
 
 
-def enrich_workflow(workflow_path: str) -> dict[str, Any]:
+def enrich_workflow(
+    workflow_path: str,
+    *,
+    progress_cb: Any | None = None,
+) -> dict[str, Any]:
     """
-    Replay an existing workflow in Chrome slowly and persist `intermediate_elements`/`focus_target`
-    anchors (macOS: os_adapter active-element probe; Windows: UIA focused element — install
-    requirements-rekky.txt for comtypes on Windows, pyobjc on macOS for recording).
+    Rekky Detect: copy frozen workflow JSON, then per step:
+    execute → app ack → detect focus/element → app map/ack → save anchors.
+
+    Optional ``progress_cb`` receives progress including ``bridge_phase`` (executed|detect|mapped).
     """
-    import subprocess
+    from .rekky_detect import run_rekky_detect_enrich
 
-    import pyautogui  # type: ignore
-
-    wf_path = os.path.abspath(workflow_path)
-    workflow = load_workflow(wf_path)
-    adapter = get_os_adapter()
-    dirname, fname = os.path.split(wf_path)
-    stem, _ext = os.path.splitext(fname) if fname else ("workflow", ".json")
-
-    backup = os.path.join(dirname, f"{stem}_pre_rekky.json")
-    shutil.copy2(wf_path, backup)
-
-    def _capture_windows_element() -> dict[str, Any]:
-        try:
-            import comtypes.client  # type: ignore
-
-            uia = comtypes.client.CreateObject("UIAutomationClient.CUIAutomation")
-            elem = uia.GetFocusedElement()
-            if not elem:
-                return {}
-            name = (elem.CurrentName or "").strip()
-            auto_id = (elem.CurrentAutomationId or "").strip()
-            role = (elem.CurrentLocalizedControlType or "").strip().lower()
-            tag = "div"
-            if "edit" in role or "text" in role:
-                tag = "input"
-            if "button" in role:
-                tag = "button"
-                role = "button"
-            return {
-                "tagName": tag,
-                "text": name[:100],
-                "id": auto_id,
-                "role": role[:50],
-            }
-        except Exception:
-            return {}
-
-    def _capture_ann() -> dict[str, Any]:
-        el = _capture_windows_element() if IS_WINDOWS else adapter.capture_active_element()
-        tag = el.get("tagName", "") or ""
-        text = el.get("text", "") or ""
-        _id = el.get("id", "") or ""
-        role = el.get("role", "") or ""
-        return {
-            "tagName": tag,
-            "text": text[:100] if text else "",
-            "id": _id,
-            "role": role,
-        }
-
-    def _snapshot_intermediate(position: int, key: str) -> dict[str, Any]:
-        base = _capture_ann()
-        base["anchor_quality"] = score_anchor_quality(base)
-        return {
-            "position": position,
-            "key": key,
-            "tagName": base["tagName"],
-            "text": base["text"],
-            "id": base["id"],
-            "role": base["role"],
-            "anchor_quality": base["anchor_quality"],
-        }
-
-    elems = 0
-    steps_processed = 0
-    pyautogui.FAILSAFE = False
-    primary_mod = "command" if IS_MAC else "ctrl"
-
-    def _wait_secs(st: dict[str, Any]) -> float:
-        if st.get("wait_seconds") is not None:
-            return float(st["wait_seconds"])
-        return float(st.get("duration", 1.0))
-
-    def _launch_chrome_for_enrich() -> None:
-        if IS_MAC:
-            subprocess.Popen(["open", "-a", "Google Chrome"])
-        elif IS_WINDOWS:
-            subprocess.Popen(["cmd", "/c", "start", "", "chrome"])
-        else:
-            subprocess.Popen(["google-chrome"])
-        time.sleep(1.5)
-
-    for step in workflow.get("steps") or []:
-        if not isinstance(step, dict):
-            continue
-        act = str(step.get("action_type") or "").strip()
-
-        if act == "open_url":
-            open_url_in_google_chrome(str(step.get("url") or ""))
-            time.sleep(REKKY_URL_LOAD_WAIT)
-            adapter.activate_chrome()
-            pyautogui.press("escape", presses=2)
-            time.sleep(REKKY_ESCAPE_WAIT)
-            if IS_MAC:
-                pyautogui.hotkey("command", "control", "f")
-            else:
-                pyautogui.hotkey("win", "up")
-            time.sleep(0.5)
-            pyautogui.press("escape", presses=2)
-            time.sleep(REKKY_ESCAPE_WAIT)
-            step["intermediate_elements"] = []
-            step["focus_target"] = None
-            steps_processed += 1
-            continue
-
-        if act == "open_chrome":
-            _launch_chrome_for_enrich()
-            adapter.activate_chrome()
-            step["intermediate_elements"] = []
-            step["focus_target"] = None
-            steps_processed += 1
-            continue
-
-        if act == "type":
-            # Omnibar URL / text — matches Trainer open_chrome → type → enter flows.
-            adapter.safe_activate_chrome()
-            time.sleep(0.35)
-            txt = str(step.get("type_text") or "").strip()
-            if not txt and str(step.get("description") or "").strip().lower().startswith("http"):
-                txt = str(step.get("description") or "").strip()
-            pyautogui.hotkey(primary_mod, "l")
-            time.sleep(0.28)
-            if txt:
-                pyautogui.hotkey(primary_mod, "a")
-                time.sleep(0.06)
-                pyautogui.press("backspace")
-                pyautogui.write(txt, interval=0.015)
-            time.sleep(REKKY_CAPTURE_WAIT)
-            step["intermediate_elements"] = []
-            step["focus_target"] = None
-            steps_processed += 1
-            continue
-
-        if act == "type_whatsapp_number":
-            adapter.safe_activate_chrome()
-            time.sleep(0.25)
-            wn = str(step.get("whatsapp_number") or step.get("type_text") or "5550000000").strip()
-            pyautogui.write(wn, interval=0.02)
-            time.sleep(REKKY_CAPTURE_WAIT)
-            step["intermediate_elements"] = []
-            step["focus_target"] = None
-            steps_processed += 1
-            continue
-
-        if act == "type_completion_message":
-            adapter.safe_activate_chrome()
-            time.sleep(0.25)
-            pyautogui.write("REKKY_COMPLETION_PLACEHOLDER", interval=0.02)
-            time.sleep(REKKY_CAPTURE_WAIT)
-            step["intermediate_elements"] = []
-            step["focus_target"] = None
-            steps_processed += 1
-            continue
-
-        if act == "close_chrome":
-            try:
-                if IS_MAC:
-                    subprocess.run(
-                        ["osascript", "-e", 'tell application "Google Chrome" to quit'],
-                        timeout=15,
-                        capture_output=True,
-                    )
-                elif IS_WINDOWS:
-                    subprocess.run(["taskkill", "/IM", "chrome.exe", "/F"], timeout=8, capture_output=True)
-            except Exception:
-                pass
-            time.sleep(0.8)
-            step["intermediate_elements"] = []
-            step["focus_target"] = None
-            steps_processed += 1
-            continue
-
-        if act == "press_tab":
-            ims: list[dict[str, Any]] = []
-            tc = max(1, int(step.get("tab_count", 1)))
-            for i in range(1, tc + 1):
-                pyautogui.press("tab")
-                time.sleep(REKKY_TAB_INTERVAL)
-                time.sleep(REKKY_CAPTURE_WAIT)
-                ims.append(_snapshot_intermediate(i, "tab"))
-                elems += 1
-            step["intermediate_elements"] = ims
-            step["focus_target"] = dict(ims[-1]) if ims else None
-            steps_processed += 1
-            continue
-
-        if act == "press_enter":
-            pyautogui.press("enter")
-            time.sleep(REKKY_ENTER_WAIT)
-            inter = [_snapshot_intermediate(1, "enter")]
-            elems += 1
-            step["intermediate_elements"] = inter
-            step["focus_target"] = dict(inter[0])
-
-            if step.get("is_final") or step.get("is_destination"):
-                pyautogui.press("escape", presses=2)
-                time.sleep(REKKY_ESCAPE_WAIT)
-            steps_processed += 1
-            continue
-
-        if act == "press_arrow":
-            cnt = max(1, int(step.get("count", 1)))
-            direction = str(step.get("direction", "down"))
-            keyname = {"up": "arrow_up", "down": "arrow_down", "left": "arrow_left", "right": "arrow_right"}.get(
-                direction,
-                "arrow_" + direction,
-            )
-            ims_arr: list[dict[str, Any]] = []
-            for i in range(1, cnt + 1):
-                pyautogui.press(direction)
-                time.sleep(REKKY_ARROW_WAIT)
-                ims_arr.append(_snapshot_intermediate(i, keyname))
-                elems += 1
-            step["intermediate_elements"] = ims_arr
-            step["focus_target"] = dict(ims_arr[-1]) if ims_arr else None
-            steps_processed += 1
-            continue
-
-        if act == "press_escape":
-            ims_esc: list[dict[str, Any]] = []
-            cnt_e = max(1, int(step.get("count", 1)))
-            for i in range(1, cnt_e + 1):
-                pyautogui.press("escape")
-                time.sleep(REKKY_ESCAPE_WAIT)
-                ims_esc.append(_snapshot_intermediate(i, "escape"))
-                elems += 1
-            step["intermediate_elements"] = ims_esc
-            step["focus_target"] = dict(ims_esc[-1]) if ims_esc else None
-            steps_processed += 1
-            continue
-
-        if act == "press_space":
-            ims_sp: list[dict[str, Any]] = []
-            cnt_s = max(1, int(step.get("count", 1)))
-            for i in range(1, cnt_s + 1):
-                pyautogui.press("space")
-                time.sleep(REKKY_ESCAPE_WAIT)
-                ims_sp.append(_snapshot_intermediate(i, "space"))
-                elems += 1
-            step["intermediate_elements"] = ims_sp
-            step["focus_target"] = dict(ims_sp[-1]) if ims_sp else None
-            steps_processed += 1
-            continue
-
-        if act == "press_home":
-            pyautogui.press("home")
-            time.sleep(REKKY_CAPTURE_WAIT)
-            inter_h = [_snapshot_intermediate(1, "home")]
-            elems += 1
-            step["intermediate_elements"] = inter_h
-            step["focus_target"] = dict(inter_h[0])
-            steps_processed += 1
-            continue
-
-        if act == "press_end":
-            pyautogui.press("end")
-            time.sleep(REKKY_CAPTURE_WAIT)
-            inter_e = [_snapshot_intermediate(1, "end")]
-            elems += 1
-            step["intermediate_elements"] = inter_e
-            step["focus_target"] = dict(inter_e[0])
-            steps_processed += 1
-            continue
-
-        if act == "hotkey":
-            keys = step.get("keys") or ()
-            lbl = "+".join(str(k).strip().lower() for k in keys if k)
-            pyautogui.hotkey(*keys)
-            time.sleep(REKKY_CAPTURE_WAIT)
-            inter_hk = [_snapshot_intermediate(1, lbl or "hotkey")]
-            elems += 1
-            step["intermediate_elements"] = inter_hk
-            step["focus_target"] = dict(inter_hk[0])
-            steps_processed += 1
-            continue
-
-        if act in {"type_text", "ai_type"}:
-            pyautogui.typewrite("REKKY_TEST", interval=0.05)
-            time.sleep(REKKY_CAPTURE_WAIT)
-            pyautogui.hotkey(primary_mod, "a")
-            time.sleep(0.08)
-            pyautogui.press("delete")
-            time.sleep(REKKY_TYPE_CLEAR_WAIT)
-            step["intermediate_elements"] = []
-            step["focus_target"] = None
-            steps_processed += 1
-            continue
-
-        if act in ("maximise_window", "maximize"):
-            if IS_MAC:
-                pyautogui.hotkey("command", "control", "f")
-            else:
-                pyautogui.hotkey("win", "up")
-            time.sleep(0.5)
-            step["intermediate_elements"] = []
-            step["focus_target"] = None
-            steps_processed += 1
-            continue
-
-        if act == "wait":
-            time.sleep(_wait_secs(step))
-            step["intermediate_elements"] = []
-            step["focus_target"] = None
-            steps_processed += 1
-            continue
-
-        if act == "close_browser":
-            step["intermediate_elements"] = []
-            step["focus_target"] = None
-            continue
-
-        step.setdefault("intermediate_elements", [])
-        step.setdefault("focus_target", step.get("focus_target"))
-
-    workflow.setdefault("workflow_name", stem)
-    workflow["rekky_enriched_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
-    workflow["rekky_steps_enriched"] = steps_processed
-    workflow["rekky_elements_captured"] = elems
-    save_workflow(wf_path, workflow)
-
-    try:
-        if IS_MAC:
-            subprocess.run(
-                ["osascript", "-e", 'tell application "Google Chrome" to quit'],
-                timeout=15,
-                capture_output=True,
-            )
-        elif IS_WINDOWS:
-            subprocess.run(["taskkill", "/IM", "chrome.exe", "/F"], timeout=8, capture_output=True)
-    except Exception:
-        pass
-
-    return {
-        "workflow_path": wf_path,
-        "backup_path": backup,
-        "steps_enriched": steps_processed,
-        "elements_captured": elems,
-    }
+    return run_rekky_detect_enrich(workflow_path, progress_cb=progress_cb)
 
 
 def start_rekky_recording(
@@ -522,23 +229,18 @@ def start_rekky_recording(
     url: str,
     workflows_dir: str,
     stop_event: threading.Event | None = None,
-    batch_tabs: bool = True,
 ) -> WorkflowJson:
     """
     Training-only recorder.
 
     Records operator keyboard input and active-element anchors into a workflow JSON.
-    Output schema matches the v2 spec in the prompt.
-
-    batch_tabs: When True (legacy), consecutive Tab keys accumulate into one press_tab
-    step. When False (per-keypress / recommended), each Tab is its own step with tab_count 1.
+    Each Tab key becomes its own press_tab step (tab_count 1).
     """
 
     os.makedirs(workflows_dir, exist_ok=True)
 
     os_adapter = get_os_adapter()
     steps: list[WorkflowStep] = []
-    tab_count = 0
     arrow_buffer: dict[str, Any] = {"key": None, "count": 0}
     step_number = [1]
 
@@ -546,22 +248,8 @@ def start_rekky_recording(
         el = os_adapter.capture_active_element()
         if el:
             el["anchor_quality"] = score_anchor(el)
+            el["anchor_bundle"] = _build_anchor_bundle(el)
         return el
-
-    def flush_tabs() -> None:
-        nonlocal tab_count
-        if tab_count > 0:
-            steps.append(
-                {
-                    "step": step_number[0],
-                    "action_type": "press_tab",
-                    "tab_count": tab_count,
-                    "focus_target": capture(),
-                    "wait": 0.5,
-                }
-            )
-            step_number[0] += 1
-            tab_count = 0
 
     def flush_arrows() -> None:
         if arrow_buffer["count"] > 0:
@@ -580,7 +268,6 @@ def start_rekky_recording(
             arrow_buffer["count"] = 0
 
     def on_key(event: Any) -> None:
-        nonlocal tab_count
         if getattr(event, "event_type", "") != "down":
             return
 
@@ -588,23 +275,19 @@ def start_rekky_recording(
 
         if key == "tab":
             flush_arrows()
-            if not batch_tabs:
-                steps.append(
-                    {
-                        "step": step_number[0],
-                        "action_type": "press_tab",
-                        "tab_count": 1,
-                        "focus_target": capture(),
-                        "wait": 0.5,
-                    }
-                )
-                step_number[0] += 1
-            else:
-                tab_count += 1
+            steps.append(
+                {
+                    "step": step_number[0],
+                    "action_type": "press_tab",
+                    "tab_count": 1,
+                    "focus_target": capture(),
+                    "wait": 0.5,
+                }
+            )
+            step_number[0] += 1
             return
 
         if key in ["up", "down", "left", "right"]:
-            flush_tabs()
             if arrow_buffer["key"] == key:
                 arrow_buffer["count"] += 1
             else:
@@ -614,7 +297,6 @@ def start_rekky_recording(
             return
 
         if key == "enter":
-            flush_tabs()
             flush_arrows()
             steps.append(
                 {
@@ -630,7 +312,6 @@ def start_rekky_recording(
             return
 
         if key == "space":
-            flush_tabs()
             flush_arrows()
             steps.append(
                 {
@@ -645,7 +326,6 @@ def start_rekky_recording(
             return
 
         if key == "home":
-            flush_tabs()
             flush_arrows()
             steps.append(
                 {
@@ -659,7 +339,6 @@ def start_rekky_recording(
             return
 
         if key == "end":
-            flush_tabs()
             flush_arrows()
             steps.append(
                 {
@@ -673,7 +352,6 @@ def start_rekky_recording(
             return
 
         if key == "escape":
-            flush_tabs()
             flush_arrows()
             steps.append(
                 {
@@ -712,7 +390,6 @@ def start_rekky_recording(
 
     keyloop()
 
-    flush_tabs()
     flush_arrows()
 
     # Renumber steps 1..N

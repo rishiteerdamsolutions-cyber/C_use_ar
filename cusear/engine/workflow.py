@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import copy
 import json
+import os
+import threading
 import time
 import uuid
 from dataclasses import dataclass
@@ -20,6 +22,34 @@ def load_workflow(path: str) -> WorkflowJson:
 def save_workflow(path: str, workflow: WorkflowJson) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(workflow, f, indent=2, ensure_ascii=False)
+
+
+class WorkflowLiveEditor:
+    """
+    Persist AHA/Agami session edits (e.g. inserted press_tab steps) back to the saved workflow JSON.
+    """
+
+    def __init__(self, workflow_path: str, workflow: WorkflowJson) -> None:
+        self.workflow_path = os.path.abspath(workflow_path)
+        self._base = workflow
+        self._lock = threading.Lock()
+
+    def persist_session_steps(self, session_steps: list[WorkflowStep]) -> int:
+        """Write current session steps to disk; returns count of Agami-inserted steps."""
+        with self._lock:
+            steps = clone_steps(list(session_steps))
+            renumber_steps(steps, start_at=1)
+            inserted = sum(
+                1
+                for s in steps
+                if str(s.get("inserted_by") or "") in ("agami", "agami_alternate")
+            )
+            updated = dict(self._base)
+            updated["steps"] = steps
+            updated["aha_live_edited_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            updated["aha_self_heal_insertions"] = inserted
+            save_workflow(self.workflow_path, updated)
+            return inserted
 
 
 def clone_steps(steps: list[WorkflowStep]) -> list[WorkflowStep]:
@@ -112,10 +142,11 @@ def insert_extra_tab(session_steps: list[WorkflowStep], at_index: int) -> None:
         "step": -1,
         "action_type": "press_tab",
         "tab_count": 1,
-        "wait": 0.0,
+        "wait": 1.0,
         "focus_target": None,
         "inserted_by": "agami",
         "inserted_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "insert_reason": "drift_heal",
     }
     session_steps.insert(at_index, extra)
     renumber_steps(session_steps, start_at=1)
@@ -140,7 +171,31 @@ def insert_extra_shift_tab(session_steps: list[WorkflowStep], at_index: int) -> 
     renumber_steps(session_steps, start_at=1)
 
 
-def elements_match(expected: dict | None, actual: dict | None) -> bool:
+_INTENT_TEXT_ALIASES: dict[str, list[str]] = {
+    "publish_post": ["post", "share", "publish", "tweet", "send", "next"],
+    "open_composer": ["what's on your mind", "create post", "start a post", "compose", "new post"],
+}
+
+
+def _text_matches_with_intent(exp_text: str, act_text: str, expected: dict[str, Any]) -> bool:
+    if not exp_text:
+        return True
+    if (exp_text in act_text) or (act_text in exp_text):
+        return True
+
+    intent = str(expected.get("intent") or expected.get("intent_key") or "").strip().lower()
+    if not intent:
+        return False
+    aliases = _INTENT_TEXT_ALIASES.get(intent, [])
+    if not aliases:
+        return False
+
+    exp_alias_hit = any(tok in exp_text for tok in aliases)
+    act_alias_hit = any(tok in act_text for tok in aliases)
+    return exp_alias_hit and act_alias_hit
+
+
+def _elements_match_single(expected: dict | None, actual: dict | None) -> bool:
     if not expected or not actual:
         return False
 
@@ -155,10 +210,7 @@ def elements_match(expected: dict | None, actual: dict | None) -> bool:
     if quality == "WEAK":
         exp_text = ""
 
-    if exp_text:
-        text_ok = (exp_text in act_text) or (act_text in exp_text)
-    else:
-        text_ok = True
+    text_ok = _text_matches_with_intent(exp_text, act_text, expected)
 
     exp_role = (expected.get("role", "") or "").strip().lower()
     act_role = (actual.get("role", "") or "").strip().lower()
@@ -180,6 +232,39 @@ def elements_match(expected: dict | None, actual: dict | None) -> bool:
             return False
         return True
 
+    return False
+
+
+def anchor_has_validation_signal(anchor: dict | None) -> bool:
+    """True when Lucky/Agami has something meaningful to compare (skip empty Rekky anchors)."""
+    if not anchor or not isinstance(anchor, dict):
+        return False
+    if str(anchor.get("id") or "").strip():
+        return True
+    if str(anchor.get("tagName") or "").strip():
+        return True
+    if str(anchor.get("role") or "").strip():
+        return True
+    if len(str(anchor.get("text") or "").strip()) >= 2:
+        return True
+    bundle = anchor.get("anchor_bundle")
+    if isinstance(bundle, list):
+        return any(anchor_has_validation_signal(c) for c in bundle if isinstance(c, dict))
+    return False
+
+
+def elements_match(expected: dict | None, actual: dict | None) -> bool:
+    if _elements_match_single(expected, actual):
+        return True
+
+    if not expected:
+        return False
+    bundle = expected.get("anchor_bundle")
+    if not isinstance(bundle, list):
+        return False
+    for candidate in bundle:
+        if isinstance(candidate, dict) and _elements_match_single(candidate, actual):
+            return True
     return False
 
 
@@ -367,6 +452,9 @@ class LuckyReport:
     total_mismatches: int = 0
     permanent_mismatches: int = 0
     temporary_mismatches: int = 0
+    go_decision: str = "GO"
+    confidence_score: float = 1.0
+    severity_summary: dict[str, int] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -382,5 +470,8 @@ class LuckyReport:
             "total_mismatches": self.total_mismatches,
             "permanent_mismatches": self.permanent_mismatches,
             "temporary_mismatches": self.temporary_mismatches,
+            "go_decision": self.go_decision,
+            "confidence_score": self.confidence_score,
+            "severity_summary": self.severity_summary or {},
         }
 

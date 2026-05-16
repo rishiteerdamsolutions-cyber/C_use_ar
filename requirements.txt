@@ -49,4 +49,5 @@ pyinstaller>=6.0
 
 # -- REST API + Vercel (FastAPI / Mangum) --
 fastapi>=0.111.0
+websockets>=12.0
 -r requirements-vercel.txt

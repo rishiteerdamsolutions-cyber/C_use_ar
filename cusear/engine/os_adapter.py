@@ -8,9 +8,26 @@ import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from .constants import APPLESCRIPT_WAIT
+from .constants import (
+    APPLESCRIPT_WAIT,
+    CAPTURE_MAX_ATTEMPTS,
+    CAPTURE_RETRY_INTERVAL,
+    DOM_SETTLE_BEFORE_CAPTURE,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def element_capture_signal(el: dict[str, str] | None) -> bool:
+    if not el:
+        return False
+    if str(el.get("id") or "").strip():
+        return True
+    if str(el.get("tagName") or "").strip():
+        return True
+    if str(el.get("role") or "").strip():
+        return True
+    return len(str(el.get("text") or "").strip()) >= 2
 
 
 @dataclass(frozen=True)
@@ -36,6 +53,7 @@ class OsAdapter(Protocol):
     def chrome_is_focused(self) -> bool: ...
     def safe_activate_chrome(self) -> None: ...
     def capture_active_element(self) -> dict[str, str]: ...
+    def wait_for_page_ready(self, timeout_sec: float = 18.0, poll_sec: float = 0.35) -> bool: ...
     def keep_display_awake(self, seconds: int = 1200) -> None: ...
     def stop_keep_awake(self) -> None: ...
     def close_chrome_windows(self) -> None: ...
@@ -44,12 +62,24 @@ class OsAdapter(Protocol):
 _MAC_CHROME_ELEMENT_APPLESCRIPT = r"""
 tell application "Google Chrome"
     if not (exists window 1) then return "{}"
-    set jsCode to "(function() { var el = document.activeElement; if (!el || el === document.body) return JSON.stringify({tagName:'',text:'',id:'',className:'',role:''}); var text = (el.innerText || el.value || el.getAttribute('aria-label') || '').trim().substring(0,100); return JSON.stringify({tagName: el.tagName.toLowerCase(), text: text, id: el.id || '', className: el.className || '', role: el.getAttribute('role') || ''}); })();"
+    set jsCode to "(function(){function sig(e){if(!e||e===document.body)return false;var t=(e.innerText||e.value||e.getAttribute('aria-label')||'').trim();var tag=(e.tagName||'').toUpperCase();return!!(e.id||e.getAttribute('role')||t.length>=2||/^(BUTTON|A|INPUT|TEXTAREA|SELECT)$/.test(tag));}var el=document.activeElement;if(!el||el===document.body){el=document.querySelector('[contenteditable=true]:focus')||document.querySelector(':focus')||document.body;}var cur=el;for(var i=0;i<10&&cur&&cur!==document.body;i++){if(sig(cur)){el=cur;break;}cur=cur.parentElement;}if(!sig(el))return JSON.stringify({tagName:'',text:'',id:'',className:'',role:''});var text=(el.innerText||el.value||el.getAttribute('aria-label')||el.getAttribute('placeholder')||'').trim().substring(0,100);return JSON.stringify({tagName:(el.tagName||'').toLowerCase(),text:text,id:el.id||'',className:typeof el.className==='string'?el.className:'',role:el.getAttribute('role')||''});})();"
     try
         set result to execute active tab of window 1 javascript jsCode
         return result
     on error
         return "{}"
+    end try
+end tell
+"""
+
+_MAC_CHROME_READY_APPLESCRIPT = r"""
+tell application "Google Chrome"
+    if not (exists window 1) then return "loading"
+    set jsCode to "document.readyState||'loading'"
+    try
+        return execute active tab of window 1 javascript jsCode
+    on error
+        return "loading"
     end try
 end tell
 """
@@ -88,13 +118,13 @@ class MacOsAdapter:
             self.activate_chrome()
             time.sleep(0.3)
 
-    def capture_active_element(self) -> dict[str, str]:
+    def _capture_active_element_once(self) -> dict[str, str]:
         try:
             result = subprocess.run(
                 ["osascript", "-e", _MAC_CHROME_ELEMENT_APPLESCRIPT],
                 capture_output=True,
                 text=True,
-                timeout=4,
+                timeout=6,
             )
             raw = (result.stdout or "").strip()
             time.sleep(APPLESCRIPT_WAIT)
@@ -110,6 +140,37 @@ class MacOsAdapter:
             return out
         except Exception:
             return {}
+
+    def capture_active_element(self) -> dict[str, str]:
+        self.safe_activate_chrome()
+        time.sleep(DOM_SETTLE_BEFORE_CAPTURE)
+        last: dict[str, str] = {}
+        attempts = max(1, int(CAPTURE_MAX_ATTEMPTS))
+        for attempt in range(attempts):
+            last = self._capture_active_element_once()
+            if element_capture_signal(last):
+                return last
+            if attempt + 1 < attempts:
+                time.sleep(CAPTURE_RETRY_INTERVAL)
+        return last
+
+    def wait_for_page_ready(self, timeout_sec: float = 18.0, poll_sec: float = 0.35) -> bool:
+        deadline = time.time() + max(1.0, float(timeout_sec))
+        while time.time() < deadline:
+            try:
+                result = subprocess.run(
+                    ["osascript", "-e", _MAC_CHROME_READY_APPLESCRIPT],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                state = (result.stdout or "").strip().lower()
+                if state in ("complete", "interactive"):
+                    return True
+            except Exception:
+                pass
+            time.sleep(max(0.1, float(poll_sec)))
+        return False
 
     def keep_display_awake(self, seconds: int = 1200) -> None:
         try:
@@ -169,13 +230,25 @@ class WindowsOsAdapter:
             time.sleep(0.3)
 
     def capture_active_element(self) -> dict[str, str]:
-        """
-        Windows-focused element capture.
+        """Windows capture with the same retry/settle policy as macOS."""
+        self.safe_activate_chrome()
+        time.sleep(DOM_SETTLE_BEFORE_CAPTURE)
+        last = self._capture_active_element_windows_once()
+        attempts = max(1, int(CAPTURE_MAX_ATTEMPTS))
+        for attempt in range(attempts):
+            last = self._capture_active_element_windows_once()
+            if element_capture_signal(last):
+                return last
+            if attempt + 1 < attempts:
+                time.sleep(CAPTURE_RETRY_INTERVAL)
+        return last
 
-        Uses UI Automation accessible focus. Requires either `uiautomation` or
-        `pywinauto` to be installed. Returns the same JSON structure as macOS.
-        """
-        # Preferred: uiautomation
+    def wait_for_page_ready(self, timeout_sec: float = 18.0, poll_sec: float = 0.35) -> bool:
+        _ = timeout_sec, poll_sec
+        time.sleep(1.0)
+        return True
+
+    def _capture_active_element_windows_once(self) -> dict[str, str]:
         try:
             import uiautomation as auto  # type: ignore
 
@@ -185,7 +258,6 @@ class WindowsOsAdapter:
             name = (ctrl.Name or "").strip()
             ctype = getattr(ctrl, "ControlTypeName", "") or ""
             role = ctype.lower()
-            # We don't have DOM tagName on Windows; use role-ish mapping.
             tag = "div"
             if "edit" in role or "text" in role:
                 tag = "input"
@@ -201,8 +273,6 @@ class WindowsOsAdapter:
             }
         except Exception:
             pass
-
-        # Fallback: pywinauto
         try:
             from pywinauto import Desktop  # type: ignore
 
